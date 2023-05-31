@@ -1063,7 +1063,7 @@ def generateTempTerrName(procDir, window, cellsize, huc12):
     return tempTerrName
 
 
-def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procDir, fElevFile, interpDict, init_cellSize, srOutNoVCS, LTrrn, pyramids, dem_metadata):
+def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procDir, fElevFile, interpDict, init_cellSize, srOutNoVCS, LTrrn, pyramids, dem_metadata_template, lidar_metadata_info):
     '''Takes whole or partial DEMs from the demList and mosaics them together
     if there are multiple DEMs. Then pit-fills the result (fills all one cell
     sinks). Also processes 'ZMEAN' and 'ZMINMAX' (or other terrain->raster
@@ -1151,6 +1151,9 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procD
                 log.warning('Saved DEM for ' + str(demList[0]))# + ' at ' + str(time.clock()))
                 arcpy.BuildPyramids_management(cmDEMnocs)
 
+                terrain_args, nowYmd, collect_starts_min, collect_ends_max, collect_majority, pyramid_args = [
+                    lidar_metadata_info[i] for i in lidar_metadata_info]
+
                 if 'ZMINMAX'.lower() in fElevFile_interp:
                     terrain_args_updated = terrain_args.replace('MEAN', 'MINMAX')
                 else:
@@ -1171,7 +1174,7 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procD
 
                 ## update metadata
                 log.warning('---Adding metadata at ' + time.asctime())
-                addMetadata(fElevFile_interp, paraDict, dem_metadata, log)
+                addMetadata(fElevFile_interp, paraDict, dem_metadata_template, log)
 
                 # ## update metadata
                 # log.warning('---Updating metadata at ' + time.asctime())
@@ -1394,7 +1397,7 @@ if __name__ == "__main__":
     ept_fc = sys.argv[1]
 
     # inputs then outputs
-    (dem_fc, snap, ept_wesm_file, flib_metadata, derivative_metadata,
+    (dem_fc, snap, ept_wesm_file, flib_metadata_template, derivative_metadata_template,
         procDir, eleBaseDir,
         fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, wesm_project_file
