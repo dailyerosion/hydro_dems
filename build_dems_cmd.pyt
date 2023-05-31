@@ -4,7 +4,11 @@ import arcpy
 from arcpy import env
 from arcpy.sa import *
 import arcpy.metadata as md
-
+import os
+from os.path import join as opj
+import traceback
+import time
+from subprocess import call
 class msgStub:
     def addMessage(self,text):
         arcpy.AddMessage(text)
@@ -661,22 +665,6 @@ def genClass2AndMultiPoints(allLAZ, sfx, srOut, inm, FDSet, procDir, softwareDir
 
 
 
-def copyAllLAZ(allLAZ, sfx, procDir, softwareDir):
-    """Converts laz files to las files for first returns"""
-    if allLAZ.endswith('.laz'):
-        allLAS = os.path.join(procDir, sfx[1:] + '.las')
-    ## Filter LAS to class 2
-        # LASTools requires " around file names with spaces, ' not allowed, (Windows Command Line too?)
-        call(os.path.join(softwareDir, 'LASTools', 'bin', 'las2las') + ' -i "' + allLAZ + '" -o ' + allLAS, shell=True)
-    elif allLAZ.endswith('.zlas'):
-        allLAS = allLAZ
-    elif allLAZ.endswith('.las'):
-        allLAS = allLAZ
-    else:
-        log.exception('unhandled lidar file type')
-
-    return allLAS
-
 def buildSelection(inList, field):
     sel = ''
     for index, item in enumerate(inList):
@@ -836,7 +824,7 @@ def updateResolution(filename, init_res, new_res, huc12, log):
 
 
 
-def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, init_cellSize, int_regions, ptr):
+def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, init_cellSize, internal_regions, ptr):
 ##def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, frMinFile, intBeMaxFile, intBeMinFile, lastReturnMinFile, bareEarthReturnMinFile, cnt1rFile, init_cellSize, int_regions, ptr):
     '''creates multiple rasters from a las dataset, including min/max intensity of
     first return and bare earth surfaces, first return max and min surface, and z_range'''
