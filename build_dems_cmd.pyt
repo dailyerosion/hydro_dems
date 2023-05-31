@@ -1407,6 +1407,6 @@ if __name__ == "__main__":
             sys.argv[13], sys.argv[14], sys.argv[15], sys.argv[16], sys.argv[17], sys.argv[18])
 
 
-    # doLidarDEM(ept_fc, cleanup, msgStub())
+    doLidarDEM(ept_fc, cleanup, msgStub())
 
     # arcpy.AddMessage("Back from doEPT!")
