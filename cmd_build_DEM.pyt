@@ -839,21 +839,6 @@ def genClass2AndMultiPoints(allLAZ, sfx, srOut, inm, FDSet, procDir, softwareDir
 
 
 
-def copyAllLAZ(allLAZ, sfx, procDir, softwareDir):
-    """Converts laz files to las files for first returns"""
-    if allLAZ.endswith('.laz'):
-        allLAS = os.path.join(procDir, sfx[1:] + '.las')
-    ## Filter LAS to class 2
-        # LASTools requires " around file names with spaces, ' not allowed, (Windows Command Line too?)
-        subprocess.call(os.path.join(softwareDir, 'LASTools', 'bin', 'las2las') + ' -i "' + allLAZ + '" -o ' + allLAS, shell=True)
-    elif allLAZ.endswith('.zlas'):
-        allLAS = allLAZ
-    elif allLAZ.endswith('.las'):
-        allLAS = allLAZ
-    else:
-        log.exception('unhandled lidar file type')
-
-    return allLAS
 
 def buildSelection(inList, field):
     sel = ''
@@ -1013,7 +998,7 @@ def updateResolution(filename, init_res, new_res, huc12, log):
 
 
 
-def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, int_regions, ptr):
+def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, internal_regions, ptr):
 ##def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, frMinFile, intBeMaxFile, intBeMinFile, lastReturnMinFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, int_regions, ptr):
     '''creates multiple rasters from a las dataset, including min/max intensity of
     first return and bare earth surfaces, first return max and min surface, and z_range'''
@@ -1513,7 +1498,7 @@ def organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, log):
 
     return prev_merged, addOrderField
 
-def queryParts(geom, geom_extent, sgdb, log):#maskFc_3857, maskFc_3857_desc)
+def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log):#maskFc_3857, maskFc_3857_desc)
     """Subdivide the EPT request into one or four parts based on size"""
     parts = []
         # if more than 500 sq km, split into 4
@@ -1572,7 +1557,7 @@ def queryParts(geom, geom_extent, sgdb, log):#maskFc_3857, maskFc_3857_desc)
     return parts, square_area
 
 
-def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, srOut, srOutCode, huc12, eptDir):
+def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eptDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList):
     
     if df.testForZero(prev_merged):
         # requests to EPT must be in 3857
@@ -1587,7 +1572,7 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                 geom = srow[0]
                 geom_extent = geom.extent
                 las_size_threshold = 750 #bytes, then assume .las file has points
-                parts, square_area = queryParts(geom, geom_extent, sgdb, log)#maskFc_3857, maskFc_3857_desc)
+                parts, square_area = queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log)#maskFc_3857, maskFc_3857_desc)
 
                 arcpy.env.outputCoordinateSystem = srOut
                 for part in parts:
@@ -1807,7 +1792,7 @@ def doLidarDEMs(ept_wesm_file, cleanup, messages):
         if df.testForZero(wesm_huc12):
             prev_merged, addOrderField = organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, log)
 
-            cl2Las, geom_srOut_copy = getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log)
+            cl2Las, geom_srOut_copy = getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eptDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList)
 
             arcpy.env.outputCoordinateSystem = srOut
 
@@ -1956,7 +1941,7 @@ arcpy.env.ZResolution = "0.01"
 
 if __name__ == "__main__":
     # if True:
-    try:
+    # try:
         if len(sys.argv) == 1:
             cleanup = False
 
@@ -2034,8 +2019,6 @@ if __name__ == "__main__":
 
 
 
-
-    return
 
 if __name__ == "__main__":
     import sys
