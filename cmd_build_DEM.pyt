@@ -8,6 +8,32 @@ at one or multiple resolutions. Also creates a feature class of lidar datasets
 used to generate the DEM and derivatives."""
 
 import arcpy
+from arcpy.sa import *
+import arcpy.metadata as md
+import sys
+import os
+import time
+import subprocess
+from subprocess import call
+import platform
+import glob
+import traceback
+from os.path import join as opj
+
+login = os.getlogin()
+    
+if login == 'bkgelder':
+    boxes = ['C:\\Users\\bkgelder\\Box\\Data_Sharing\\Scripts\\basics', 'O:\\DEP\\Scripts\\basics']
+else:
+    boxes = ['C:\\Users\\idep2\\Box\\Scripts\\basics', 'O:\\DEP\\Scripts\\basics']
+
+for box in boxes:
+    if os.path.isdir(box):
+        sys.path.append(box)
+
+import dem_functions2 as df
+
+
 
 class msgStub:
     def addMessage(self,text):
@@ -208,46 +234,6 @@ class Tool(object):
         """This method takes place after outputs are processed and
         added to the display."""
         return
-
-# Import system modules
-# from symbol import parameters
-# import subprocess
-# import platform, glob, traceback
-# from os.path import join as opj
-# sys.path.append(os.getcwd())
-# sys.path.append('O:\\DEP\\Scripts\\basics')
-# sys.path.append('C:\\Users\\bkgelder\\Box\\Data_Sharing\\Scripts\\basics')
-# import dem_functions2 as df
-
-import arcpy
-from arcpy.sa import *
-import arcpy.metadata as md
-import sys
-import os
-import time
-import subprocess
-from subprocess import call
-import platform
-import glob
-import traceback
-from os.path import join as opj
-
-# if sys.version_info.major == 2:
-#     import getpass
-#     login = getpass.getuser()
-# else:
-login = os.getlogin()
-    
-if login == 'bkgelder':
-    boxes = ['C:\\Users\\bkgelder\\Box\\Data_Sharing\\Scripts\\basics', 'O:\\DEP\\Scripts\\basics']
-else:
-    boxes = ['C:\\Users\\idep2\\Box\\Scripts\\basics', 'O:\\DEP\\Scripts\\basics']
-
-for box in boxes:
-    if os.path.isdir(box):
-        sys.path.append(box)
-
-import dem_functions2 as df
 
 ##----------------------------------------------------------------------
 ## Set environments and begin
@@ -1666,6 +1652,16 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 
 def doLidarDEMs(ept_wesm_file, cleanup, messages):
 
+    messages.addMessage("Tool: Executing with parameters '{:s}'".format(ept_wesm_file))
+
+    arcpy.env.overwriteOutput = True
+
+    arcpy.CheckOutExtension("Spatial")
+    arcpy.CheckOutExtension("3D")
+
+    arcpy.env.ZResolution = "0.01"
+
+    try:
         huc12, huc8, named_cell_size = df.figureItOut(fElevFile)
 
         if cleanup:
@@ -1898,54 +1894,54 @@ def doLidarDEMs(ept_wesm_file, cleanup, messages):
 ##----------------------------------------------------------------------
 
         # cleanup
-##        cleanup = True
         if cleanup:
 ##            if 'terrains' in locals():
 ##                dismantleTerrains(terrains, finalHb, finalNoZHb, poorZHb, finalHl, tcdFdSet, log)
             df.cleanupOther(procDir, log, sgdb, inm)
 
-    # except AssertionError:
-    #     log.warning('assertion failure on: ' + huc12)
-    #     sys.exit(1)
+    except AssertionError:
+        log.warning('assertion failure on: ' + huc12)
+        sys.exit(1)
 
-    # except:
-    #     # Get the traceback object
-    #     #
-    #     tb = sys.exc_info()[2]
-    #     tbinfo = traceback.format_tb(tb)[0]
+    except:
+        # Get the traceback object
+        #
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
 
-    #     # Concatenate information together concerning the error into a message string
-    #     #
-    #     pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-    #     msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+        # Concatenate information together concerning the error into a message string
+        #
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
 
-    #     # Print Python error messages for use in Python / Python Window
-    #     #
-    #     log.warning(pymsg)
-    #     log.warning(msgs)
+        # Print Python error messages for use in Python / Python Window
+        #
+        log.warning(pymsg)
+        log.warning(msgs)
 
-    #     log.warning('failure on: ' + huc12)
-    #     sys.exit(1)
+        log.warning('failure on: ' + huc12)
+        sys.exit(1)
 
-    # finally:
-    #     log.warning("Finished at " + time.asctime())
+    finally:
+        log.warning("Finished at " + time.asctime())
 
+    return
 
-arcpy.CheckOutExtension("Spatial")
-arcpy.CheckOutExtension("3D")
-
-arcpy.env.overwriteOutput = True
-arcpy.env.ZResolution = "0.01"
 
 ##----------------------------------------------------------------------
 
-if __name__ == "__main__":
-    # if True:
-    # try:
-        if len(sys.argv) == 1:
-            cleanup = False
 
-            parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+
+if __name__ == "__main__":
+    import sys
+
+
+    if len(sys.argv) == 1:
+        #Paste arguments into here for use within Python Window
+        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+        cleanup = False
+
+        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
 	"C:/DEP/Scripts/basics/cmd_BuildDEM_newArgs.py",
 	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/04030106/idepACPF040301060301.gdb/buf_040301060301",
 	"O:/DEP/Basedata_Summaries/Basedata_26916.gdb/Snap1m",
@@ -1968,69 +1964,6 @@ if __name__ == "__main__":
 	"O:/DEP/LiDAR_Current/bl_Lib/04030106/breaks_04030106.gdb/break_polys_040301060301",
 	"O:/DEP/LiDAR_Current/bl_Lib/04030106/breaks_04030106.gdb/break_lines_040301060301",
 	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/04030106/idepACPF040301060301.gdb/wesm_ept_resources_2023_06_01_040301060301"]
-            
-    #         ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-	# "C:/DEP/Scripts/basics/cmd_BuildDEM_newArgs.py",
-	# "D:/DEP/Man_Data_ACPF/dep_ACPF2022/04030202/idepACPF040302020105.gdb/buf_040302020105",
-	# "O:/DEP/Basedata_Summaries/Basedata_26916.gdb/Snap1m",
-	# "O:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_06_01",
-	# "O:/DEP/toolMetadata/FLib_DEMs2022_mTemplate.xml",
-	# "O:/DEP/toolMetadata/FLib_Derivatives2022_mTemplate.xml",
-	# "D:/DEP_Proc/DEMProc/LAS_dem2013_3m_040302020105",
-	# "O:/DEP/Elev_Base_Data",
-	# "C:/Software",
-	# "C:/Users/bkgelder/Anaconda3/envs/pda_trial_2022_09_09/Library/bin/pdal.exe",
-	# "3,2,1",
-	# "O:/DEP/LiDAR_Current/elev_FLib_mean18/04030202/ef3m040302020105.tif",
-	# "O:/DEP/LiDAR_Current/surf_el_Lib/04030202/bemin3m040302020105.tif",
-	# "O:/DEP/LiDAR_Current/surf_el_Lib/04030202/frmax3m040302020105.tif",
-	# "O:/DEP/LiDAR_Current/count_Lib/04030202/cbe3m040302020105.tif",
-	# "O:/DEP/LiDAR_Current/count_Lib/04030202/cfr3m040302020105.tif",
-	# "O:/DEP/LiDAR_Current/int_Lib/04030202/fr_int_min3m040302020105.tif",
-	# "O:/DEP/LiDAR_Current/int_Lib/04030202/fr_int_max3m040302020105.tif",
-	# "O:/DEP/LiDAR_Current/int_Lib/04030202/be_int_max3m040302020105.tif",
-	# "O:/DEP/LiDAR_Current/bl_Lib/04030202/breaks_04030202.gdb/break_polys_040302020105",
-	# "O:/DEP/LiDAR_Current/bl_Lib/04030202/breaks_04030202.gdb/break_lines_040302020105",
-	# "D:/DEP/Man_Data_ACPF/dep_ACPF2022/04030202/idepACPF040302020105.gdb/wesm_ept_resources_2023_06_01_040302020105"]
-    
-    # "C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-	# 'C:\\DEP\\Scripts\\basics\\cmd_BuildDEM_newArgs.py', '\\\\EL3354-02\\O$\\DEP\\Basedata_Summaries\\Basedata_26916.gdb\\MW_HUC12_v2019', '\\\\EL3354-02\\O$\\DEP\\Basedata_Summaries\\Basedata_26916.gdb/Snap1m', '\\\\EL3354-02\\O$\\DEP\\Elev_Base_Data\\ept\\ept.gdb\\ept_resources_2023_04_01', '\\\\EL3354-02\\O$\\DEP\\toolMetadata\\FLib_DEMs2022_mTemplate.xml', '\\\\EL3354-02\\O$\\DEP\\toolMetadata\\FLib_Derivatives2022_mTemplate.xml', 'D:\\DEP_Proc\\DEMProc\\LAS_dem2013_3m_040301030202', '\\\\EL3354-02\\O$\\DEP\\Elev_Base_Data', 
-    # '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\elev_FLib_mean18\\04030103\\ef3m040301030202.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\surf_el_Lib\\04030103\\bemin3m040301030202.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\surf_el_Lib\\04030103\\frmax3m040301030202.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\count_Lib\\04030103\\cbe3m040301030202.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\count_Lib\\04030103\\cfr3m040301030202.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\int_Lib\\04030103\\fr_int_min3m040301030202.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\int_Lib\\04030103\\fr_int_max3m040301030202.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\int_Lib\\04030103\\be_int_max3m040301030202.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\bl_Lib\\04030103\\breaks_04030103.gdb\\break_polys_040301030202', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\bl_Lib\\04030103\\breaks_04030103.gdb\\break_lines_040301030202', '\\\\EL3354-02\\D$\\DEP\\Man_Data_ACPF\\dep_ACPF2021\\04030103\\idepACPF040301030202.gdb\\wesm_ept_resources_2023_04_01_040301030202']
-
-            for i in parameters[2:]:
-                sys.argv.append(i)
-
-        else:
-            cleanup = True
-
-        # inputs then outputs
-        (huc12_buf_fc, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
-         procDir, eleBaseDir, softwareDir, pdal_exe, gsds,
-         fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
-         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, wesm_project_file
-        ) = (sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5],
-              sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10], 
-              sys.argv[11], sys.argv[12],
-              sys.argv[13], sys.argv[14], sys.argv[15], sys.argv[16], sys.argv[17], sys.argv[18], sys.argv[19], sys.argv[20], sys.argv[21])
-
-        if sys.argv[0] == '':
-            sys.argv[0] = 'default'
-
-
-
-
-
-if __name__ == "__main__":
-    import sys
-
-
-    if len(sys.argv) == 1:
-        #Paste arguments into here for use within Python Window
-        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-        cleanup = False
-
-        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-'C:\\DEP\\Scripts\\basics\\cmd_BuildDEM_newArgs.py', '\\\\EL3354-02\\O$\\DEP\\Basedata_Summaries\\Basedata_26916.gdb\\MW_HUC12_v2019', '\\\\EL3354-02\\O$\\DEP\\Basedata_Summaries\\Basedata_26916.gdb/Snap1m', '\\\\EL3354-02\\O$\\DEP\\Elev_Base_Data\\ept\\ept.gdb\\ept_resources_2023_04_01', '\\\\EL3354-02\\O$\\DEP\\toolMetadata\\FLib_DEMs2022_mTemplate.xml', '\\\\EL3354-02\\O$\\DEP\\toolMetadata\\FLib_Derivatives2022_mTemplate.xml', 'D:\\DEP_Proc\\DEMProc\\LAS_dem2013_3m_040302020105', '\\\\EL3354-02\\O$\\DEP\\Elev_Base_Data', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\elev_FLib_mean18\\04030202\\ef3m040302020105.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\surf_el_Lib\\04030202\\bemin3m040302020105.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\surf_el_Lib\\04030202\\frmax3m040302020105.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\count_Lib\\04030202\\cbe3m040302020105.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\count_Lib\\04030202\\cfr3m040302020105.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\int_Lib\\04030202\\fr_int_min3m040302020105.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\int_Lib\\04030202\\fr_int_max3m040302020105.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\int_Lib\\04030202\\be_int_max3m040302020105.tif', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\bl_Lib\\04030202\\breaks_04030202.gdb\\break_polys_040302020105', '\\\\EL3354-02\\O$\\DEP\\LiDAR_Current\\bl_Lib\\04030202\\breaks_04030202.gdb\\break_lines_040302020105', '\\\\EL3354-02\\D$\\DEP\\Man_Data_ACPF\\dep_ACPF2021\\04030202\\idepACPF040302020105.gdb\\wesm_ept_resources_2023_04_01_040302020105']
 
         for i in parameters[2:]:
             sys.argv.append(i)
@@ -2042,19 +1975,19 @@ if __name__ == "__main__":
         cleanup = True
 
     # inputs then outputs
-    (dem_fc, snap, ept_wesm_file, flib_metadata_template, derivative_metadata_template,
-        procDir, eleBaseDir,
-        fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
-        int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, wesm_project_file
+    (huc12_buf_fc, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
+         procDir, eleBaseDir, softwareDir, pdal_exe, gsds,
+         fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
+         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, wesm_project_file
         ) = (sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5],
-            sys.argv[6], sys.argv[7], 
-            sys.argv[8], sys.argv[9], sys.argv[10], sys.argv[11], sys.argv[12],
-            sys.argv[13], sys.argv[14], sys.argv[15], sys.argv[16], sys.argv[17], sys.argv[18])
+              sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10], 
+              sys.argv[11], sys.argv[12],
+              sys.argv[13], sys.argv[14], sys.argv[15], sys.argv[16], sys.argv[17], sys.argv[18], sys.argv[19], sys.argv[20], sys.argv[21])
 
 
-    doLidarDEMs(dem_fc, snap, ept_wesm_file, flib_metadata_template, derivative_metadata_template,
-        procDir, eleBaseDir,
-        fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
-        int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, wesm_project_file, cleanup, msgStub())
+    doLidarDEMs(huc12_buf_fc, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
+         procDir, eleBaseDir, softwareDir, pdal_exe, gsds,
+         fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
+         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, wesm_project_file, cleanup, msgStub())
 
     # arcpy.AddMessage("Back from doEPT!")
