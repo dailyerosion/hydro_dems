@@ -1970,9 +1970,11 @@ if __name__ == "__main__":
 
     else:
         #For use via Windows Command Line
+        #above 'parameters' come in via command line arguments, nothing else needed
         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
         # clean up the folder after done processing
         cleanup = True
+
 
     # inputs then outputs
     (huc12_buf_fc, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
