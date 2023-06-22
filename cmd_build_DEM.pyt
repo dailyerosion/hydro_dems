@@ -202,7 +202,7 @@ class Tool(object):
                   param12, param13, param14, param15,
                   param16, param17, param18, param19,
                   param20]
-        # params = [huc12_buf_fc, snap, ept_wesm_file, flib_metadata_template, derivative_metadata,
+        # params = [dem_polygon, snap, ept_wesm_file, flib_metadata_template, derivative_metadata,
         #  procDir, eleBaseDir, softwareDir, pdal_exe, gsds,
         #  fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
         #  int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, wesm_project_file]
@@ -361,11 +361,11 @@ def processEptLas(sgdb, softwareDir, sfldr, srOutCode, fixedFolder, geom, ept_la
             arcpy.AddError(msgs)
             print(msgs)
 
-def prepPolygonBoundary(huc12_buf_fc, huc12, log, sgdb, srOut, srSfx, maskRastBase, demLists):
+def prepPolygonBoundary(dem_polygon, huc12, log, sgdb, srOut, srSfx, maskRastBase, demLists):
 
     try:
-        assert int(arcpy.GetCount_management(huc12_buf_fc).getOutput(0)) < 2, 'multiple features in feature class'
-        maskFc = arcpy.CopyFeatures_management(huc12_buf_fc)
+        assert int(arcpy.GetCount_management(dem_polygon).getOutput(0)) < 2, 'multiple features in feature class'
+        maskFc = arcpy.CopyFeatures_management(dem_polygon)
         maskFc_area = [s[0] for s in arcpy.da.SearchCursor(maskFc, ['SHAPE@AREA'])][0]
 
         # geom_copy = arcpy.management.CopyFeatures(huc12fc, opj(sgdb, 'huc' + huc12))
@@ -1650,7 +1650,10 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 
     return cl2Las, geom_srOut_copy
 
-def doLidarDEMs(ept_wesm_file, cleanup, messages):
+def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
+         procDir, eleBaseDir, softwareDir, pdal_exe, gsds,
+         fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
+         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_file, cleanup, messages):
 
     messages.addMessage("Tool: Executing with parameters '{:s}'".format(ept_wesm_file))
 
@@ -1679,7 +1682,7 @@ def doLidarDEMs(ept_wesm_file, cleanup, messages):
         log.debug('sys.argv is: ' + str(sys.argv) + '\n')
         log.info("Processing HUC: " + huc12)
 
-        fElevDesc = arcpy.da.Describe(huc12_buf_fc)
+        fElevDesc = arcpy.da.Describe(dem_polygon)
         srOut = fElevDesc['spatialReference']
         srOutCode = srOut.PCSCode
 
@@ -1761,7 +1764,7 @@ def doLidarDEMs(ept_wesm_file, cleanup, messages):
         srSfx = '_'+str(srOutCode)
 
         maskRastBase = 'mask_rast_'
-        maskFc, maskFc_area, maskFcOut, maskRastOut, hucRastOut, FDSet = prepPolygonBoundary(huc12_buf_fc, huc12, log, sgdb, srOut, srSfx, maskRastBase, demLists)
+        maskFc, maskFc_area, maskFcOut, maskRastOut, hucRastOut, FDSet = prepPolygonBoundary(dem_polygon, huc12, log, sgdb, srOut, srSfx, maskRastBase, demLists)
         
 # Build the DEM using one of two ways
 # First see if there is any lidar LAS data (preferred)
@@ -1942,29 +1945,28 @@ if __name__ == "__main__":
         cleanup = False
 
         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-	"C:/DEP/Scripts/basics/cmd_BuildDEM_newArgs.py",
-	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/04030106/idepACPF040301060301.gdb/buf_040301060301",
-	"O:/DEP/Basedata_Summaries/Basedata_26916.gdb/Snap1m",
-	"O:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_06_01",
-	"O:/DEP/toolMetadata/FLib_DEMs2022_mTemplate.xml",
-	"O:/DEP/toolMetadata/FLib_Derivatives2022_mTemplate.xml",
-	"D:/DEP_Proc/DEMProc/LAS_dem2013_3m_040301060301",
-	"O:/DEP/Elev_Base_Data",
+	"C:/DEP/Scripts/basics/cmd_BuildDEM_newArgs2.py",
+	"//EL3354-02/D$/DEP_nd_test/Man_Data_ACPF/dep_ACPF2022/09020107/idepACPF090201070104.gdb/buf_090201070104",
+	"//EL3354-02/O$/DEP/Basedata_Summaries/Basedata_26914.gdb/Snap1m",
+	"//EL3354-02/O$/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_06_01",
+	"//EL3354-02/O$/DEP_nd_test/toolMetadata/FLib_DEMs2022_mTemplate.xml",
+	"//EL3354-02/O$/DEP_nd_test/toolMetadata/FLib_Derivatives2022_mTemplate.xml",
+	"D:/DEP_Proc_nd_test/DEMProc/LAS_dem2013_3m_090201070104",
+	"//EL3354-02/O$/DEP_nd_test/Elev_Base_Data",
 	"C:/Software",
-	"C:/Users/bkgelder/Anaconda3/envs/pda_trial_2022_09_09/Library/bin/pdal.exe",
+	"C:/Users/bkgelder/Anaconda3/envs/pdal_trial_2022_10_25/Library/bin/pdal.exe",
 	"3,2,1",
-	"O:/DEP/LiDAR_Current/elev_FLib_mean18/04030106/ef3m040301060301.tif",
-	"O:/DEP/LiDAR_Current/surf_el_Lib/04030106/bemin3m040301060301.tif",
-	"O:/DEP/LiDAR_Current/surf_el_Lib/04030106/frmax3m040301060301.tif",
-	"O:/DEP/LiDAR_Current/count_Lib/04030106/cbe3m040301060301.tif",
-	"O:/DEP/LiDAR_Current/count_Lib/04030106/cfr3m040301060301.tif",
-	"O:/DEP/LiDAR_Current/int_Lib/04030106/fr_int_min3m040301060301.tif",
-	"O:/DEP/LiDAR_Current/int_Lib/04030106/fr_int_max3m040301060301.tif",
-	"O:/DEP/LiDAR_Current/int_Lib/04030106/be_int_max3m040301060301.tif",
-	"O:/DEP/LiDAR_Current/bl_Lib/04030106/breaks_04030106.gdb/break_polys_040301060301",
-	"O:/DEP/LiDAR_Current/bl_Lib/04030106/breaks_04030106.gdb/break_lines_040301060301",
-	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/04030106/idepACPF040301060301.gdb/wesm_ept_resources_2023_06_01_040301060301"]
-
+	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/elev_FLib_mean18/09020107/ef3m090201070104.tif",
+	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/surf_el_Lib/09020107/bemin3m090201070104.tif",
+	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/surf_el_Lib/09020107/frmax3m090201070104.tif",
+	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/count_Lib/09020107/cbe3m090201070104.tif",
+	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/count_Lib/09020107/cfr3m090201070104.tif",
+	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/int_Lib/09020107/fr_int_min3m090201070104.tif",
+	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/int_Lib/09020107/fr_int_max3m090201070104.tif",
+	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/int_Lib/09020107/be_int_max3m090201070104.tif",
+	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/bl_Lib/09020107/breaks_09020107.gdb/break_polys_090201070104",
+	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/bl_Lib/09020107/breaks_09020107.gdb/break_lines_090201070104",
+	"//EL3354-02/D$/DEP_nd_test/Man_Data_ACPF/dep_ACPF2022/09020107/idepACPF090201070104.gdb/wesm_ept_resources_2023_06_01_090201070104"]
         for i in parameters[2:]:
             sys.argv.append(i)
 
@@ -1977,7 +1979,7 @@ if __name__ == "__main__":
 
 
     # inputs then outputs
-    (huc12_buf_fc, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
+    (dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
          procDir, eleBaseDir, softwareDir, pdal_exe, gsds,
          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, wesm_project_file
@@ -1987,7 +1989,7 @@ if __name__ == "__main__":
               sys.argv[13], sys.argv[14], sys.argv[15], sys.argv[16], sys.argv[17], sys.argv[18], sys.argv[19], sys.argv[20], sys.argv[21])
 
 
-    doLidarDEMs(huc12_buf_fc, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
+    doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
          procDir, eleBaseDir, softwareDir, pdal_exe, gsds,
          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, wesm_project_file, cleanup, msgStub())
