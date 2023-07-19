@@ -293,10 +293,10 @@ def processEptLas(sgdb, softwareDir, sfldr, srOutCode, fixedFolder, geom, ept_la
         if work_id < 0:
             tileGeomBuffer5 = geom.buffer(5) #tile Geometry column
             log.debug('--- Use ExtractLas, boundary option, at ' + time.asctime())
-            fixedLasd = arcpy.ExtractLas_3d(allLasd, fixedFolder, name_suffix = nameSfx, out_las_dataset = opj(fixedFolder, 'fixed' + sfx + '.lasd'), boundary = tileGeomBuffer5)
+            fixedLasd = arcpy.ExtractLas_3d(allLasd, fixedFolder, name_suffix = nameSfx, rearrange_points = "MAINTAIN_POINTS", out_las_dataset = opj(fixedFolder, 'fixed' + sfx + '.lasd'), boundary = tileGeomBuffer5)
         else:
             log.debug('--- Use ExtractLas, no boundary option, at ' + time.asctime())
-            fixedLasd = arcpy.ExtractLas_3d(allLasd, fixedFolder, name_suffix = nameSfx, out_las_dataset = opj(fixedFolder, 'fixed' + sfx + '.lasd'))#, boundary = tileGeomBuffer5)
+            fixedLasd = arcpy.ExtractLas_3d(allLasd, fixedFolder, name_suffix = nameSfx, rearrange_points = "MAINTAIN_POINTS", out_las_dataset = opj(fixedFolder, 'fixed' + sfx + '.lasd'))#, boundary = tileGeomBuffer5)
         log.debug(fixedLasd.getMessages())
         fixedLasdDescDa = arcpy.da.Describe(fixedLasd)
         fixedLasPath = opj(fixedLasdDescDa['path'], fixedLasBasename)
@@ -1945,28 +1945,7 @@ if __name__ == "__main__":
         cleanup = False
 
         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-	"C:/DEP/Scripts/basics/cmd_BuildDEM_newArgs2.py",
-	"//EL3354-02/D$/DEP_nd_test/Man_Data_ACPF/dep_ACPF2022/09020107/idepACPF090201070104.gdb/buf_090201070104",
-	"//EL3354-02/O$/DEP/Basedata_Summaries/Basedata_26914.gdb/Snap1m",
-	"//EL3354-02/O$/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_06_01",
-	"//EL3354-02/O$/DEP_nd_test/toolMetadata/FLib_DEMs2022_mTemplate.xml",
-	"//EL3354-02/O$/DEP_nd_test/toolMetadata/FLib_Derivatives2022_mTemplate.xml",
-	"D:/DEP_Proc_nd_test/DEMProc/LAS_dem2013_3m_090201070104",
-	"//EL3354-02/O$/DEP_nd_test/Elev_Base_Data",
-	"C:/Software",
-	"C:/Users/bkgelder/Anaconda3/envs/pdal_trial_2022_10_25/Library/bin/pdal.exe",
-	"3,2,1",
-	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/elev_FLib_mean18/09020107/ef3m090201070104.tif",
-	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/surf_el_Lib/09020107/bemin3m090201070104.tif",
-	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/surf_el_Lib/09020107/frmax3m090201070104.tif",
-	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/count_Lib/09020107/cbe3m090201070104.tif",
-	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/count_Lib/09020107/cfr3m090201070104.tif",
-	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/int_Lib/09020107/fr_int_min3m090201070104.tif",
-	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/int_Lib/09020107/fr_int_max3m090201070104.tif",
-	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/int_Lib/09020107/be_int_max3m090201070104.tif",
-	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/bl_Lib/09020107/breaks_09020107.gdb/break_polys_090201070104",
-	"//EL3354-02/O$/DEP_nd_test/LiDAR_Current/bl_Lib/09020107/breaks_09020107.gdb/break_lines_090201070104",
-	"//EL3354-02/D$/DEP_nd_test/Man_Data_ACPF/dep_ACPF2022/09020107/idepACPF090201070104.gdb/wesm_ept_resources_2023_06_01_090201070104"]
+	'C:\\DEP\\Scripts\\basics\\cmd_BuildDEM_newArgs.py', 'D:\\DEP\\Man_Data_ACPF\\dep_ACPF2022\\10190018\\idepACPF101900180302.gdb\\buf_101900180302', 'O:\\DEP\\Basedata_Summaries\\Basedata_26913.gdb/Snap1m', 'O:\\DEP\\Elev_Base_Data\\ept\\ept.gdb\\ept_resources_2023_07_01', 'O:\\DEP\\toolMetadata\\FLib_DEMs2022_mTemplate.xml', 'O:\\DEP\\toolMetadata\\FLib_Derivatives2022_mTemplate.xml', 'D:\\DEP_Proc\\DEMProc\\LAS_dem2013_3m_101900180302', 'O:\\DEP\\Elev_Base_Data', 'C:\\Software', 'C:\\Users\\bkgelder\\Anaconda3\\envs\\pda_trial_2022_09_09\\Library\\bin\\pdal.exe', '3,2,1', 'O:\\DEP\\LiDAR_Current\\elev_FLib_mean18\\10190018\\ef3m101900180302.tif', 'O:\\DEP\\LiDAR_Current\\surf_el_Lib\\10190018\\bemin3m101900180302.tif', 'O:\\DEP\\LiDAR_Current\\surf_el_Lib\\10190018\\frmax3m101900180302.tif', 'O:\\DEP\\LiDAR_Current\\count_Lib\\10190018\\cbe3m101900180302.tif', 'O:\\DEP\\LiDAR_Current\\count_Lib\\10190018\\cfr3m101900180302.tif', 'O:\\DEP\\LiDAR_Current\\int_Lib\\10190018\\fr_int_min3m101900180302.tif', 'O:\\DEP\\LiDAR_Current\\int_Lib\\10190018\\fr_int_max3m101900180302.tif', 'O:\\DEP\\LiDAR_Current\\int_Lib\\10190018\\be_int_max3m101900180302.tif', 'O:\\DEP\\LiDAR_Current\\bl_Lib\\10190018\\breaks_10190018.gdb\\break_polys_101900180302', 'O:\\DEP\\LiDAR_Current\\bl_Lib\\10190018\\breaks_10190018.gdb\\break_lines_101900180302', 'D:\\DEP\\Man_Data_ACPF\\dep_ACPF2022\\10190018\\idepACPF101900180302.gdb\\wesm_ept_resources_2023_07_01_101900180302']
         for i in parameters[2:]:
             sys.argv.append(i)
 
