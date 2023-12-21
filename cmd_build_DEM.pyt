@@ -1847,46 +1847,47 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_templa
                     lasdGround = setupLasDataset(cl2_tiles_list, tcdFdSet, procDir, None, None, srSfx, None, log, time, arcpy.SpatialReference(int(srOutCode)))
                     log.info('finished setting up las dataset at ' + time.asctime())
 
-                    # classify overlap in lasdAll
-                    arcpy.ddd.ClassifyLasOverlap(lasdAll)
-                    overlapLayer = arcpy.MakeLasDatasetLayer_management(lasdAll, 'overlap_layer', [12], )
-                    overlapMaxIntensity = arcpy.LasDatasetToRaster_conversion(overlapLayer, opj(procDir, 'overlap' + str(demList[0])), 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
-                    # overlapCD = arcpy.
-
-                    overlap_args = getLasRasterArguments(overlapMaxIntensity)
-                    if 'merged_copy' not in locals():
-                        merged_copy = None
-
                     collect_ends_max, collect_starts_min, collect_majority = getLidarTimeframes(merged_copy)#, tilesClip_local)
-
-                    paraDict = {
-                        '\n\nDEP: DEM Overlap Intensity Output     ' : '\nRun Date: %s' % nowYmd,
-                        '\nUnknown Vintage Lidar Data' : False,
-                        '\nEarliest 3DEP Lidar Data: ' : collect_starts_min,
-                        '\nLatest 3DEP Lidar Data: ' : collect_ends_max,
-                        '\nLas Dataset To Raster Arguments: ' : overlap_args
-                        }
-
-                    template_interp = derivative_metadata
 
                     lidar_metadata_info = [terrain_args, nowYmd, collect_starts_min, collect_ends_max, collect_majority, pyramid_args]
 
-                    ## update metadata
-                    log.warning('---Adding metadata at ' + time.asctime())
-                    addMetadata(overlapMaxIntensity.getOutput(0), paraDict, template_interp, log)
+                    # ## Following code runs slowly at times and is not being used further 2023.12.21
+                    # # classify overlap in lasdAll
+                    # arcpy.ddd.ClassifyLasOverlap(lasdAll)
+                    # overlapLayer = arcpy.MakeLasDatasetLayer_management(lasdAll, 'overlap_layer', [12], )
+                    # overlapMaxIntensity = arcpy.LasDatasetToRaster_conversion(overlapLayer, opj(procDir, 'overlap' + str(demList[0])), 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
+                    # # overlapCD = arcpy.
 
-                    try:
-                        overlap_cost_surface = Con(IsNull(overlapMaxIntensity), 1, 0.001)
-                        arcpy.env.mask = Raster(maskRastOut)
-                        overlap_cost_dist2 = DistanceAccumulation(overlapMaxIntensity, '', '', overlap_cost_surface)
-                        gaps = Con(overlap_cost_dist2 > 2*demList[0], 1)
-                        gaps_regions = RegionGroup(gaps)
-                        arcpy.env.mask = Raster(hucRastOut)
-                        gaps_regions_max2 = ZonalStatistics(gaps_regions, 'Value', overlap_cost_dist2, 'MAXIMUM')
-                        below_flight_lines = Con(overlap_cost_dist2 > 0.75*gaps_regions_max2.maximum, 1)
-                    except:
-                        log.warning('Failure on calculating flight lines from returns')
-                    arcpy.env.mask = None
+                    # overlap_args = getLasRasterArguments(overlapMaxIntensity)
+                    # if 'merged_copy' not in locals():
+                    #     merged_copy = None
+
+                    # paraDict = {
+                    #     '\n\nDEP: DEM Overlap Intensity Output     ' : '\nRun Date: %s' % nowYmd,
+                    #     '\nUnknown Vintage Lidar Data' : False,
+                    #     '\nEarliest 3DEP Lidar Data: ' : collect_starts_min,
+                    #     '\nLatest 3DEP Lidar Data: ' : collect_ends_max,
+                    #     '\nLas Dataset To Raster Arguments: ' : overlap_args
+                    #     }
+
+                    # template_interp = derivative_metadata
+
+                    # ## update metadata
+                    # log.warning('---Adding metadata at ' + time.asctime())
+                    # addMetadata(overlapMaxIntensity.getOutput(0), paraDict, template_interp, log)
+
+                    # try:
+                    #     overlap_cost_surface = Con(IsNull(overlapMaxIntensity), 1, 0.001)
+                    #     arcpy.env.mask = Raster(maskRastOut)
+                    #     overlap_cost_dist2 = DistanceAccumulation(overlapMaxIntensity, '', '', overlap_cost_surface)
+                    #     gaps = Con(overlap_cost_dist2 > 2*demList[0], 1)
+                    #     gaps_regions = RegionGroup(gaps)
+                    #     arcpy.env.mask = Raster(hucRastOut)
+                    #     gaps_regions_max2 = ZonalStatistics(gaps_regions, 'Value', overlap_cost_dist2, 'MAXIMUM')
+                    #     below_flight_lines = Con(overlap_cost_dist2 > 0.75*gaps_regions_max2.maximum, 1)
+                    # except:
+                    #     log.warning('Failure on calculating flight lines from returns')
+                    # arcpy.env.mask = None
 
         arcpy.env.cellSize = None
 
