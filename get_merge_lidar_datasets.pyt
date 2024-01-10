@@ -300,6 +300,6 @@ if __name__ == "__main__":
 
     # ept_fc = "C:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_05_20"
     ept_fc = sys.argv[1]
-    # doEPT(ept_fc, cleanup, msgStub())
+    doEPT(ept_fc, cleanup, msgStub())
 
     # arcpy.AddMessage("Back from doEPT!")

@@ -1800,107 +1800,106 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_templa
 
             cl2Las, geom_srOut_copy = getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eptDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList)
 
-            arcpy.env.outputCoordinateSystem = srOut
+#             arcpy.env.outputCoordinateSystem = srOut
 
-            log.debug('tileList is ' + str(allTilesList))
-            # save the merged wesm_las_dates
+#             log.debug('tileList is ' + str(allTilesList))
+#             # save the merged wesm_las_dates
 
-            arcpy.AddField_management(prev_merged, 'area_field', 'DOUBLE')
-            arcpy.CalculateField_management(prev_merged, 'area_field', '!shape.area!', 'Python 3')
+#             arcpy.AddField_management(prev_merged, 'area_field', 'DOUBLE')
+#             arcpy.CalculateField_management(prev_merged, 'area_field', '!shape.area!', 'Python 3')
 
-            ptr = arcpy.conversion.PolygonToRaster(prev_merged, work_id_name, opj(sgdb, 'ptr'))
-            fs1 = FocalStatistics(ptr, NbrRectangle(5,5), 'RANGE')
-            internal_regions = Con(fs1 == 0, ptr)
+#             ptr = arcpy.conversion.PolygonToRaster(prev_merged, work_id_name, opj(sgdb, 'ptr'))
+#             fs1 = FocalStatistics(ptr, NbrRectangle(5,5), 'RANGE')
+#             internal_regions = Con(fs1 == 0, ptr)
             
-            merged_copy = arcpy.CopyFeatures_management(prev_merged, wesm_project_file)
+#             merged_copy = arcpy.CopyFeatures_management(prev_merged, wesm_project_file)
+
+# # ##----------------------------------------------------------------------
+
+#             ept_lidar_fcs = arcpy.ListFeatureClasses(os.path.basename(geom_srOut_copy.getOutput(0))[:10] + '*')
+#             tcdFdSet_ept = arcpy.Union_analysis(ept_lidar_fcs)
+
+#             ##----------------------------------------------------------------------
+#             # now build datasets
+#             arcpy.env.workspace = sgdb
+#             mpList = arcpy.ListFeatureClasses('pts_*', feature_type = 'POINT', feature_dataset = os.path.basename(FDSet.getOutput(0)))
+#             if len(mpList) > 0:
+#                 finalMP = arcpy.Merge_management(mpList, os.path.join(str(FDSet), 'mp_merge'))
+#                 if df.testForZero(finalMP):
+#                     finalMPinm, finalHb, poorZHb, finalNoZHb, finalHl = setupPointsAndBreaklines(finalMP, inm, FDSet, breakpolys, breaklines, log)
+
+#                     # if 'tcdFdSet_local' in locals() and 'tcdFdSet_ept' in locals():
+#                     #     tcdFdSet_union = arcpy.Union_analysis([tcdFdSet_local, tcdFdSet_ept], os.path.join(str(FDSet), 'ept_and_local_las_union'))
+#                     # elif 'tcdFdSet_local' in locals():
+#                     #     tcdFdSet_union = tcdFdSet_local
+#                     # else:
+#                     tcdFdSet_union = tcdFdSet_ept
+
+#                     tcdFdSet = arcpy.management.Dissolve(tcdFdSet_union, os.path.join(str(FDSet), 'ept_and_local_las'))
+#                     fill_donut_slow(tcdFdSet)
+
+#                     terrains, tf, terrain_args, pyramid_args = buildTerrains(finalMP, FDSet, tcdFdSet, finalHb, finalHl, finalNoZHb, poorZHb, log, windowsizeMethods, time)
+
+#                     lasdAll = arcpy.CreateLasDataset_management(allTilesList, os.path.join(procDir, 'huc_all.lasd'), spatial_reference = arcpy.SpatialReference(int(srOutCode)))
+#                     cl2_check = os.path.join(procDir, '*' + cl2Las[-7:])
+#                     cl2_tiles_list = glob.glob(cl2_check)
+#                     # assume lidar data in same spatial reference as output, ExtractLAS should handle that
+#                     lasdGround = setupLasDataset(cl2_tiles_list, tcdFdSet, procDir, None, None, srSfx, None, log, time, arcpy.SpatialReference(int(srOutCode)))
+#                     log.info('finished setting up las dataset at ' + time.asctime())
+
+#                     # classify overlap in lasdAll
+#                     arcpy.ddd.ClassifyLasOverlap(lasdAll)
+#                     overlapLayer = arcpy.MakeLasDatasetLayer_management(lasdAll, 'overlap_layer', [12], )
+#                     overlapMaxIntensity = arcpy.LasDatasetToRaster_conversion(overlapLayer, opj(procDir, 'overlap' + str(demList[0])), 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
+#                     # overlapCD = arcpy.
+
+#                     overlap_args = getLasRasterArguments(overlapMaxIntensity)
+#                     if 'merged_copy' not in locals():
+#                         merged_copy = None
+
+#                     collect_ends_max, collect_starts_min, collect_majority = getLidarTimeframes(merged_copy)#, tilesClip_local)
+
+#                     paraDict = {
+#                         '\n\nDEP: DEM Overlap Intensity Output     ' : '\nRun Date: %s' % nowYmd,
+#                         '\nUnknown Vintage Lidar Data' : False,
+#                         '\nEarliest 3DEP Lidar Data: ' : collect_starts_min,
+#                         '\nLatest 3DEP Lidar Data: ' : collect_ends_max,
+#                         '\nLas Dataset To Raster Arguments: ' : overlap_args
+#                         }
+
+#                     template_interp = derivative_metadata
+
+#                     lidar_metadata_info = [terrain_args, nowYmd, collect_starts_min, collect_ends_max, collect_majority, pyramid_args]
+
+#                     ## update metadata
+#                     log.warning('---Adding metadata at ' + time.asctime())
+#                     addMetadata(overlapMaxIntensity.getOutput(0), paraDict, template_interp, log)
+
+#                     try:
+#                         overlap_cost_surface = Con(IsNull(overlapMaxIntensity), 1, 0.001)
+#                         arcpy.env.mask = Raster(maskRastOut)
+#                         overlap_cost_dist2 = DistanceAccumulation(overlapMaxIntensity, '', '', overlap_cost_surface)
+#                         gaps = Con(overlap_cost_dist2 > 2*demList[0], 1)
+#                         gaps_regions = RegionGroup(gaps)
+#                         arcpy.env.mask = Raster(hucRastOut)
+#                         gaps_regions_max2 = ZonalStatistics(gaps_regions, 'Value', overlap_cost_dist2, 'MAXIMUM')
+#                         below_flight_lines = Con(overlap_cost_dist2 > 0.75*gaps_regions_max2.maximum, 1)
+#                     except:
+#                         log.warning('Failure on calculating flight lines from returns')
+#                     arcpy.env.mask = None
+
+#         arcpy.env.cellSize = None
 
 # ##----------------------------------------------------------------------
 
-            ept_lidar_fcs = arcpy.ListFeatureClasses(os.path.basename(geom_srOut_copy.getOutput(0))[:10] + '*')
-            tcdFdSet_ept = arcpy.Union_analysis(ept_lidar_fcs)
+#         for demList in demLists:
+#             arcpy.env.snapRaster
+#             cntFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntFile)#paths)
+#             terrainList = createRastersFromTerrains(log, demList, procDir, terrains, huc12)
 
-            ##----------------------------------------------------------------------
-            # now build datasets
-            arcpy.env.workspace = sgdb
-            mpList = arcpy.ListFeatureClasses('pts_*', feature_type = 'POINT', feature_dataset = os.path.basename(FDSet.getOutput(0)))
-            if len(mpList) > 0:
-                finalMP = arcpy.Merge_management(mpList, os.path.join(str(FDSet), 'mp_merge'))
-                if df.testForZero(finalMP):
-                    finalMPinm, finalHb, poorZHb, finalNoZHb, finalHl = setupPointsAndBreaklines(finalMP, inm, FDSet, breakpolys, breaklines, log)
+#             buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, internal_regions, ptr)
 
-                    # if 'tcdFdSet_local' in locals() and 'tcdFdSet_ept' in locals():
-                    #     tcdFdSet_union = arcpy.Union_analysis([tcdFdSet_local, tcdFdSet_ept], os.path.join(str(FDSet), 'ept_and_local_las_union'))
-                    # elif 'tcdFdSet_local' in locals():
-                    #     tcdFdSet_union = tcdFdSet_local
-                    # else:
-                    tcdFdSet_union = tcdFdSet_ept
-
-                    tcdFdSet = arcpy.management.Dissolve(tcdFdSet_union, os.path.join(str(FDSet), 'ept_and_local_las'))
-                    fill_donut_slow(tcdFdSet)
-
-                    terrains, tf, terrain_args, pyramid_args = buildTerrains(finalMP, FDSet, tcdFdSet, finalHb, finalHl, finalNoZHb, poorZHb, log, windowsizeMethods, time)
-
-                    lasdAll = arcpy.CreateLasDataset_management(allTilesList, os.path.join(procDir, 'huc_all.lasd'), spatial_reference = arcpy.SpatialReference(int(srOutCode)))
-                    cl2_check = os.path.join(procDir, '*' + cl2Las[-7:])
-                    cl2_tiles_list = glob.glob(cl2_check)
-                    # assume lidar data in same spatial reference as output, ExtractLAS should handle that
-                    lasdGround = setupLasDataset(cl2_tiles_list, tcdFdSet, procDir, None, None, srSfx, None, log, time, arcpy.SpatialReference(int(srOutCode)))
-                    log.info('finished setting up las dataset at ' + time.asctime())
-
-                    collect_ends_max, collect_starts_min, collect_majority = getLidarTimeframes(merged_copy)#, tilesClip_local)
-
-                    lidar_metadata_info = [terrain_args, nowYmd, collect_starts_min, collect_ends_max, collect_majority, pyramid_args]
-
-                    # ## Following code runs slowly at times and is not being used further 2023.12.21
-                    # # classify overlap in lasdAll
-                    # arcpy.ddd.ClassifyLasOverlap(lasdAll)
-                    # overlapLayer = arcpy.MakeLasDatasetLayer_management(lasdAll, 'overlap_layer', [12], )
-                    # overlapMaxIntensity = arcpy.LasDatasetToRaster_conversion(overlapLayer, opj(procDir, 'overlap' + str(demList[0])), 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
-                    # # overlapCD = arcpy.
-
-                    # overlap_args = getLasRasterArguments(overlapMaxIntensity)
-                    # if 'merged_copy' not in locals():
-                    #     merged_copy = None
-
-                    # paraDict = {
-                    #     '\n\nDEP: DEM Overlap Intensity Output     ' : '\nRun Date: %s' % nowYmd,
-                    #     '\nUnknown Vintage Lidar Data' : False,
-                    #     '\nEarliest 3DEP Lidar Data: ' : collect_starts_min,
-                    #     '\nLatest 3DEP Lidar Data: ' : collect_ends_max,
-                    #     '\nLas Dataset To Raster Arguments: ' : overlap_args
-                    #     }
-
-                    # template_interp = derivative_metadata
-
-                    # ## update metadata
-                    # log.warning('---Adding metadata at ' + time.asctime())
-                    # addMetadata(overlapMaxIntensity.getOutput(0), paraDict, template_interp, log)
-
-                    # try:
-                    #     overlap_cost_surface = Con(IsNull(overlapMaxIntensity), 1, 0.001)
-                    #     arcpy.env.mask = Raster(maskRastOut)
-                    #     overlap_cost_dist2 = DistanceAccumulation(overlapMaxIntensity, '', '', overlap_cost_surface)
-                    #     gaps = Con(overlap_cost_dist2 > 2*demList[0], 1)
-                    #     gaps_regions = RegionGroup(gaps)
-                    #     arcpy.env.mask = Raster(hucRastOut)
-                    #     gaps_regions_max2 = ZonalStatistics(gaps_regions, 'Value', overlap_cost_dist2, 'MAXIMUM')
-                    #     below_flight_lines = Con(overlap_cost_dist2 > 0.75*gaps_regions_max2.maximum, 1)
-                    # except:
-                    #     log.warning('Failure on calculating flight lines from returns')
-                    # arcpy.env.mask = None
-
-        arcpy.env.cellSize = None
-
-##----------------------------------------------------------------------
-
-        for demList in demLists:
-            arcpy.env.snapRaster
-            cntFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntFile)#paths)
-            terrainList = createRastersFromTerrains(log, demList, procDir, terrains, huc12)
-
-            buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, internal_regions, ptr)
-
-            mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windowsizeMethods, procDir, fElevFile, interpDict, named_cell_size, srOutNoVCS, terrain_args, pyramid_args, flib_metadata_template, lidar_metadata_info)
+#             mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windowsizeMethods, procDir, fElevFile, interpDict, named_cell_size, srOutNoVCS, terrain_args, pyramid_args, flib_metadata_template, lidar_metadata_info)
 
 ##----------------------------------------------------------------------
 
