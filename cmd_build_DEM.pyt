@@ -362,7 +362,7 @@ def processEptLas(sgdb, softwareDir, sfldr, srOutCode, fixedFolder, geom, ept_la
             arcpy.AddError(msgs)
             print(msgs)
 
-def prepPolygonBoundary(dem_polygon, huc12, log, sgdb, srOut, srSfx, maskRastBase, demLists):
+def prepPolygonBoundary(dem_polygon, log, sgdb, srOut, srSfx, maskRastBase, demLists):
 
     try:
         assert int(arcpy.GetCount_management(dem_polygon).getOutput(0)) < 2, 'multiple features in feature class'
@@ -376,19 +376,18 @@ def prepPolygonBoundary(dem_polygon, huc12, log, sgdb, srOut, srSfx, maskRastBas
             arcpy.AddField_management(maskFc, 'id', 'LONG')
             arcpy.CalculateField_management(maskFc, 'id', 1, 'PYTHON')
 
-        log.warning("maskFcPrelim complete at: " + time.asctime())
+        log.info("maskFcPrelim complete at: " + time.asctime())
 
         ## Set up geodatabase to store the multipoint files and terrains (necessary all inputs be in feature dataset
         # Vertical units are in meters (float) so use a meter-based reference
         FDSet = arcpy.CreateFeatureDataset_management(sgdb, "Lidar_pts", srOut)
         maskFcOut = projIfNeeded(maskFc, os.path.join(str(FDSet), 'buf_huc' + srSfx), srOut)
-        log.warning("maskFcOut complete at: " + time.asctime())
+        log.info("maskFcOut complete at: " + time.asctime())
 
         for demList in demLists:
             maskRastOut = arcpy.PolygonToRaster_conversion(maskFcOut, 'id', opj(sgdb, maskRastBase + str(demList[0])), cellsize = demList[0])
             huc_rast_out = arcpy.conversion.PolygonToRaster(geom_copy, 'OBJECTID', opj(sgdb, 'huc_rast' + str(demList[0])), cellsize = demList[0])
 
-        
         return maskFc, maskFc_area, maskFcOut, maskRastOut, huc_rast_out, FDSet
 
     except Exception as e:
@@ -1447,7 +1446,7 @@ def create_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, exten
 
     return ept_json_full_filename
 
-def organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, log):
+def organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log):
     """Organize the 3DEP projects by acquisition date so we use the
     most recent data first, then fill in with older data"""
     valid_order = arcpy.ValidateFieldName('order', os.path.dirname(wesm_huc12.getOutput(0)))
@@ -1457,7 +1456,7 @@ def organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, log):
     ordered_work_ids = [s[0] for s in arcpy.da.SearchCursor(wesm_huc12, [work_id_name], sql_clause = [None, 'ORDER BY collect_start DESC'])]
     merged_area = 0
     for cnt, o in enumerate(ordered_work_ids):
-        if merged_area <= maskFc_area * 0.9999:
+        if merged_area <= maskFc_area * build_threshold:
             print(o)
             if o < 0:
                 selected = arcpy.Select_analysis(wesm_huc12, 'select_wkid_neg' + str(abs(o)), work_id_name + ' = ' + str(o))
@@ -1483,7 +1482,7 @@ def organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, log):
 #             bigVoids = arcpy.Erase_analysis(maskFcOut, tcdFdSet_local)
 #             wesm_clipped = arcpy.analysis.Clip(wesm_huc12, bigVoids)
 
-    return prev_merged, addOrderField
+    return prev_merged, merged_area, addOrderField
 
 def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log):#maskFc_3857, maskFc_3857_desc)
     """Subdivide the EPT request into one or four parts based on size"""
@@ -1771,7 +1770,7 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_templa
         srSfx = '_'+str(srOutCode)
 
         maskRastBase = 'mask_rast_'
-        maskFc, maskFc_area, maskFcOut, maskRastOut, hucRastOut, FDSet = prepPolygonBoundary(dem_polygon, huc12, log, sgdb, srOut, srSfx, maskRastBase, demLists)
+        maskFc, maskFc_area, maskFcOut, maskRastOut, hucRastOut, FDSet = prepPolygonBoundary(dem_polygon, log, sgdb, srOut, srSfx, maskRastBase, demLists)
         
 # Build the DEM using one of two ways
 # First see if there is any lidar LAS data (preferred)
@@ -1795,8 +1794,9 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_templa
 
 ##----------------------------------------------------------------------
         work_id_name = 'workunit_id'
+        build_threshold = 0.9999
         if df.testForZero(wesm_huc12):
-            prev_merged, addOrderField = organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, log)
+            prev_merged, merged_area, addOrderField = organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log)
 
             cl2Las, geom_srOut_copy = getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eptDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList)
 
@@ -1813,8 +1813,6 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_templa
             internal_regions = Con(fs1 == 0, ptr)
             
             merged_copy = arcpy.CopyFeatures_management(prev_merged, wesm_project_file)
-
-# ##----------------------------------------------------------------------
 
             ept_lidar_fcs = arcpy.ListFeatureClasses(os.path.basename(geom_srOut_copy.getOutput(0))[:10] + '*')
             tcdFdSet_ept = arcpy.Union_analysis(ept_lidar_fcs)
@@ -1889,18 +1887,25 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_templa
                     #     log.warning('Failure on calculating flight lines from returns')
                     # arcpy.env.mask = None
 
+        # indicate there are no datasets to process further
+        else:
+            prev_merged = None
+            merged_area = 0.00
+
         arcpy.env.cellSize = None
 
 ##----------------------------------------------------------------------
+        if merged_area / maskFc_area >= build_threshold:
+            for demList in demLists:
+                # arcpy.env.snapRaster
+                cntFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntFile)#paths)
+                terrainList = createRastersFromTerrains(log, demList, procDir, terrains, huc12)
 
-        for demList in demLists:
-            arcpy.env.snapRaster
-            cntFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntFile)#paths)
-            terrainList = createRastersFromTerrains(log, demList, procDir, terrains, huc12)
+                buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, internal_regions, ptr)
 
-            buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, internal_regions, ptr)
-
-            mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windowsizeMethods, procDir, fElevFile, interpDict, named_cell_size, srOutNoVCS, terrain_args, pyramid_args, flib_metadata_template, lidar_metadata_info)
+                mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windowsizeMethods, procDir, fElevFile, interpDict, named_cell_size, srOutNoVCS, terrain_args, pyramid_args, flib_metadata_template, lidar_metadata_info)
+        else:
+            log.warning('lidar data area does not exist or does not exceed build threshold; DEM was not built')
 
 ##----------------------------------------------------------------------
 
