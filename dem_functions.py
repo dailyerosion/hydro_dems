@@ -438,7 +438,10 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         "docFolder" : depDocumentation,
 
         # metadata documents
+        "clib_metadata" : opj(depMetadata, 'CLib_DEMs2022_mTemplate.xml'),
         "flib_metadata" : opj(depMetadata, 'FLib_DEMs2022_mTemplate.xml'),
+        "plib_metadata" : opj(depMetadata, 'PLib_DEMs2022_mTemplate.xml'),
+        "vlib_metadata" : opj(depMetadata, 'VLib_DEMs2022_mTemplate.xml'),
         "derivative_metadata" : opj(depMetadata, 'FLib_Derivatives2022_mTemplate.xml'),
 
         # no data areas (big voids) to fix first (likely rivers/lakes/lagoons)
