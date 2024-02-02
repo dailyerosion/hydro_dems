@@ -843,6 +843,32 @@ def setupLoggingNoCh(node, scriptName, huc12 = '000000000000', version = ''):
 
     return log, nowYmd, logName, startTime
 
+
+def setupLoggingSimple(node, scriptName, nowYmd, huc12 = '000000000000', version = ''):
+    # create logger with name 'example'
+    log = logging.getLogger('example')
+    log.setLevel(logging.DEBUG)
+
+    # create formatter and add it to the handlers
+    formatter = logging.Formatter('%(levelname)s - %(message)s')
+
+    logsDir = defineLocalProc(node)
+    logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0] + '_' + huc12 + '_' + nowYmd + '.txt')
+    if not os.path.isdir(os.path.dirname(logName)):
+        os.makedirs(os.path.dirname(logName))
+
+    # create file handler to log debug messages, new log file each time
+    fh = logging.FileHandler(logName, mode = 'w')
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    log.addHandler(fh)
+
+    startTime = time.time()
+    log.info("Beginning logging for script at " + str(time.asctime()))
+    log.info("Logging output to: " + logName)
+
+    return log, logName, startTime
+
 def setupLoggingNew(node, scriptName, huc12 = '000000000000', version = ''):
     # create logger with name 'example'
     log = logging.getLogger('example')
