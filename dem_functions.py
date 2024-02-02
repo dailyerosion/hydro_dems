@@ -1,4 +1,10 @@
-import arcpy, os, sys, traceback, math, datetime, logging
+import arcpy
+import os
+import sys
+import traceback
+import math
+import datetime
+import logging
 from arcpy.sa import *
 import subprocess
 import time
