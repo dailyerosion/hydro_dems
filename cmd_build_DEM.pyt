@@ -31,7 +31,7 @@ for box in boxes:
     if os.path.isdir(box):
         sys.path.append(box)
 
-import dem_functions2 as df
+import dem_functions as df
 
 
 
@@ -65,7 +65,7 @@ class Tool(object):
         """Define parameter definitions"""
 
         param0 = arcpy.Parameter(
-            name="ept_wesm_features",
+            name="dem_polygon",
             displayName="Buffered HUC12 Feature",
             datatype="DEFeatureClass",
             parameterType='Required',
@@ -79,7 +79,7 @@ class Tool(object):
             direction="Input")
         
         param2 = arcpy.Parameter(
-            name="snap_raster",
+            name="monthly_ept_wesm_mashup",
             displayName="EPT WESM Merged Features",
             datatype="DEFeatureClass",
             parameterType='Required',
@@ -104,90 +104,78 @@ class Tool(object):
             direction="Input")
         
         param6 = arcpy.Parameter(
-            displayName="Elevation Data Storage Directory",
-            datatype="DEFolder",
-            parameterType='Optional',
-            direction="Input")
-        
-        param7 = arcpy.Parameter(
-            displayName="7za and LASTools Software Directory",
-            datatype="DEFolder",
-            parameterType='Optional',
-            direction="Input")
-        
-        param8 = arcpy.Parameter(
             displayName="PDAL.exe Location",
             datatype="GPDataFile",
             parameterType='Required',
             direction="Input")
         
-        param9 = arcpy.Parameter(
+        param7 = arcpy.Parameter(
             displayName="Integer Resolution/Ground Sample Distance of output rasters, multiples joined by comma",
             datatype="GPString",
             parameterType='Required',
             direction="Input")
         
-        param10 = arcpy.Parameter(
+        param8 = arcpy.Parameter(
             displayName="Output Pit-Filled Elevation Model",
             datatype="DERasterDataset",
             parameterType='Required',
             direction="Output")
         
-        param11 = arcpy.Parameter(
+        param9 = arcpy.Parameter(
             displayName="Output Bare Earth Minimum Elevation Model",
             datatype="DERasterDataset",
             parameterType='Required',
             direction="Output")
         
-        param12 = arcpy.Parameter(
+        param10 = arcpy.Parameter(
             displayName="Output First Return Maximum Elevation/Canopy Height Model",
             datatype="DERasterDataset",
             parameterType='Required',
             direction="Output")
         
-        param13 = arcpy.Parameter(
+        param11 = arcpy.Parameter(
             displayName="Output Bare Earth Return Count Raster",
             datatype="DERasterDataset",
             parameterType='Required',
             direction="Output")
         
-        param14 = arcpy.Parameter(
+        param12 = arcpy.Parameter(
             displayName="Output First Return Count Raster",
             datatype="DERasterDataset",
             parameterType='Required',
             direction="Output")
         
-        param15 = arcpy.Parameter(
+        param13 = arcpy.Parameter(
             displayName="Output Intensity First Return Minimum Raster",
             datatype="DERasterDataset",
             parameterType='Required',
             direction="Output")
         
-        param16 = arcpy.Parameter(
+        param14 = arcpy.Parameter(
             displayName="Output Intensity First Return Maximum Raster",
             datatype="DERasterDataset",
             parameterType='Required',
             direction="Output")
         
-        param17 = arcpy.Parameter(
+        param15 = arcpy.Parameter(
             displayName="Output Intensity Bare Earth Maximum Raster",
             datatype="DERasterDataset",
             parameterType='Required',
             direction="Output")
         
-        param18 = arcpy.Parameter(
+        param16 = arcpy.Parameter(
             displayName="Output HUC12 Merged Breakline Polygon Features",
             datatype="DEFeatureClass",
             parameterType='Required',
             direction="Output")
         
-        param19 = arcpy.Parameter(
+        param17 = arcpy.Parameter(
             displayName="Output HUC12 Merged Breakline Polyline Features",
             datatype="DEFeatureClass",
             parameterType='Required',
             direction="Output")
         
-        param20 = arcpy.Parameter(
+        param18 = arcpy.Parameter(
             name="ept_wesm_features",
             displayName="EPT WESM Feature for AOI",
             datatype="DEFeatureClass",
@@ -200,8 +188,7 @@ class Tool(object):
                   param4, param5, param6, param7,
                   param8, param9, param10, param11,
                   param12, param13, param14, param15,
-                  param16, param17, param18, param19,
-                  param20]
+                  param16, param17, param18]
         # params = [dem_polygon, snap, ept_wesm_file, flib_metadata_template, derivative_metadata,
         #  procDir, eleBaseDir, softwareDir, pdal_exe, gsds,
         #  fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
@@ -268,7 +255,7 @@ def getfields(infc, fieldString = '', fieldType = ''):
     return fieldNames
 
 
-def processEptLas(sgdb, softwareDir, sfldr, srOutCode, fixedFolder, geom, ept_las, srOut, inm, FDSet, procDir, allTilesList, log, time, work_id):
+def processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom, ept_las, srOut, inm, FDSet, procDir, allTilesList, log, time, work_id):
     '''process a cursor row of data by creating a suitable las file from the input las/laz/zlas dataset
     This inlcudes project and clipping las data files into output dataset and also creating a multipoint
     file from the las data if there is any within the extent'''
@@ -309,7 +296,7 @@ def processEptLas(sgdb, softwareDir, sfldr, srOutCode, fixedFolder, geom, ept_la
 
         if fixedLasPath in allTilesList:#non 0 amount of lidar points in las
             ## generate multipoint feature class from lidar class 2 (BE) points
-            ptOut, cl2Las = genClass2AndMultiPoints(fixedLasPath, sfx, srOut, inm, FDSet, procDir, softwareDir, log)
+            ptOut, cl2Las = genClass2AndMultiPoints(fixedLasPath, sfx, srOut, inm, FDSet, procDir, log)
         # ready so there is something to return
         if 'cl2Las' not in locals():
             cl2Las = None
@@ -740,7 +727,7 @@ def fill_donut_slow(fc):
         polyGeo.removeAll()
     del rows,row
 
-def genClass2AndMultiPoints(allLAZ, sfx, srOut, inm, FDSet, procDir, softwareDir, log):
+def genClass2AndMultiPoints(allLAZ, sfx, srOut, inm, FDSet, procDir, log):
     try:
         if allLAZ.endswith('.laz') or allLAZ.endswith('.las'):
             """Filters LAS points to class 2 and creates multipoints in FDSet"""
@@ -749,16 +736,22 @@ def genClass2AndMultiPoints(allLAZ, sfx, srOut, inm, FDSet, procDir, softwareDir
         ## Filter LAS to class 2 and 8 (key points), LAS 1.4 now has class 8 as reserved
             # LASTools requires " around file names with spaces, ' not allowed, (Windows Command Line too?)
             # Use pdal for this? https://pdal.io/en/stable/apps/translate.html#example-1
-            log.debug('--- Use las2las at ' + time.asctime())
-            rc = subprocess.call(os.path.join(softwareDir, 'LASTools', 'bin', 'las2las') + ' -i "' + allLAZ + '" -keep_class 2 8 -o ' + cl2LAS, shell=True)
-            if rc == 0 and not os.path.isfile(cl2LAS):
-                log.warning('las2las did not create class 2 points file: ' + cl2LAS)
-                lasMP = None
-            elif rc == 0:
-                log.debug('--- Create las non-Minnesota Multipoint at ' + time.asctime())
-                lasMP = arcpy.LASToMultipoint_3d(cl2LAS, inm + "\\pts" + sfx, "1", input_coordinate_system = srOut)
+            # log.debug('--- Use las2las at ' + time.asctime())
+            if allLAZ.endswith('.laz'):
+                log.debug('--- Using ConvertLas to decompress LAZ at ' + time.asctime())
+                las_from_laz = arcpy.ConvertLas_conversion(allLAZ, target_folder=procDir, compression=None, las_options=None)
             else:
-                log.warning('las2las did not execute successfully')
+                las_from_laz = allLAZ
+
+            # rc = subprocess.call(os.path.join(softwareDir, 'LASTools', 'bin', 'las2las') + ' -i "' + allLAZ + '" -keep_class 2 8 -o ' + cl2LAS, shell=True)
+            # if rc == 0 and not os.path.isfile(cl2LAS):
+            #     log.warning('las2las did not create class 2 points file: ' + cl2LAS)
+            #     lasMP = None
+            # elif rc == 0:
+            log.debug('--- Create las non-Minnesota Multipoint at ' + time.asctime())
+            lasMP = arcpy.LASToMultipoint_3d(cl2LAS, inm + "\\pts" + sfx, "1", class_code = [2,8], input_coordinate_system = srOut)
+            # else:
+                # log.warning('las2las did not execute successfully')
 
         ##        os.remove(cl2LAS)
 
@@ -1606,7 +1599,7 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                         stats = os.stat(ept_las_full_filename)
                         if stats.st_size > las_size_threshold:
                             log.info('converting las to zlas for archive')
-                            zlas_result = arcpy.conversion.ConvertLas(ept_las_full_filename, eptDir.replace(os.path.sep, os.path.altsep), compression = 'ZLAS')
+                            zlas_result = arcpy.conversion.ConvertLas(ept_las_full_filename, eptDir.replace(os.path.sep, os.path.altsep), compression = 'ZLAS', las_options = None)
                             log.info(zlas_result)
                             # arcpy.Delete_management(ept_las_full_filename)
                         else:
@@ -1631,7 +1624,7 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 
                     # if co.returncode == 0:
                     if os.path.exists(ept_las_full_filename) and stats.st_size > las_size_threshold:
-                        cl2Las = processEptLas(sgdb, softwareDir, sfldr, srOutCode, fixedFolder, geom_srOut, ept_las_full_filename, srOut, inm, FDSet, procDir, allTilesList, log, time, work_id)
+                        cl2Las = processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom_srOut, ept_las_full_filename, srOut, inm, FDSet, procDir, allTilesList, log, time, work_id)
                         #remove invalid geometry
                         if cl2Las is None:
                             log.warning('deleting ' + str(geom_srOut_copy))
@@ -1657,7 +1650,7 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
     return cl2Las, geom_srOut_copy
 
 def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
-         procDir, eleBaseDir, softwareDir, pdal_exe, gsds,
+         procDir, pdal_exe, gsds,
          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_file, cleanup, messages):
 
@@ -1971,18 +1964,16 @@ if __name__ == "__main__":
 
     # inputs then outputs
     (dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
-         procDir, eleBaseDir, softwareDir, pdal_exe, gsds,
+         procDir, pdal_exe, gsds,
          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, wesm_project_file
-        ) = (sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5],
-              sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10], 
-              sys.argv[11], sys.argv[12],
-              sys.argv[13], sys.argv[14], sys.argv[15], sys.argv[16], sys.argv[17], sys.argv[18], sys.argv[19], sys.argv[20], sys.argv[21])
+        ) = [i for i in sys.argv[1:]]
 
+    messages = msgStub()
 
     doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
-         procDir, eleBaseDir, softwareDir, pdal_exe, gsds,
+         procDir, pdal_exe, gsds,
          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
-         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, wesm_project_file, cleanup, msgStub())
+         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, wesm_project_file, cleanup, messages)#msgStub())
 
     # arcpy.AddMessage("Back from doEPT!")
