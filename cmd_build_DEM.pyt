@@ -14,22 +14,22 @@ import sys
 import os
 import time
 import subprocess
-from subprocess import call
+# from subprocess import call
 import platform
 import glob
 import traceback
 from os.path import join as opj
 
-login = os.getlogin()
+# login = os.getlogin()
     
-if login == 'bkgelder':
-    boxes = ['C:\\Users\\bkgelder\\Box\\Data_Sharing\\Scripts\\basics', 'O:\\DEP\\Scripts\\basics']
-else:
-    boxes = ['C:\\Users\\idep2\\Box\\Scripts\\basics', 'O:\\DEP\\Scripts\\basics']
+# if login == 'bkgelder':
+#     boxes = ['C:\\Users\\bkgelder\\Box\\Data_Sharing\\Scripts\\basics', 'O:\\DEP\\Scripts\\basics']
+# else:
+#     boxes = ['C:\\Users\\idep2\\Box\\Scripts\\basics', 'O:\\DEP\\Scripts\\basics']
 
-for box in boxes:
-    if os.path.isdir(box):
-        sys.path.append(box)
+# for box in boxes:
+#     if os.path.isdir(box):
+#         sys.path.append(box)
 
 import dem_functions as df
 
@@ -296,13 +296,62 @@ def processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom, ept_las, srOut, inm
 
         if fixedLasPath in allTilesList:#non 0 amount of lidar points in las
             ## generate multipoint feature class from lidar class 2 (BE) points
-            ptOut, cl2Las = genClass2AndMultiPoints(fixedLasPath, sfx, srOut, inm, FDSet, procDir, log)
+#             ptOut, cl2Las = genClass2AndMultiPoints(fixedLasPath, sfx, srOut, inm, FDSet, procDir, log)
+
+# def genClass2AndMultiPoints(allLAZ, sfx, srOut, inm, FDSet, procDir, log):
+#     try:
+            allLAZ = fixedLasPath
+            if allLAZ.endswith('.laz') or allLAZ.endswith('.las'):
+                """Filters LAS points to class 2 and creates multipoints in FDSet"""
+                lasBase = os.path.splitext(os.path.basename(allLAZ))[0]
+                # cl2LAS = os.path.join(procDir, arcpy.ValidateTableName(lasBase + '_cl2', procDir) + '.las')
+            ## Filter LAS to class 2 and 8 (key points), LAS 1.4 now has class 8 as reserved
+                # LASTools requires " around file names with spaces, ' not allowed, (Windows Command Line too?)
+                # Use pdal for this? https://pdal.io/en/stable/apps/translate.html#example-1
+                # log.debug('--- Use las2las at ' + time.asctime())
+                if allLAZ.endswith('.laz'):
+                    log.debug('--- Using ConvertLas to decompress LAZ at ' + time.asctime())
+                    las_from_laz = arcpy.ConvertLas_conversion(allLAZ, target_folder=procDir, compression=None, las_options=None)
+                else:
+                    las_from_laz = allLAZ
+
+                # rc = subprocess.call(os.path.join(softwareDir, 'LASTools', 'bin', 'las2las') + ' -i "' + allLAZ + '" -keep_class 2 8 -o ' + cl2LAS, shell=True)
+                # if rc == 0 and not os.path.isfile(cl2LAS):
+                #     log.warning('las2las did not create class 2 points file: ' + cl2LAS)
+                #     lasMP = None
+                # elif rc == 0:
+                log.debug('--- Create las non-Minnesota Multipoint at ' + time.asctime())
+                lasMP = arcpy.LASToMultipoint_3d(las_from_laz, inm + "\\pts" + sfx, "1", class_code = [2,8], input_coordinate_system = srOut)
+                # else:
+                    # log.warning('las2las did not execute successfully')
+
+            ##        os.remove(cl2LAS)
+
+            elif allLAZ.endswith('.zlas'):
+                log.debug('--- Create zlas non-Minnesota Multipoint at ' + time.asctime())
+                lasMP = arcpy.LASToMultipoint_3d(allLAZ, inm + "\\pts" + sfx, "1", class_code = [2,8], input_coordinate_system = srOut)
+
+            if lasMP:#allLAZ.endswith('.laz') and os.path.isfile(cl2LAS) or allLAZ.endswith('.zlas'):
+            ## Clip multipoints
+        ####        if untiledByLas:
+        ####            lasMP = arcpy.Clip_analysis(lasMP, untiledByLas, inm + "\\pts_clp_" + str(rowCounter))
+                ptsName = arcpy.ValidateTableName('pts_' + lasBase, os.path.join(str(FDSet)))
+                ptOut = projIfNeeded(lasMP, os.path.join(str(FDSet), ptsName), srOut)
+
+            else:
+                log.warning('no ptOut created, setting to None')
+                ptOut = None
+
+        # ##    return cl2LAS, ptOut
+        #     return ptOut, cl2LAS
+
+
         # ready so there is something to return
         if 'cl2Las' not in locals():
             cl2Las = None
         if 'ptOut' not in locals():
             ptOut = None
-        log.warning('ptOut: ' + str(ptOut) + ' and cl2Las ' + str(cl2Las))
+        log.info('ptOut: ' + str(ptOut) + ' and cl2Las ' + str(cl2Las))
 
         return cl2Las
 
@@ -1950,7 +1999,27 @@ if __name__ == "__main__":
         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
         cleanup = False
 
-        parameters = ['C:\\Program Files\\ArcGIS\\Pro\\bin\\Python\\envs\\arcgispro-py3\\pythonw.exe', 'C:\\DEP\\Scripts\\basics\\cmd_build_DEM.pyt', 'D:\\DEP\\Man_Data_ACPF\\dep_ACPF2022\\09020104\\idepACPF090201040401.gdb\\buf_090201040401', 'O:\\DEP\\Basedata_Summaries\\Basedata_26915.gdb/Snap1m', 'O:\\DEP\\Elev_Base_Data\\ept\\ept.gdb\\ept_resources_2023_07_01', 'O:\\DEP\\toolMetadata\\FLib_DEMs2022_mTemplate.xml', 'O:\\DEP\\toolMetadata\\FLib_Derivatives2022_mTemplate.xml', 'D:\\DEP_Proc\\DEMProc\\LAS_dem2013_3m_090201040401', 'O:\\DEP\\Elev_Base_Data', 'C:\\Software', 'C:\\Users\\bkgelder\\Anaconda3\\envs\\pda_trial_2022_09_09\\Library\\bin\\pdal.exe', '3,2,1', 'O:\\DEP\\LiDAR_Current\\elev_FLib_mean18\\09020104\\ef3m090201040401.tif', 'O:\\DEP\\LiDAR_Current\\surf_el_Lib\\09020104\\bemin3m090201040401.tif', 'O:\\DEP\\LiDAR_Current\\surf_el_Lib\\09020104\\frmax3m090201040401.tif', 'O:\\DEP\\LiDAR_Current\\count_Lib\\09020104\\cbe3m090201040401.tif', 'O:\\DEP\\LiDAR_Current\\count_Lib\\09020104\\cfr3m090201040401.tif', 'O:\\DEP\\LiDAR_Current\\int_Lib\\09020104\\fr_int_min3m090201040401.tif', 'O:\\DEP\\LiDAR_Current\\int_Lib\\09020104\\fr_int_max3m090201040401.tif', 'O:\\DEP\\LiDAR_Current\\int_Lib\\09020104\\be_int_max3m090201040401.tif', 'O:\\DEP\\LiDAR_Current\\bl_Lib\\09020104\\breaks_09020104.gdb\\break_polys_090201040401', 'O:\\DEP\\LiDAR_Current\\bl_Lib\\09020104\\breaks_09020104.gdb\\break_lines_090201040401', 'D:\\DEP\\Man_Data_ACPF\\dep_ACPF2022\\09020104\\idepACPF090201040401.gdb\\wesm_ept_resources_2023_07_01_090201040401']
+        parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+	"C:/DEP/Scripts/basics/cmd_build_DEM.pyt",
+	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/07130002/idepACPF071300020205.gdb/buf_071300020205",
+	"D:/DEP/Basedata_Summaries/Basedata_26915.gdb/Snap1m",
+	"M:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2024_02_01",
+	"M:/DEP/toolMetadata/FLib_DEMs2022_mTemplate.xml",
+	"M:/DEP/toolMetadata/FLib_Derivatives2022_mTemplate.xml",
+	"D:/DEP_Proc/DEMProc/LAS_dem2013_3m_071300020205",
+	"C:/Users/bkgelder/Anaconda3/envs/pda_trial_2022_09_09/Library/bin/pdal.exe",
+	"3,2,1",
+	"M:/DEP/LiDAR_Current/elev_FLib_mean18/07130002/ef3m071300020205.tif",
+	"M:/DEP/LiDAR_Current/surf_el_Lib/07130002/bemin3m071300020205.tif",
+	"M:/DEP/LiDAR_Current/surf_el_Lib/07130002/frmax3m071300020205.tif",
+	"M:/DEP/LiDAR_Current/count_Lib/07130002/cbe3m071300020205.tif",
+	"M:/DEP/LiDAR_Current/count_Lib/07130002/cfr3m071300020205.tif",
+	"M:/DEP/LiDAR_Current/int_Lib/07130002/fr_int_min3m071300020205.tif",
+	"M:/DEP/LiDAR_Current/int_Lib/07130002/fr_int_max3m071300020205.tif",
+	"M:/DEP/LiDAR_Current/int_Lib/07130002/be_int_max3m071300020205.tif",
+	"M:/DEP/LiDAR_Current/bl_Lib/07130002/breaks_07130002.gdb/break_polys_071300020205",
+	"M:/DEP/LiDAR_Current/bl_Lib/07130002/breaks_07130002.gdb/break_lines_071300020205",
+	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/07130002/idepACPF071300020205.gdb/wesm_ept_resources_2024_02_01_071300020205"]
         for i in parameters[2:]:
             sys.argv.append(i)
 
