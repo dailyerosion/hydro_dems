@@ -304,37 +304,21 @@ def processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom, ept_las, srOut, inm
             if allLAZ.endswith('.laz') or allLAZ.endswith('.las'):
                 """Filters LAS points to class 2 and creates multipoints in FDSet"""
                 lasBase = os.path.splitext(os.path.basename(allLAZ))[0]
-                # cl2LAS = os.path.join(procDir, arcpy.ValidateTableName(lasBase + '_cl2', procDir) + '.las')
-            ## Filter LAS to class 2 and 8 (key points), LAS 1.4 now has class 8 as reserved
-                # LASTools requires " around file names with spaces, ' not allowed, (Windows Command Line too?)
-                # Use pdal for this? https://pdal.io/en/stable/apps/translate.html#example-1
-                # log.debug('--- Use las2las at ' + time.asctime())
                 if allLAZ.endswith('.laz'):
                     log.debug('--- Using ConvertLas to decompress LAZ at ' + time.asctime())
                     las_from_laz = arcpy.ConvertLas_conversion(allLAZ, target_folder=procDir, compression=None, las_options=None)
                 else:
                     las_from_laz = allLAZ
 
-                # rc = subprocess.call(os.path.join(softwareDir, 'LASTools', 'bin', 'las2las') + ' -i "' + allLAZ + '" -keep_class 2 8 -o ' + cl2LAS, shell=True)
-                # if rc == 0 and not os.path.isfile(cl2LAS):
-                #     log.warning('las2las did not create class 2 points file: ' + cl2LAS)
-                #     lasMP = None
-                # elif rc == 0:
                 log.debug('--- Create las non-Minnesota Multipoint at ' + time.asctime())
                 lasMP = arcpy.LASToMultipoint_3d(las_from_laz, inm + "\\pts" + sfx, "1", class_code = [2,8], input_coordinate_system = srOut)
-                # else:
-                    # log.warning('las2las did not execute successfully')
-
-            ##        os.remove(cl2LAS)
 
             elif allLAZ.endswith('.zlas'):
                 log.debug('--- Create zlas non-Minnesota Multipoint at ' + time.asctime())
                 lasMP = arcpy.LASToMultipoint_3d(allLAZ, inm + "\\pts" + sfx, "1", class_code = [2,8], input_coordinate_system = srOut)
+                las_from_laz = allLAZ
 
-            if lasMP:#allLAZ.endswith('.laz') and os.path.isfile(cl2LAS) or allLAZ.endswith('.zlas'):
-            ## Clip multipoints
-        ####        if untiledByLas:
-        ####            lasMP = arcpy.Clip_analysis(lasMP, untiledByLas, inm + "\\pts_clp_" + str(rowCounter))
+            if lasMP:
                 ptsName = arcpy.ValidateTableName('pts_' + lasBase, os.path.join(str(FDSet)))
                 ptOut = projIfNeeded(lasMP, os.path.join(str(FDSet), ptsName), srOut)
 
@@ -344,6 +328,8 @@ def processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom, ept_las, srOut, inm
 
         # ##    return cl2LAS, ptOut
         #     return ptOut, cl2LAS
+                
+            cl2Las = las_from_laz
 
 
         # ready so there is something to return
@@ -1879,8 +1865,6 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_templa
                     fill_donut_slow(tcdFdSet)
 
                     terrains, tf, terrain_args, pyramid_args = buildTerrains(finalMP, FDSet, tcdFdSet, finalHb, finalHl, finalNoZHb, poorZHb, log, windowsizeMethods, time)
-
-                    lasdAll = arcpy.CreateLasDataset_management(allTilesList, os.path.join(procDir, 'huc_all.lasd'), spatial_reference = arcpy.SpatialReference(int(srOutCode)))
                     cl2_check = os.path.join(procDir, '*' + cl2Las[-7:])
                     cl2_tiles_list = glob.glob(cl2_check)
                     # assume lidar data in same spatial reference as output, ExtractLAS should handle that
@@ -1891,6 +1875,7 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_templa
 
                     lidar_metadata_info = [terrain_args, nowYmd, collect_starts_min, collect_ends_max, collect_majority, pyramid_args]
 
+                    lasdAll = arcpy.CreateLasDataset_management(allTilesList, os.path.join(procDir, 'huc_all.lasd'), spatial_reference = arcpy.SpatialReference(int(srOutCode)))
                     # ## Following code runs slowly at times and is not being used further 2023.12.21
                     # # classify overlap in lasdAll
                     # arcpy.ddd.ClassifyLasOverlap(lasdAll)
