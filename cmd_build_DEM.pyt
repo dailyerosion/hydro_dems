@@ -1612,6 +1612,7 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                     ept_las_full_filename = os.altsep.join([procDir.replace(os.path.sep, os.path.altsep), ept_las_filename])
                     if os.path.isfile(ept_zlas_full_filename) and not os.path.isfile(ept_las_full_filename):
                         log.info('converting zlas to las')
+                        log.info(f"arguments: {ept_zlas_full_filename}, {procDir}")
                         las_result = arcpy.conversion.ConvertLas(ept_zlas_full_filename, procDir)#, compression = 'ZLAS')
                         log.info(las_result)
                     # if zlas does not exist, get las then convert to zlas
