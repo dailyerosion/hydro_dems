@@ -189,10 +189,10 @@ class Tool(object):
                   param8, param9, param10, param11,
                   param12, param13, param14, param15,
                   param16, param17, param18]
-        # params = [dem_polygon, snap, ept_wesm_file, flib_metadata_template, derivative_metadata,
+        # params = [dem_polygon, snap, ept_wesm_project_file, flib_metadata_template, derivative_metadata,
         #  procDir, eleBaseDir, softwareDir, pdal_exe, gsds,
         #  fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
-        #  int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, wesm_project_file]
+        #  int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_project_file]
         return params
 
 
@@ -1444,7 +1444,37 @@ def addMetadata(outDEM, paraDict, template_file_path, log):
             print(msgs)
             log.warning(msgs)
 
-def create_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode):
+def create_cl2_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode):
+    '''Writes a json pipeline for use by pdal (point data abstraction library)'''
+
+    ept_json_full_filename = os.path.join(eptDir, ept_json_filename)
+
+    json_str = '''{
+"pipeline": [
+{
+    "bounds": "([''' + extent_request + '''])",
+    "filename": "''' + ept_address + '''",
+    "type": "readers.ept",
+    "tag": "readdata"
+},
+{
+    "tag": "getclass2",
+    "type": "filters.range",
+    "limits": "Classification[2:2]"
+},
+{
+    "filename": "''' + ept_las_full_filename + '''",
+    "tag": "writerslas",
+    "type": "writers.las"
+}]}'''
+
+    json_file_obj = open(ept_json_full_filename, 'w')
+    json_file_obj.write(json_str)
+    json_file_obj.close()
+
+    return ept_json_full_filename
+
+def create_ept_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode):
     '''Writes a json pipeline for use by pdal (point data abstraction library)'''
 
     ept_json_full_filename = os.path.join(eptDir, ept_json_filename)
@@ -1622,7 +1652,7 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 
                         ept_json_filename = "_".join(["get", "ept", huc12, str(work_id_part) + ".json"])
 
-                        ept_json_full_filename = create_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode)
+                        ept_json_full_filename = create_ept_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode)
 
                         if not os.path.exists(ept_las_full_filename):
                             run_string = " ".join([pdal_exe, "pipeline", ept_json_full_filename])
@@ -1688,9 +1718,21 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
          procDir, pdal_exe, gsds,
          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
-         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_file, cleanup, messages):
+         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_project_file, cleanup, messages):
 
-    messages.addMessage("Tool: Executing with parameters '{:s}'".format(ept_wesm_file))
+    arguments = [dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
+         procDir, pdal_exe, gsds,
+         fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
+         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_project_file]
+
+    for a in arguments:
+        if a == arguments[0]:
+            arg_str = a + '\n'
+        else:
+            arg_str += a + '\n'
+
+    messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
+
 
     arcpy.env.overwriteOutput = True
 
@@ -1838,10 +1880,12 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_templa
             arcpy.CalculateField_management(prev_merged, 'area_field', '!shape.area!', 'Python 3')
 
             ptr = arcpy.conversion.PolygonToRaster(prev_merged, work_id_name, opj(sgdb, 'ptr'))
-            fs1 = FocalStatistics(ptr, NbrRectangle(5,5), 'RANGE')
-            internal_regions = Con(fs1 == 0, ptr)
+            int_ptr = Int(ptr)
+            fs1 = FocalStatistics(int_ptr, NbrRectangle(5,5), 'RANGE')
+            internal_regions = Con(fs1 == 0, int_ptr)
+            internal_regions.save(opj(sgdb, 'intrnl_rgns'))
             
-            merged_copy = arcpy.CopyFeatures_management(prev_merged, wesm_project_file)
+            merged_copy = arcpy.CopyFeatures_management(prev_merged, ept_wesm_project_file)
 
             ept_lidar_fcs = arcpy.ListFeatureClasses(os.path.basename(geom_srOut_copy.getOutput(0))[:10] + '*')
             tcdFdSet_ept = arcpy.Union_analysis(ept_lidar_fcs)
@@ -1868,6 +1912,7 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_templa
                     terrains, tf, terrain_args, pyramid_args = buildTerrains(finalMP, FDSet, tcdFdSet, finalHb, finalHl, finalNoZHb, poorZHb, log, windowsizeMethods, time)
                     cl2_check = os.path.join(procDir, '*' + cl2Las[-7:])
                     cl2_tiles_list = glob.glob(cl2_check)
+                    log.debug(f"cl2_tiles_list: {cl2_tiles_list}")
                     # assume lidar data in same spatial reference as output, ExtractLAS should handle that
                     lasdGround = setupLasDataset(cl2_tiles_list, tcdFdSet, procDir, None, None, srSfx, None, log, time, arcpy.SpatialReference(int(srOutCode)))
                     log.info('finished setting up las dataset at ' + time.asctime())
@@ -1994,7 +2039,7 @@ if __name__ == "__main__":
 	"M:/DEP/toolMetadata/FLib_Derivatives2022_mTemplate.xml",
 	"D:/DEP_Proc/DEMProc/LAS_dem2013_3m_071300020205",
 	"C:/Users/bkgelder/Anaconda3/envs/pda_trial_2022_09_09/Library/bin/pdal.exe",
-	"3,2,1",
+	"3",
 	"M:/DEP/LiDAR_Current/elev_FLib_mean18/07130002/ef3m071300020205.tif",
 	"M:/DEP/LiDAR_Current/surf_el_Lib/07130002/bemin3m071300020205.tif",
 	"M:/DEP/LiDAR_Current/surf_el_Lib/07130002/frmax3m071300020205.tif",
@@ -2021,7 +2066,7 @@ if __name__ == "__main__":
     (dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
          procDir, pdal_exe, gsds,
          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
-         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, wesm_project_file
+         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_project_file
         ) = [i for i in sys.argv[1:]]
 
     messages = msgStub()
@@ -2029,6 +2074,6 @@ if __name__ == "__main__":
     doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
          procDir, pdal_exe, gsds,
          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
-         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, wesm_project_file, cleanup, messages)#msgStub())
+         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_project_file, cleanup, messages)#msgStub())
 
     # arcpy.AddMessage("Back from doEPT!")
