@@ -1444,17 +1444,16 @@ def addMetadata(outDEM, paraDict, template_file_path, log):
             print(msgs)
             log.warning(msgs)
 
-def create_cl2_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode):
+def create_cl2_json_pipeline(cl2_json_filename, eptDir, all_las_file, cl2_las_full_filename):
     '''Writes a json pipeline for use by pdal (point data abstraction library)'''
 
-    ept_json_full_filename = os.path.join(eptDir, ept_json_filename)
+    cl2_json_full_filename = os.altsep.join([eptDir, cl2_json_filename])
 
     json_str = '''{
 "pipeline": [
 {
-    "bounds": "([''' + extent_request + '''])",
-    "filename": "''' + ept_address + '''",
-    "type": "readers.ept",
+    "filename": "''' + all_las_file + '''",
+    "type": "readers.las",
     "tag": "readdata"
 },
 {
@@ -1463,21 +1462,21 @@ def create_cl2_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, e
     "limits": "Classification[2:2]"
 },
 {
-    "filename": "''' + ept_las_full_filename + '''",
+    "filename": "''' + cl2_las_full_filename + '''",
     "tag": "writerslas",
     "type": "writers.las"
 }]}'''
 
-    json_file_obj = open(ept_json_full_filename, 'w')
+    json_file_obj = open(cl2_json_full_filename, 'w')
     json_file_obj.write(json_str)
     json_file_obj.close()
 
-    return ept_json_full_filename
+    return cl2_json_full_filename
 
 def create_ept_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode):
     '''Writes a json pipeline for use by pdal (point data abstraction library)'''
 
-    ept_json_full_filename = os.path.join(eptDir, ept_json_filename)
+    ept_json_full_filename = os.altsep.join(eptDir, ept_json_filename)
 
     json_str = '''{
 "pipeline": [
@@ -1910,8 +1909,29 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_templa
                     fill_donut_slow(tcdFdSet)
 
                     terrains, tf, terrain_args, pyramid_args = buildTerrains(finalMP, FDSet, tcdFdSet, finalHb, finalHl, finalNoZHb, poorZHb, log, windowsizeMethods, time)
-                    cl2_check = os.path.join(procDir, '*' + cl2Las[-7:])
-                    cl2_tiles_list = glob.glob(cl2_check)
+
+                    # cl2_tiles_list = filter_to_cl2()
+                    check_4_all = os.altsep.join([os.path.dirname(cl2Las), '*' + cl2Las[-7:]])
+                    all_tiles_list = glob.glob(check_4_all)
+                    cl2_tiles_list = []
+                    for all_tile in all_tiles_list:
+                        # JSON likes / not \
+                        all_tile_alt = all_tile.replace(os.sep, os.altsep)
+                        work_id = os.path.basename(all_tile_alt).split('_')[2]
+
+                        cl2_json_filename = "_".join(["filter", "fixed_cl2", huc12, work_id + ".json"])
+
+                        cl2_las_full_filename = all_tile_alt.replace('.las', '_cl2.las')
+                        cl2_tiles_list.append(cl2_las_full_filename)
+                        
+                        cl2_las_json = create_cl2_json_pipeline(cl2_json_filename, eptDir, all_tile_alt, cl2_las_full_filename)
+
+                        cl2_run_string = " ".join([pdal_exe, "pipeline", cl2_las_json])
+                        log.info(f"running: {cl2_run_string}")
+                        co = subprocess.run(cl2_run_string)
+                        if co.returncode != 0:
+                            log.warning(f"Failed on {cl2_run_string}")
+
                     log.debug(f"cl2_tiles_list: {cl2_tiles_list}")
                     # assume lidar data in same spatial reference as output, ExtractLAS should handle that
                     lasdGround = setupLasDataset(cl2_tiles_list, tcdFdSet, procDir, None, None, srSfx, None, log, time, arcpy.SpatialReference(int(srOutCode)))
