@@ -57,8 +57,8 @@ class Toolbox(object):
 class Tool(object):
     def __init__(self):
         """Define the tool (tool name is the name of the class)."""
-        self.label = "Tool"
-        self.description = ""
+        self.label = "Build DEMs from LiDAR by EPT download"
+        self.description = "Must install PDAL and run get_merge_lidar_datasets first to merge EPT and WESM. Build a DEM for a polygon by downloading the data through EPT format via PDAL."
         self.canRunInBackground = False
 
     def getParameterInfo(self):
@@ -72,7 +72,7 @@ class Tool(object):
             direction="Input")
         
         param1 = arcpy.Parameter(
-            name="snap_raster",
+            name="snap",
             displayName="Snap Raster",
             datatype="DEFeatureClass",
             parameterType='Required',
@@ -86,100 +86,115 @@ class Tool(object):
             direction="Input")
         
         param3 = arcpy.Parameter(
+            name = "flib_metadata_template",
             displayName="DEM metadata template",
             datatype="GPDataFile",
             parameterType='Required',
             direction="Input")
         
         param4 = arcpy.Parameter(
+            name = "derivative_metadata",
             displayName="LiDAR derivatives metadata template",
             datatype="GPDataFile",
             parameterType='Required',
             direction="Input")
         
         param5 = arcpy.Parameter(
+            name = "procDir",
             displayName="Local Processing Directory",
             datatype="DEFolder",
-            parameterType='Optional',
+            parameterType='Required',
             direction="Input")
         
         param6 = arcpy.Parameter(
+            name = "pdal_exe",
             displayName="PDAL.exe Location",
             datatype="GPDataFile",
             parameterType='Required',
             direction="Input")
         
         param7 = arcpy.Parameter(
+            name = "gsds",
             displayName="Integer Resolution/Ground Sample Distance of output rasters, multiples joined by comma",
             datatype="GPString",
             parameterType='Required',
             direction="Input")
         
         param8 = arcpy.Parameter(
+            name = "fElevFile",
             displayName="Output Pit-Filled Elevation Model",
             datatype="DERasterDataset",
             parameterType='Required',
             direction="Output")
         
         param9 = arcpy.Parameter(
+            name = "bareEarthReturnMinFile",
             displayName="Output Bare Earth Minimum Elevation Model",
             datatype="DERasterDataset",
-            parameterType='Required',
+            parameterType='Optional',
             direction="Output")
         
         param10 = arcpy.Parameter(
-            displayName="Output First Return Maximum Elevation/Canopy Height Model",
+            name = "firstReturnMaxFile",
+            displayName="Output First Return Maximum Elevation/Surface Model",
             datatype="DERasterDataset",
-            parameterType='Required',
+            parameterType='Optional',
             direction="Output")
         
         param11 = arcpy.Parameter(
+            name = "cntFile",
             displayName="Output Bare Earth Return Count Raster",
             datatype="DERasterDataset",
-            parameterType='Required',
+            parameterType='Optional',
             direction="Output")
         
         param12 = arcpy.Parameter(
+            name = "cnt1rFile",
             displayName="Output First Return Count Raster",
             datatype="DERasterDataset",
-            parameterType='Required',
+            parameterType='Optional',
             direction="Output")
         
         param13 = arcpy.Parameter(
+            name = "int1rMinFile",
             displayName="Output Intensity First Return Minimum Raster",
             datatype="DERasterDataset",
-            parameterType='Required',
+            parameterType='Optional',
             direction="Output")
         
         param14 = arcpy.Parameter(
+            name = "int1rMaxFile",
             displayName="Output Intensity First Return Maximum Raster",
             datatype="DERasterDataset",
-            parameterType='Required',
+            parameterType='Optional',
             direction="Output")
         
         param15 = arcpy.Parameter(
+            name = "intBeMaxFile",
             displayName="Output Intensity Bare Earth Maximum Raster",
             datatype="DERasterDataset",
-            parameterType='Required',
+            parameterType='Optional',
             direction="Output")
         
         param16 = arcpy.Parameter(
+            name = "breakpolys",
             displayName="Output HUC12 Merged Breakline Polygon Features",
             datatype="DEFeatureClass",
-            parameterType='Required',
+            parameterType='Optional',
             direction="Output")
         
         param17 = arcpy.Parameter(
+            name = "breaklines",
             displayName="Output HUC12 Merged Breakline Polyline Features",
             datatype="DEFeatureClass",
-            parameterType='Required',
+            parameterType='Optional',
             direction="Output")
         
         param18 = arcpy.Parameter(
-            name="ept_wesm_features",
+            name = "ept_wesm_project_file",
             displayName="EPT WESM Feature for AOI",
             datatype="DEFeatureClass",
-            parameterType='Required',
+            parameterType='Optional',
             direction="Output")
         
         param9.values = "3,2,1"#default value to create 3, 2, and 1 meter rasters
@@ -1012,7 +1027,7 @@ def updateResolution(filename, init_res, new_res, huc12, log):
 
 
 
-def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, internal_regions, ptr):
+def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, internal_regions):
 ##def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, frMinFile, intBeMaxFile, intBeMinFile, lastReturnMinFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, int_regions, ptr):
     '''creates multiple rasters from a las dataset, including min/max intensity of
     first return and bare earth surfaces, first return max and min surface, and z_range'''
@@ -1042,7 +1057,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
             int_zs_max = ZonalStatistics(internal_regions, 'VALUE', int1rMaxFile_sized, 'MAXIMUM')
             if int_zs_max.minimum < 256 and int_zs_max.maximum > 256:
                 int_lt_256 = LessThan(int_zs_max, 256)
-                recode_areas = ZonalStatistics(ptr, 'VALUE', int_lt_256, 'MAXIMUM')
+                recode_areas = ZonalStatistics(internal_regions, 'VALUE', int_lt_256, 'MAXIMUM')
                 multiplied_intensities = Raster(int1rMaxFile_sized) * 256
                 recoded_intensities = Con(recode_areas, multiplied_intensities, int1rMaxFile_sized)
                 recoded_intensities.save(int1rMaxFile_sized)
@@ -1994,7 +2009,7 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_templa
                 cntFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntFile)#paths)
                 terrainList = createRastersFromTerrains(log, demList, procDir, terrains, huc12)
 
-                buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, internal_regions, ptr)
+                buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, internal_regions)
 
                 mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windowsizeMethods, procDir, fElevFile, interpDict, named_cell_size, srOutNoVCS, terrain_args, pyramid_args, flib_metadata_template, lidar_metadata_info)
         else:
@@ -2059,7 +2074,7 @@ if __name__ == "__main__":
 	"M:/DEP/toolMetadata/FLib_Derivatives2022_mTemplate.xml",
 	"D:/DEP_Proc/DEMProc/LAS_dem2013_3m_071300020205",
 	"C:/Users/bkgelder/Anaconda3/envs/pda_trial_2022_09_09/Library/bin/pdal.exe",
-	"3",
+	"3,2,1",
 	"M:/DEP/LiDAR_Current/elev_FLib_mean18/07130002/ef3m071300020205.tif",
 	"M:/DEP/LiDAR_Current/surf_el_Lib/07130002/bemin3m071300020205.tif",
 	"M:/DEP/LiDAR_Current/surf_el_Lib/07130002/frmax3m071300020205.tif",
