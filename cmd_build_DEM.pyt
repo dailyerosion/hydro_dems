@@ -1027,7 +1027,7 @@ def updateResolution(filename, init_res, new_res, huc12, log):
 
 
 
-def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, internal_regions):
+def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, internal_regions, lidar_metadata_info, derivative_metadata):
 ##def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, frMinFile, intBeMaxFile, intBeMinFile, lastReturnMinFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, int_regions, ptr):
     '''creates multiple rasters from a las dataset, including min/max intensity of
     first return and bare earth surfaces, first return max and min surface, and z_range'''
@@ -1049,31 +1049,53 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
 
 
         log.warning('---Creating FR Max Intensity at ' + time.asctime())
-        lasd1rMaxIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
         recode_tf = False
         log.debug(f'ir.max: {internal_regions.maximum},ir.min: {internal_regions.minimum}')
         if internal_regions.maximum - internal_regions.minimum != 0:
             log.info('multiple regions')
-            int_zs_max = ZonalStatistics(internal_regions, 'VALUE', int1rMaxFile_sized, 'MAXIMUM')
+            int1rMaxFile_sized_temp = opj(os.path.dirname(int1rMaxFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
+            lasd1rMaxIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMaxFile_sized_temp, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
+            int_zs_max = ZonalStatistics(internal_regions, 'VALUE', int1rMaxFile_sized_temp, 'MAXIMUM')
             if int_zs_max.minimum < 256 and int_zs_max.maximum > 256:
                 int_lt_256 = LessThan(int_zs_max, 256)
                 recode_areas = ZonalStatistics(internal_regions, 'VALUE', int_lt_256, 'MAXIMUM')
-                multiplied_intensities = Raster(int1rMaxFile_sized) * 256
-                recoded_intensities = Con(recode_areas, multiplied_intensities, int1rMaxFile_sized)
+                multiplied_intensities = Raster(int1rMaxFile_sized_temp) * 256
+                recoded_intensities = Con(recode_areas, multiplied_intensities, int1rMaxFile_sized_temp)
                 recoded_intensities.save(int1rMaxFile_sized)
+                arcpy.Delete_management(int1rMaxFile_sized_temp)
                 recode_tf = True
             else:
                 log.info('all regions equal max intensity')
+                arcpy.CopyRaster_management(int1rMaxFile_sized_temp, int1rMaxFile_sized)
+                arcpy.Delete_management(int1rMaxFile_sized_temp)
         else:
             log.info('one region')
+            lasd1rMaxIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
+
+        terrain_args, nowYmd, collect_starts_min, collect_ends_max, collect_majority, pyramid_args = [i for i in lidar_metadata_info]
+
+        paraDict = {
+                '\n\nACPF: DEM Generation and Pit Fill Tool     ' : '\nRun Date: %s' % nowYmd,
+                # '\nUnknown Vintage Lidar Data: ' : False,#tiles_t_or_f,
+                '\nEarliest 3DEP Lidar Data: ' : collect_starts_min,
+                '\nLatest 3DEP Lidar Data: ' : collect_ends_max,
+                '\nLatest 3DEP Lidar Data: ' : collect_majority
+                }
+
+        addMetadata(int1rMaxFile_sized, paraDict, derivative_metadata, log)
 
         log.warning('---Creating FR Min Intensity at ' + time.asctime())
-        lasd1rMinIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMinFile_sized, 'INTENSITY', 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
         if recode_tf:
-            multiplied_intensities = Raster(int1rMinFile_sized) * 256
-            recoded_intensities = Con(recode_areas, multiplied_intensities, int1rMinFile_sized)
+            int1rMinFile_sized_temp = opj(os.path.dirname(int1rMinFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
+            lasd1rMinIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMinFile_sized_temp, 'INTENSITY', 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
+            multiplied_intensities = Raster(int1rMinFile_sized_temp) * 256
+            recoded_intensities = Con(recode_areas, multiplied_intensities, int1rMinFile_sized_temp)
             recoded_intensities.save(int1rMinFile_sized)
+            arcpy.Delete_management(int1rMinFile_sized_temp)
+        else:
+            lasd1rMinIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMinFile_sized, 'INTENSITY', 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
 
+        addMetadata(int1rMinFile_sized, paraDict, derivative_metadata, log)
 
 
         log.warning('---Creating FR Max surface at ' + time.asctime())
@@ -1081,6 +1103,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
         allReturnsMax = arcpy.LasDatasetToRaster_conversion(lasdAll, allReturnsMaxTempFile, interpolation_type = 'BINNING MAXIMUM SIMPLE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'FLOAT')
         allReturnsMaxCm = Int(Times(allReturnsMax, 100))
         allReturnsMaxCm.save(frMaxFile_sized)#locDict['surfaceElevFile'])#allReturnsMaxFile)
+        addMetadata(frMaxFile_sized, paraDict, derivative_metadata, log)
 
         # log.warning('---Creating FR Min surface at ' + time.asctime())
         # allReturnsMinTempFile = os.path.join(procDir, '_'.join(['tmp_frmin', str(demList[0]) + 'm', huc12, 'out.tif']))
@@ -1092,6 +1115,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
         cfrFileTemp = 'cnt_fr_' + str(demList[0]) + "m_" + huc12 + srSfx + '.tif'
         lasdCount = arcpy.LasPointStatsAsRaster_management(lasdAll, os.path.join(procDir, cfrFileTemp), 'POINT_COUNT', 'CELLSIZE', demList[0])
         cfrFileRasterObj = clipCountRaster(lasdCount, maskRastOut, cnt1rFile_sized)
+        addMetadata(cnt1rFile_sized, paraDict, derivative_metadata, log)
 
         # log.warning('---Counting Z Range at ' + time.asctime())
         # zrangeFileTemp = 'zrng_all_' + str(demList[0]) + "m_" + huc12 + srSfx + '.tif'
@@ -1126,12 +1150,17 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
         beReturnsMin = arcpy.LasDatasetToRaster_conversion(beLayer, beReturnsMinTempFile, interpolation_type = 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'FLOAT')
         beReturnsMinCm = Int(Times(beReturnsMin, 100))
         beReturnsMinCm.save(bareEarthReturnMinFile_sized)#locDict['bareEarthReturnMinFile'])#.replace('fr', 'be'))
+        addMetadata(bareEarthReturnMinFile_sized, paraDict, derivative_metadata, log)
 
-        lasdBeMaxIntensity = arcpy.LasDatasetToRaster_conversion(beLayer, intBeMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
         if recode_tf:
-            multiplied_intensities = Raster(intBeMaxFile_sized) * 256
-            recoded_intensities = Con(recode_areas, multiplied_intensities, intBeMaxFile_sized)
+            intBeMaxFile_sized_temp = opj(os.path.dirname(intBeMaxFile_sized), 'temp_' + os.path.basename(intBeMaxFile_sized))
+            lasdBeMaxIntensity = arcpy.LasDatasetToRaster_conversion(beLayer, intBeMaxFile_sized_temp, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
+            multiplied_intensities = Raster(intBeMaxFile_sized_temp) * 256
+            recoded_intensities = Con(recode_areas, multiplied_intensities, intBeMaxFile_sized_temp)
             recoded_intensities.save(intBeMaxFile_sized)
+        else:
+            lasdBeMaxIntensity = arcpy.LasDatasetToRaster_conversion(beLayer, intBeMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
+        addMetadata(intBeMaxFile_sized, paraDict, derivative_metadata, log)
 
 ##        # my current favorites  - minmax mild 18 terrain, binning min simple (almost too detailed),
 ##        interps = ['BINNING MINIMUM SIMPLE', 'BINNING AVERAGE SIMPLE', 'BINNING IDW SIMPLE', 'TRIANGULATION NATURAL_NEIGHBOR WINDOW_SIZE MINIMUM ' + str(demList[0]), 'TRIANGULATION LINEAR WINDOW_SIZE MINIMUM ' + str(demList[0]), 'TRIANGULATION NATURAL_NEIGHBOR WINDOW_SIZE CLOSEST_TO_MEAN ' + str(demList[0]), 'TRIANGULATION LINEAR WINDOW_SIZE CLOSEST_TO_MEAN ' + str(demList[0])]
@@ -1301,7 +1330,7 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procD
 
                 paraDict = {
                     '\n\nACPF: DEM Generation and Pit Fill Tool     ' : '\nRun Date: %s' % nowYmd,
-                    '\nUnknown Vintage Lidar Data' : False,#tiles_t_or_f,
+                    # '\nUnknown Vintage Lidar Data: ' : False,#tiles_t_or_f,
                     '\nEarliest 3DEP Lidar Data: ' : collect_starts_min,
                     '\nLatest 3DEP Lidar Data: ' : collect_ends_max,
                     '\nLatest 3DEP Lidar Data: ' : collect_majority,
@@ -1396,14 +1425,16 @@ def addMetadata(outDEM, paraDict, template_file_path, log):
 
         # Get the target item's Metadata object
         tgt_item_md = md.Metadata(outDEM)    
-                                   
+
         # Import the ACPF metadata content to the target item
         if not tgt_item_md.isReadOnly:
             tgt_item_md.importMetadata(src_file_path)
             tgt_item_md.title = os.path.split(outDEM)[1]
             tgt_item_md.credits = 'Analyst: %s' % os.getlogin()#getpass.getuser()
-            
+
             src_desc = tgt_item_md.summary
+            if src_desc == None:
+                src_desc = ''
             for key, value in paraDict.items():  
                 src_desc = src_desc + ('%s %s' % (key, value))
             tgt_item_md.summary = src_desc
@@ -1491,7 +1522,7 @@ def create_cl2_json_pipeline(cl2_json_filename, eptDir, all_las_file, cl2_las_fu
 def create_ept_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode):
     '''Writes a json pipeline for use by pdal (point data abstraction library)'''
 
-    ept_json_full_filename = os.altsep.join(eptDir, ept_json_filename)
+    ept_json_full_filename = os.altsep.join([eptDir, ept_json_filename])
 
     json_str = '''{
 "pipeline": [
@@ -2009,9 +2040,9 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_templa
                 cntFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntFile)#paths)
                 terrainList = createRastersFromTerrains(log, demList, procDir, terrains, huc12)
 
-                buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, internal_regions)
+                buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, internal_regions, lidar_metadata_info, derivative_metadata)
 
-                mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windowsizeMethods, procDir, fElevFile, interpDict, named_cell_size, srOutNoVCS, terrain_args, pyramid_args, flib_metadata_template, lidar_metadata_info)
+                # mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windowsizeMethods, procDir, fElevFile, interpDict, named_cell_size, srOutNoVCS, terrain_args, pyramid_args, flib_metadata_template, lidar_metadata_info)
         else:
             log.warning('lidar data area does not exist or does not exceed build threshold; DEM was not built')
 
