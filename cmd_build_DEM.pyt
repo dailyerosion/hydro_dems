@@ -1417,8 +1417,14 @@ def dismantleTerrains(terrainList, finalHb, finalNoZHb, badHb, finalHl, tcdFdSet
 ##            arcpy.Delete_management(terrain)
 
 
-def addMetadata(outDEM, paraDict, template_file_path, log):
+def addMetadata(outDEM, paraDict, template_file_path, log = None):
     # Set the standard-format metadata XML file's path
+    # need to load metadata editor via 'import arcpy.metadata as md'
+    # outDEM = raster to receive updated metadata
+    # paraDict = dictionary of key/value pairs to be stored in metadata
+    #   values stored include things like analyst, lidar acquisition date, etc.
+    # template_file_path = a template to load a basic summary from
+    # log = otional logging of error messages to a log file
     # scriptPath = sys.path[0]
     try:
         src_file_path = template_file_path
@@ -1451,7 +1457,8 @@ def addMetadata(outDEM, paraDict, template_file_path, log):
         elif sys.version_info.major == 3:
             arcpy.AddError(e)
             print(e)
-            log.warning(e)
+            if log is not None:
+                log.warning(e)
 
         tb = sys.exc_info()[2]
         tbinfo = traceback.format_tb(tb)[0]
@@ -1462,13 +1469,15 @@ def addMetadata(outDEM, paraDict, template_file_path, log):
         arcpy.AddError(pymsg)
         # Print Python error messages for use in Python / Python Window
         print(pymsg + "\n")
-        log.warning(pymsg)
+        if log is not None:
+            log.warning(pymsg)
 
         if arcpy.GetMessages(2) not in pymsg:
             msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
             arcpy.AddError(msgs)
             print(msgs)
-            log.warning(msgs)
+            if log is not None:
+                log.warning(msgs)
 
     except:
         print('handling as except')
@@ -1482,13 +1491,15 @@ def addMetadata(outDEM, paraDict, template_file_path, log):
         arcpy.AddError(pymsg)
         # Print Python error messages for use in Python / Python Window
         print(pymsg + "\n")
-        log.warning(pymsg)
+        if log is not None:
+            log.warning(pymsg)
 
         if arcpy.GetMessages(2) not in pymsg:
             msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
             arcpy.AddError(msgs)
             print(msgs)
-            log.warning(msgs)
+            if log is not None:
+                log.warning(msgs)
 
 def create_cl2_json_pipeline(cl2_json_filename, eptDir, all_las_file, cl2_las_full_filename):
     '''Writes a json pipeline for use by pdal (point data abstraction library)'''

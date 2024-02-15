@@ -6,6 +6,7 @@ import math
 import datetime
 import logging
 from arcpy.sa import *
+import arcpy.metadata as md
 import subprocess
 import time
 from os.path import join as opj
@@ -14,6 +15,91 @@ from os.path import join as opj
 # written by Brian Gelder, bkgelder@iastate.edu
 # 2019.03.23
 # Python 2.7, with an eye towards Python 3
+
+
+def addMetadata(outDEM, paraDict, template_file_path, log = None):
+    # Set the standard-format metadata XML file's path
+    # need to load metadata editor via 'import arcpy.metadata as md'
+    # outDEM = raster to receive updated metadata
+    # paraDict = dictionary of key/value pairs to be stored in metadata
+    #   values stored include things like analyst, lidar acquisition date, etc.
+    # template_file_path = a template to load a basic summary from
+    # log = otional logging of error messages to a log file
+    # scriptPath = sys.path[0]
+    try:
+        src_file_path = template_file_path
+
+        # Get the target item's Metadata object
+        tgt_item_md = md.Metadata(outDEM)    
+
+        # Import the ACPF metadata content to the target item
+        if not tgt_item_md.isReadOnly:
+            tgt_item_md.importMetadata(src_file_path)
+            tgt_item_md.title = os.path.split(outDEM)[1]
+            tgt_item_md.credits = 'Analyst: %s' % os.getlogin()#getpass.getuser()
+
+            src_desc = tgt_item_md.summary
+            if src_desc == None:
+                src_desc = ''
+            for key, value in paraDict.items():  
+                src_desc = src_desc + ('%s %s' % (key, value))
+            tgt_item_md.summary = src_desc
+            
+            tgt_item_md.save()
+
+    except TypeError as e:
+        print('handling as exception')
+##        log.debug(e.message)
+        if sys.version_info.major == 2:
+            arcpy.AddError(e.message)
+            print(e.message)
+            log.warning(e.message)
+        elif sys.version_info.major == 3:
+            arcpy.AddError(e)
+            print(e)
+            if log is not None:
+                log.warning(e)
+
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+
+        # Concatenate information together concerning the error into a message string
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        # Return python error messages for use in script tool or Python Window
+        arcpy.AddError(pymsg)
+        # Print Python error messages for use in Python / Python Window
+        print(pymsg + "\n")
+        if log is not None:
+            log.warning(pymsg)
+
+        if arcpy.GetMessages(2) not in pymsg:
+            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+            arcpy.AddError(msgs)
+            print(msgs)
+            if log is not None:
+                log.warning(msgs)
+
+    except:
+        print('handling as except')
+        # Get the traceback object
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+
+        # Concatenate information together concerning the error into a message string
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        # Return python error messages for use in script tool or Python Window
+        arcpy.AddError(pymsg)
+        # Print Python error messages for use in Python / Python Window
+        print(pymsg + "\n")
+        if log is not None:
+            log.warning(pymsg)
+
+        if arcpy.GetMessages(2) not in pymsg:
+            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+            arcpy.AddError(msgs)
+            print(msgs)
+            if log is not None:
+                log.warning(msgs)
 
 
 def channelized_areas(meter_dem, proc_dir, pro_crv):
