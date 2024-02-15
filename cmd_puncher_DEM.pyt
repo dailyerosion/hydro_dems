@@ -60,14 +60,6 @@ class Tool(object):
     def getParameterInfo(self):
         """Define parameter definitions"""
 
-        # output_ept_wesm_file = arcpy.Parameter(
-        #     name="ept_wesm_features",
-        #     displayName="Output EPT WESM Feature",
-        #     datatype="DEFeatureClass",
-        #     parameterType='Required',
-        #     direction="Output")
-        # params = [output_ept_wesm_file]#None
-
         param0 = arcpy.Parameter(
             displayName="Input Elevation Model",
             datatype="DERasterDataset",
@@ -81,31 +73,38 @@ class Tool(object):
             direction="Output")
         
         param2 = arcpy.Parameter(
-            displayName="DEM metadata template",
+            displayName="Punched DEM metadata template",
             datatype="GPDataFile",
             parameterType='Required',
             direction="Input")
         
         param3 = arcpy.Parameter(
+            name="depressions_fc",
+            displayName="Punched depressions feature class",
+            datatype="DEFeatureClass",
+            parameterType='Required',
+            direction="Output")
+        
+        param4 = arcpy.Parameter(
             displayName="Depression Punch Depth Threshold",
             datatype="GPString",
             parameterType='Required',
             direction="Input")
         
-        param4 = arcpy.Parameter(
+        param5 = arcpy.Parameter(
             displayName="Depression Punch Area Threshold",
             datatype="GPString",
             parameterType='Optional',
             direction="Input")
         
-        param5 = arcpy.Parameter(
+        param6 = arcpy.Parameter(
             name = "procDir",
             displayName="Local Processing Directory",
             datatype="DEFolder",
             parameterType='Optional',
             direction="Input")
         
-        parameters = param0, param1, param2, param3, param4, param5
+        parameters = param0, param1, param2, param3, param4, param5, param6
         return parameters
         
 
@@ -128,7 +127,7 @@ class Tool(object):
         """The source code of the tool."""
         cleanup = False
         params = parameters
-        doPuncher(params[0].valueAsText, params[1].valueAsText, params[2].valueAsText, params[3].valueAsText, params[4].valueAsText, params[5].valueAsText, cleanup, messages)
+        doPuncher(params[0].valueAsText, params[1].valueAsText, params[2].valueAsText, params[3].valueAsText, params[4].valueAsText, params[5].valueAsText, params[6].valueAsText, cleanup, messages)
         return
 
     def postExecute(self, parameters):
@@ -138,10 +137,10 @@ class Tool(object):
 
 
 
-def doPuncher(input_dem, output_dem, depressions_fc, plib_metadata, depth_threshold, area_threshold, procDir, cleanup, messages):
+def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir, cleanup, messages):
 
     try:
-        arguments = [input_dem, output_dem, plib_metadata, depth_threshold, area_threshold, procDir]
+        arguments = [input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir]
 
         for a in arguments:
             if a == arguments[0]:
@@ -452,8 +451,8 @@ if __name__ == "__main__":
 	"C:/DEP/Scripts/basics/cmd_puncher_all_steps.pyt",
 	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
 	"C:/DEP/LiDAR_Current/elev_PLib_mean18/07080105/ep3m070801050901.tif",
-	"C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/dprsns_mean18_dem2013_3m_070801050901",
 	"C:/DEP/toolMetadata/PLib_DEMs2022_mTemplate.xml",
+	"C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/dprsns_mean18_dem2013_3m_070801050901",
 	"5.0",
 	"500",
 	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901"]
@@ -467,7 +466,7 @@ if __name__ == "__main__":
 
     messages = msgStub()
 
-    input_dem, output_dem, depressions_fc, plib_metadata, depth_threshold, area_threshold, procDir = [i for i in sys.argv[1:]]
+    input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir = [i for i in sys.argv[1:]]
 
-    doPuncher(input_dem, output_dem, depressions_fc, plib_metadata, depth_threshold, area_threshold, cleanup, messages)
+    doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, cleanup, messages)
     arcpy.AddMessage("Back from doing!")
