@@ -468,5 +468,5 @@ if __name__ == "__main__":
 
     input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir = [i for i in sys.argv[1:]]
 
-    doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, cleanup, messages)
+    doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir, cleanup, messages)
     arcpy.AddMessage("Back from doing!")
