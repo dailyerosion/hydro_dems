@@ -104,7 +104,7 @@ class Tool(object):
             parameterType='Optional',
             direction="Input")
         
-        parameters = param0, param1, param2, param3, param4, param5, param6
+        parameters = [param0, param1, param2, param3, param4, param5, param6]
         return parameters
         
 
