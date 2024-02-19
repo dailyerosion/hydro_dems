@@ -214,6 +214,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
 
         gridfield = 'gridcode'
 
+        dfsList = []
 
 
         ######------------------------------------------------------------------------------
@@ -363,6 +364,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
             zstFrSlope = ZonalStatisticsAsTable(fr0, 'value', slopePct, opj(inm, 'zst_fr_slope' + sfx), '', 'ALL')
             df.joinDict(dfsFC, frFld, zstFrSlope, 'value', ['MAX', 'MEAN'], [frMaxSlopeFld, frMeanSlopeFld])
             log.debug('done with adding stats to dfs at ' + time.asctime())
+            dfsList.append(dfsFC)
 
             df.copyfc(verbose, dfsFC, sgdb)
 
@@ -384,8 +386,8 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         ## End additional stuff
         ## copy the fill region database
         arcpy.env.workspace = sgdb#inm
-        dfsTables = arcpy.ListFeatureClasses(os.path.basename(str(dfsFC))[:12] + '*')
-        merged = arcpy.Merge_management(dfsTables)
+        log.debug("dfsList: {dfsList}")
+        merged = arcpy.Merge_management(dfsList, opj(inm, 'merged'))
 
         depressionsCopy = arcpy.CopyFeatures_management(merged, depressions_fc)
 
