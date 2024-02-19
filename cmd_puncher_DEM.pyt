@@ -165,7 +165,6 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
 
         startTime = time.time()
         log.info("Beginning execution: " + time.asctime())
-        log.info("Log file at " + logName)
         messages.addMessage("Log file at " + logName)
 
         ## Set the environments
