@@ -140,13 +140,13 @@ class Tool(object):
 def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir, cleanup, messages):
 
     try:
-        arguments = [input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir]
+        arguments = [input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir, cleanup]
 
         for a in arguments:
             if a == arguments[0]:
-                arg_str = a + '\n'
+                arg_str = str(a) + '\n'
             else:
-                arg_str += a + '\n'
+                arg_str += str(a) + '\n'
 
         messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 

@@ -137,9 +137,9 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
 
         for a in arguments:
             if a == arguments[0]:
-                arg_str = a + '\n'
+                arg_str = str(a) + '\n'
             else:
-                arg_str += a + '\n'
+                arg_str += str(a) + '\n'
 
         messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 
@@ -162,19 +162,14 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
 
         log.info("Tool: Executing with parameters:\n" + arg_str)
 
+        log.info('log file is ' + logName)
+
         arcpy.CheckOutExtension("Spatial")
         arcpy.env.overwriteOutput = True
 
         arcpy.env.snapRaster = input_dem
         arcpy.env.cellSize = input_dem
         ProcSize = int(arcpy.Raster(input_dem).meanCellHeight)
-
-        startTime = time.time()
-        log.info("Beginning logging for script at " + str(time.asctime()))
-
-        log.info('sys.argv is: ' + str(sys.argv) + '\n')
-
-        log.info('log file is ' + logName)
 
     ####------------------------------------------------------------------------------
 
@@ -192,7 +187,7 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
         arcpy.env.scratchWorkspace = gdb
         arcpy.env.workspace = gdb
 
-        inm = 'in_memory\\'
+        inm = 'in_memory'
 
         huc8gdb = os.path.dirname(huc8RoadsFC)
         if not arcpy.Exists(huc8gdb):
@@ -212,13 +207,13 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
             mergedMdnList = []
 
         ## Calculate additional search distance needed to cross roads, railroads, runways 
-            hucRoadsIncService = arcpy.Clip_analysis(roadsFC, bndBuffer, inm + "roads_all")
+            hucRoadsIncService = arcpy.Clip_analysis(roadsFC, bndBuffer, opj(inm, "roads_all"))
             if 'fclass' in df.getfields(hucRoadsIncService):
-                hucRoadsWhole = arcpy.Select_analysis(hucRoadsIncService, inm + 'roads', 'fclass <> \'service\' AND fclass <> \'path\'AND fclass <> \'cycleway\'AND fclass <> \'footway\'')
+                hucRoadsWhole = arcpy.Select_analysis(hucRoadsIncService, opj(inm, 'roads'), 'fclass <> \'service\' AND fclass <> \'path\'AND fclass <> \'cycleway\'AND fclass <> \'footway\'')
             else:
-                hucRoadsWhole = arcpy.Select_analysis(hucRoadsIncService, inm + 'roads', 'type <> \'service\' AND type <> \'path\'')
+                hucRoadsWhole = arcpy.Select_analysis(hucRoadsIncService, opj(inm, 'roads'), 'type <> \'service\' AND type <> \'path\'')
 
-            hucRoads = arcpy.FeatureToLine_management(hucRoadsWhole, inm + 'roads_broken')
+            hucRoads = arcpy.FeatureToLine_management(hucRoadsWhole, opj(inm, 'roads_broken'))
             hucRoadsCopy = arcpy.CopyFeatures_management(hucRoads, huc8RoadsFC)
 
             if 'fclass' in df.getfields(hucRoads):
@@ -232,11 +227,11 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
 
             mwRoadsExtraSearch = arcpy.TableSelect_analysis(mwRoadsGNT, 'mw_roads_xtra_search', '"NEAR_DIST" > 1')
             arcpy.JoinField_management(mwRoads, descMwRoads.OIDFieldName, mwRoadsExtraSearch, 'IN_FID', ['NEAR_DIST', 'FROM_X', 'FROM_Y', 'NEAR_X', 'NEAR_Y'])#osm_id')
-            mwRoadsMdn = arcpy.Select_analysis(mwRoads, inm + 'mw_roads_mdn', 'NEAR_DIST > 0')
+            mwRoadsMdn = arcpy.Select_analysis(mwRoads, opj(inm, 'mw_roads_mdn'), 'NEAR_DIST > 0')
 
             if int(arcpy.GetCount_management(mwRoadsMdn).getOutput(0)) > 0:
 
-                rdMedianNearLine = arcpy.XYToLine_management(mwRoadsMdn, inm + 'mdn_roads_near_lines', 'FROM_X', 'FROM_Y', 'NEAR_X', 'NEAR_Y', spatial_reference = mwRoads)
+                rdMedianNearLine = arcpy.XYToLine_management(mwRoadsMdn, opj(inm, 'mdn_roads_near_lines'), 'FROM_X', 'FROM_Y', 'NEAR_X', 'NEAR_Y', spatial_reference = mwRoads)
                 rdMedianNearLineCentroid = arcpy.CreateFeatureclass_management(inm[:-1], 'rd_mdn_poly_centroid', 'POINT', spatial_reference = mwRoads)
                 df.tryAddField(rdMedianNearLineCentroid, 'NEAR_DIST', 'DOUBLE')
                 iCurCentroid = arcpy.da.InsertCursor(rdMedianNearLineCentroid, ['SHAPE@', 'NEAR_DIST'])
@@ -246,11 +241,11 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
                             iCurCentroid.insertRow([arcpy.Point(sRowCentroid[0][0],sRowCentroid[0][1]), sRowCentroid[1]])
                 del iCurCentroid
 
-                ftpRoadsBuf = arcpy.FeatureToPolygon_management([hucRoads, bndBuffer], inm + 'rd_buf_ftp')
+                ftpRoadsBuf = arcpy.FeatureToPolygon_management([hucRoads, bndBuffer], opj(inm, 'rd_buf_ftp'))
                 ftpRoadsBufLayer = arcpy.MakeFeatureLayer_management(ftpRoadsBuf, 'ftp_rd_buf_layer')
                 # rdParallelNear = arcpy.SelectLayerByLocation_management(ftpRoadsBufLayer, 'CONTAINS_CLEMENTINI', rdMedianNearLineCentroid)
 
-                rdMdnPrelim = arcpy.CopyFeatures_management(ftpRoadsBufLayer, inm + 'rd_mdn_polys_prelim')
+                rdMdnPrelim = arcpy.CopyFeatures_management(ftpRoadsBufLayer, opj(inm, 'rd_mdn_polys_prelim'))
 
     ##            ## filter out the polygons not really close to the raods with medians
                 df.tryAddField(rdMdnPrelim, 'ID_RD_MDN', 'LONG')
@@ -284,7 +279,7 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
         ## Find parallel road/railroad sections
     ##      Find railroads that are near and parallel to roads and define area between as a median
         ## Buffer the railroads so they become a polygon that we can intersect with road and RR search buffers and determine if points cross one of these features
-            hucRailroadsPrelim = arcpy.Clip_analysis(rrsFC, bndBuffer, inm + "rrs_prelim")
+            hucRailroadsPrelim = arcpy.Clip_analysis(rrsFC, bndBuffer, opj(inm, "rrs_prelim"))
             ## Start railroad processing
             if df.testForZero(hucRailroadsPrelim):
                 types = ['abandoned', 'light_rail', 'rail', 'preserved', 'yard']
@@ -292,7 +287,7 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
                     sel = df.buildStringSelection(types, 'fclass')
                 else:# assume 'type' field in OSM data
                     sel = df.buildStringSelection(types, 'type')
-                hucRailroads = arcpy.Select_analysis(hucRailroadsPrelim, inm + 'rrs', sel)
+                hucRailroads = arcpy.Select_analysis(hucRailroadsPrelim, opj(inm, 'rrs'), sel)
                 df.copyfc(verbose, hucRailroads, gdb)
 
                 if df.testForZero(hucRailroads):
@@ -338,9 +333,9 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
 
     ##                            First find roads that are in this buffer area
                     rrRdBufferDist = '40 METERS'
-                    hucRRsBuffer = arcpy.Buffer_analysis(hucRailDissolve, inm + 'rrs_bfr', rrRdBufferDist, line_end_type = 'FLAT')
+                    hucRRsBuffer = arcpy.Buffer_analysis(hucRailDissolve, opj(inm, 'rrs_bfr'), rrRdBufferDist, line_end_type = 'FLAT')
 
-                    roadsInRRsBuffer = arcpy.Clip_analysis(hucRoads, hucRRsBuffer, inm + 'rds_in_rr_bfr')
+                    roadsInRRsBuffer = arcpy.Clip_analysis(hucRoads, hucRRsBuffer, opj(inm, 'rds_in_rr_bfr'))
                     df.copyfc(verbose, roadsInRRsBuffer, gdb)
                     df.tryAddField(roadsInRRsBuffer, "HUC_RD_ID", "LONG")
                     arcpy.CalculateField_management(roadsInRRsBuffer, "HUC_RD_ID", '!OBJECTID!', "PYTHON")
@@ -360,7 +355,7 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
 
                     df.copyfc(verbose, roadsInRRsBuffer, gdb)
 
-                    rdsRRsGNT = arcpy.GenerateNearTable_analysis(hucRailDissolve, roadsInRRsBuffer, inm + 'rds_in_rrs_gnt', rrRdBufferDist, location = 'LOCATION', angle = "ANGLE", closest = "ALL")
+                    rdsRRsGNT = arcpy.GenerateNearTable_analysis(hucRailDissolve, roadsInRRsBuffer, opj(inm, 'rds_in_rrs_gnt'), rrRdBufferDist, location = 'LOCATION', angle = "ANGLE", closest = "ALL")
                     df.addCalcJoin(rdsRRsGNT, 'IN_FID', hucRailDissolve, 'HUC_FID', ['RR_BEARING', 'DOUBLE'], '!BEARING!')
                     df.addCalcJoin(rdsRRsGNT, 'NEAR_FID', roadsInRRsBuffer, 'HUC_RD_ID', ['RD_BEARING', 'DOUBLE'], '!BEARING!')
 
@@ -400,7 +395,7 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
                     ## Now use clip to whittle everything down to just the area we want to use
                         # something around here is creating a 'scratch.shp' file in the MedianProc folder
                         rrMdnClip = arcpy.Clip_analysis(ftpRoadsRRsBuf, hucRRsBuffer, opj(gdb, 'rr_mdn_clip'))#rrNearLineCentroidBuffer
-                        hucRoadsBuffer = arcpy.Buffer_analysis(prllroadsInRRsBuffer, inm + 'rd_line_bfr', rrRdBufferDist)
+                        hucRoadsBuffer = arcpy.Buffer_analysis(prllroadsInRRsBuffer, opj(inm, 'rd_line_bfr'), rrRdBufferDist)
                         rdRrMdnClip = arcpy.Clip_analysis(rrMdnClip, hucRoadsBuffer, opj(gdb, 'rd_rr_mdn_clip'))
                         rdRrMdnSngl = arcpy.MultipartToSinglepart_management(rdRrMdnClip, opj(gdb, 'rd_rr_mdn_sngl'))
 
@@ -411,9 +406,9 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
                     ## Clip by railroad buffer then road buffer to limit median buffer area
 
                         try:
-                            hucRoadsBufferFlat = arcpy.Buffer_analysis(prllIntRoads, inm + 'rd_line_bfr', rrRdBufferDist, line_end_type = 'FLAT')
+                            hucRoadsBufferFlat = arcpy.Buffer_analysis(prllIntRoads, opj(inm, 'rd_line_bfr'), rrRdBufferDist, line_end_type = 'FLAT')
                         except:
-                            hucRoadsBufferFlat = arcpy.Buffer_analysis(prllIntRoads, inm + 'rd_line_bfr2', rrRdBufferDist)#, line_end_type = 'FLAT')
+                            hucRoadsBufferFlat = arcpy.Buffer_analysis(prllIntRoads, opj(inm, 'rd_line_bfr2'), rrRdBufferDist)#, line_end_type = 'FLAT')
     ##                        log.warning('WARNING:flat buffer failure on ' + huc12)
                         rdRrMdnJoinClip = arcpy.Clip_analysis(rdRrMdnBig, hucRoadsBufferFlat, opj(gdb, 'rd_rr_mdn_join_clip'))
                         rdRrMJCftp = arcpy.FeatureToPolygon_management([rdRrMdnJoinClip, prllIntRoads], opj(gdb, 'rd_rr_ftp'))
@@ -432,7 +427,7 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
                     rrSearchDist = 100 #METERS
                     slPts, slLines, slLinesL, slLinesR, slLinesSin, slPtsStart = df.stationLines10(gdb, hucRailDissolve, 'rr_sl_pts', 'rr_sl_lines', rrSearchDist/2.0, rrSearchDist, hucRailroads, 'rr_sl_pts_start')
 
-                    rrSlInt = arcpy.Intersect_analysis([slLines, hucRailDissolve], inm + 'rr_sl_int', output_type = "POINT")
+                    rrSlInt = arcpy.Intersect_analysis([slLines, hucRailDissolve], opj(inm, 'rr_sl_int'), output_type = "POINT")
                     df.addCalcJoin(rrSlInt, 'arcid', hucRailDissolve, 'HUC_FID', ['sl_BEARING', 'DOUBLE'], '!BEARING!')
                     df.tryAddField(rrSlInt, 'BEAR_DIF', 'DOUBLE')
                     with arcpy.da.UpdateCursor(rrSlInt, ['BEAR_DIF', 'BEARING', 'sl_BEARING']) as ucur:
@@ -440,8 +435,8 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
                             if urow[1] != None and urow[2] != None:
                                 urow[0] = df.angleDif(urow[1], urow[2])
                                 ucur.updateRow(urow)
-                    rrSelf = arcpy.Select_analysis(rrSlInt, inm + 'rr_self', 'HUC_FID = arcid')
-                    rrNonSelf = arcpy.Select_analysis(rrSlInt, inm + 'rr_non_self_prll', 'HUC_FID <> arcid AND (BEAR_DIF < -170 OR (BEAR_DIF > -10 AND BEAR_DIF < 10) OR BEAR_DIF > 170)')
+                    rrSelf = arcpy.Select_analysis(rrSlInt, opj(inm, 'rr_self'), 'HUC_FID = arcid')
+                    rrNonSelf = arcpy.Select_analysis(rrSlInt, opj(inm, 'rr_non_self_prll'), 'HUC_FID <> arcid AND (BEAR_DIF < -170 OR (BEAR_DIF > -10 AND BEAR_DIF < 10) OR BEAR_DIF > 170)')
                     df.tryAddField(rrNonSelf, 'NEAR_DIST', 'DOUBLE')
 
                     with arcpy.da.SearchCursor(rrSelf, ['SHAPE@XY', 'HUC_FID', 'arcid', 'cs_id'], 'HUC_FID = arcid') as scur:
@@ -461,43 +456,43 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
 
                             prev_in_fid = urow[0]
                             prev_near_dist = urow[1]
-                    rrSlStats = arcpy.Statistics_analysis(rrNonSelf, inm + 'rr_sl_stats', [['NEAR_DIST', 'MIN'], ['NEAR_DIST', 'MEAN'], ['NEAR_DIST', 'MAX'], ['NEAR_DIST', 'COUNT'], ['NEAR_GAP', 'MEAN'], ['NEAR_GAP', 'MAX']], 'cs_id')
-                    parallelRRs = arcpy.TableSelect_analysis(rrSlStats, inm + 'rr_gnt_parallel', 'COUNT_NEAR_DIST > 4 AND MEAN_NEAR_GAP < 30')
+                    rrSlStats = arcpy.Statistics_analysis(rrNonSelf, opj(inm, 'rr_sl_stats'), [['NEAR_DIST', 'MIN'], ['NEAR_DIST', 'MEAN'], ['NEAR_DIST', 'MAX'], ['NEAR_DIST', 'COUNT'], ['NEAR_GAP', 'MEAN'], ['NEAR_GAP', 'MAX']], 'cs_id')
+                    parallelRRs = arcpy.TableSelect_analysis(rrSlStats, opj(inm, 'rr_gnt_parallel'), 'COUNT_NEAR_DIST > 4 AND MEAN_NEAR_GAP < 30')
                     arcpy.JoinField_management(parallelRRs, 'cs_id', slLines, 'cs_id', 'arcid')
-                    parallelRRsSummary = arcpy.Statistics_analysis(parallelRRs, inm + 'rr_prll_smry', [['MAX_NEAR_DIST', 'MAX']], 'arcid')
+                    parallelRRsSummary = arcpy.Statistics_analysis(parallelRRs, opj(inm, 'rr_prll_smry'), [['MAX_NEAR_DIST', 'MAX']], 'arcid')
                     arcpy.AlterField_management(parallelRRsSummary, 'MAX_MAX_NEAR_DIST', 'MAX_NEAR_DIST')
                     arcpy.JoinField_management(hucRailDissolve, 'HUC_FID', parallelRRsSummary, 'arcid', 'MAX_NEAR_DIST')
-                    hucRRsParallelNear = arcpy.Select_analysis(hucRailDissolve, inm + 'rrs_prll_near', 'MAX_NEAR_DIST > 0')
+                    hucRRsParallelNear = arcpy.Select_analysis(hucRailDissolve, opj(inm, 'rrs_prll_near'), 'MAX_NEAR_DIST > 0')
                                 
                     if df.testForZero(hucRRsParallelNear) > 0:
-                        rrParallelNearBuffer = arcpy.Buffer_analysis(hucRRsParallelNear, inm + 'rr_prll_bfr', str(rrSearchDist/2.0) + ' METERS')
+                        rrParallelNearBuffer = arcpy.Buffer_analysis(hucRRsParallelNear, opj(inm, 'rr_prll_bfr'), str(rrSearchDist/2.0) + ' METERS')
                         rrPrllNearBufferRaster = arcpy.PolygonToRaster_conversion(rrParallelNearBuffer, 'BUFF_DIST', opj(gdb, 'rr_prl_bfr'), cellsize = ProcSize)
                         rrPrllRG = RegionGroup(Int(rrPrllNearBufferRaster))
                         rrPrllRgPoly = arcpy.RasterToPolygon_conversion(rrPrllRG, opj(gdb, 'rr_prll_rg_poly'), raster_field = 'VALUE')
-                        rrPrllInt = arcpy.Intersect_analysis([rrPrllRgPoly, hucRRsParallelNear], inm + 'rr_prll_rg_int')
+                        rrPrllInt = arcpy.Intersect_analysis([rrPrllRgPoly, hucRRsParallelNear], opj(inm, 'rr_prll_rg_int'))
 
                         gridfield = 'gridcode'
                         gridfield2 = 'grid_code'
-                        rrPrllBg = arcpy.MinimumBoundingGeometry_management(rrPrllInt, inm + 'rr_prll_bg', 'CONVEX_HULL', group_option = 'LIST', group_field = gridfield)
+                        rrPrllBg = arcpy.MinimumBoundingGeometry_management(rrPrllInt, opj(inm, 'rr_prll_bg'), 'CONVEX_HULL', group_option = 'LIST', group_field = gridfield)
                         mergedMdnList.append(rrPrllBg)
 
     ## ------------------------------------------------------------------------------
                                 
         ## Buffer the runways so they become a polygon that we can intersect with road and RR search buffers and determine if points cross one of these features
-            hucRunways = arcpy.Clip_analysis(apFC, bndBuffer, inm + "runway_so")
+            hucRunways = arcpy.Clip_analysis(apFC, bndBuffer, opj(inm, "runway_so"))
             if int(arcpy.GetCount_management(hucRunways).getOutput(0)) > 0:
                 apSrchExp = '2*!Width!/3.28'
                 apBfrFld = 'rw_bfr_dist'#bfrFldList[2]
                 df.tryAddField(hucRunways, apBfrFld, "SHORT")
                 arcpy.CalculateField_management(hucRunways, apBfrFld, apSrchExp, "PYTHON")
-                rwsBfr = arcpy.Buffer_analysis(hucRunways, inm + "rw_srch_bfr", apBfrFld, "FULL", "ROUND", "LIST", apBfrFld)
+                rwsBfr = arcpy.Buffer_analysis(hucRunways, opj(inm, "rw_srch_bfr"), apBfrFld, "FULL", "ROUND", "LIST", apBfrFld)
                 mergedMdnList.append(rwsBfr)
 
     ## ------------------------------------------------------------------------------
 
         ## Merge all the transportation buffers together
             if len(mergedMdnList) > 0:
-                mergedMdns = arcpy.Merge_management(mergedMdnList, inm + 'rd_rr_rd_rw_mrg')
+                mergedMdns = arcpy.Merge_management(mergedMdnList, opj(inm, 'rd_rr_rd_rw_mrg'))
                 if df.testForZero(mergedMdns):
             ##                            mergedMdns = arcpy.Merge_management([rdMdnSeparate, rrRdMergedMdnZoned, rrMdnFinal, rwsBfr], gdb + 'rd_rr_rd_rw_mrg')
                     df.tryAddField(mergedMdns, 'T', 'SHORT')
@@ -507,7 +502,7 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
                     mergedMdnsCost = CostDistance(Con(IsNull(mergedMdnsRasterT) == 1, 1), Con(IsNull(mergedMdnsRasterT) == 1, 0, 1))
     ####                mergedMdnsCost.save(cp + 'mdn_cost')
 
-                    mergedMdnsCostZst = ZonalStatisticsAsTable(mergedMdnsRaster, 'VALUE', mergedMdnsCost, inm + 'mrgd_mdn_zst')
+                    mergedMdnsCostZst = ZonalStatisticsAsTable(mergedMdnsRaster, 'VALUE', mergedMdnsCost, opj(inm, 'mrgd_mdn_zst'))
                 ## populate new search distance field - 2x because cost distance maxes at center, ##1.5x to cut at 60 degree angle, 
                     df.addCalcJoin(mergedMdns, arcpy.Describe(mergedMdns).OIDFieldName, mergedMdnsCostZst, 'VALUE', ['bfr_dist', 'DOUBLE'], '2*!MAX!')
 
