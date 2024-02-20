@@ -23,7 +23,7 @@ import datetime
 import time
 import platform
 from arcpy.sa import *
-import dem_functions2 as df
+import dem_functions as df
 import winsound
 
 outputString = 'system arguments are ' + str(sys.argv) + '\n'
@@ -525,7 +525,7 @@ Failed to execute (CostDistance).'''
         betterCutsAll = arcpy.CopyFeatures_management(goodCutsAll, inm + 'better_cuts_all')
         df.copyfc(verbose, betterCutsAll, gdb)
 
-    bestCutsAll = arcpy.CopyFeatures_management(betterCutsAll, bestcutsfc])#inm + 'best_cuts_all')
+    bestCutsAll = arcpy.CopyFeatures_management(betterCutsAll, bestcutsfc)#inm + 'best_cuts_all')
 
     df.addCalcJoin(inmDfs2Cut, frFld, bestCutsAll, gridfield2, ['cut_length', 'DOUBLE'], '!Shape.Length!')
 

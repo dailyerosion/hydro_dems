@@ -164,8 +164,6 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
         arcpy.env.scratchWorkspace = sgdb
         arcpy.env.workspace = sgdb
 
-        inm = 'in_memory\\'
-
     ## Set the environments
         arcpy.env.workspace = sgdb
 
