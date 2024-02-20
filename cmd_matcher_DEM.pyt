@@ -15,14 +15,6 @@ import pickle
 import dem_functions as df
 
 
-class msgStub:
-    def addMessage(self,text):
-        arcpy.AddMessage(text)
-    def addErrorMessage(self,text):
-        arcpy.AddErrorMessage(text)
-    def addWarningMessage(self,text):
-        arcpy.AddWarningMessage(text)
-
 class Toolbox(object):
     def __init__(self):
         """Define the toolbox (the name of the toolbox is the name of the
@@ -335,7 +327,7 @@ def idMedianPtsDn(dnPtsAll, medianFrFld, mdnsOnly):
 
 
 
-def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, search_distance_file, depth_threshold, cleanup, messages):
+def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, depth_threshold, cleanup, messages):
 
     ##This program was written to help remove issues in lidar DEMs caused
     ##by poor performance of interpolation algorithms in specific lcocations
@@ -362,111 +354,62 @@ def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, searc
     # 2024.01.05 - added multiple try/except statements to handle upgrade to Python 3.9/AG Pro 3.2, mostly using join by dictionary instead of JoinField
     # 2024.01.10 - moved selectFrAndWsDpPts into script and lowered threshold for splitting into subselections due to change in AG Pro
 
-    # get HUC code and state abbreviation to find file to process
-    scriptNameSplit = os.path.basename(sys.argv[0]).split('_')
-
-    ## set verbose (True = all output, False = minimal output saved)
-    verbose = True
-    if not verbose:
-        arcpy.SetLogHistory(False)
-
-    arcpy.CheckOutExtension("Spatial")
-    arcpy.env.overwriteOutput = True
-
-    outputString = 'system arguments are ' + str(sys.argv) + '\n'
-
-    # load system arguments directly (for debugging)
-    if len(sys.argv) == 1:
-        cleanup = False
-
-        parameters = ["C:/Python27/ArcGISx6410.3/pythonw.exe",
-        "C:/DEP/Scripts/basics/cmd_matcher.py",
-        "090300060805",
-        "2022",
-        "26915",
-        "mean18",
-        "2"]
-    ##    ["C:/Python27/ArcGISx6410.3/pythonw.exe",
-    ##	"O:/DEP/Scripts/basics/cmd_matcher.py",
-    ##	"101800091505",
-    ##	"2020",
-    ##	"26913",
-    ##	"mean18",
-    ##	"3"]
-
-        for i in parameters[2:]:
-            sys.argv.append(i)
-        outputString += 'running via shell'#; parameters were: ' + str(parameters)
-
-
-    else:
-        outputString += 'parameters were passed in via command line'
-        cleanup = True
-
-    huc12 = sys.argv[1]
-    huc8 = huc12[:8]
-    ACPFyear = sys.argv[2]
-    srOutCode = sys.argv[3]
-    interpType = sys.argv[4]
-    cellSize = int(sys.argv[5])
-    if len(sys.argv) > 6:
-        version = sys.argv[6]
-    else:
-        version = ''
-
-    if cleanup:
-        # log to file only
-        log, nowYmd, logName, startTime = df.setupLoggingNoCh(platform.node(), sys.argv[0], huc12)
-    else:
-        # log to file and console
-        log, nowYmd, logName, startTime = df.setupLoggingNew(platform.node(), sys.argv[0], huc12)
-
-    paths = df.loadVariablesDict(platform.node(), ACPFyear, huc12, srOutCode, interpType, cellSize, nowYmd, version)
-
-    ## Create variable directory names for final processed DEMs (ProcDir), scratch processing (scratchDir), and a file geodatabase
-    # input rasters and features and snap environment
-    scriptName = sys.argv[0]
-    # filled tif DEM input name
-    fill_or_void_tif = input_tif#paths['fElevFile']#sys.argv[1]
-    ### snap raster
-    ##snapRaster = sys.argv[2]
-    # local processing directory
-    # output punched DEM
-    punchTif = punch_tif#paths['pElevFile']#sys.argv[4]
-    # optional input DEM (hydroflattened)
-    # voidFixTif = paths['vElevFile']#sys.argv[5]
-    # optional output hole raster
-    # holesTif = paths['holesFile']#sys.argv[6]
-    # HUC12FC = paths['mwHuc12s']
-    bndBuffer = buffered_fc#paths['buf_boundary']
-
-    mergedMdnsHuc8FC = merged_medians#paths['mergedMdnsHuc8FC']#sys.argv[6]
-    CutProc = proc_dir#paths['cutProcDir']#sys.argv[3]
-    searchPickleFile = search_distance_file#paths['pickleDistanceFile']#sys.argv[7]
-
-
     try:
-        ProcSize = int(arcpy.Raster(fill_or_void_tif).meanCellHeight)
+        arguments = [fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, depth_threshold, cleanup]
 
-        arcpy.env.snapRaster = fill_or_void_tif#snapRaster
-        arcpy.env.cellSize = ProcSize
+        for a in arguments:
+            if a == arguments[0]:
+                arg_str = a + '\n'
+            else:
+                arg_str += a + '\n'
 
-        log.debug(f'starting up at: {nowYmd}')
-        log.warning(outputString)
+        messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 
-        log.warning('sys.argv is: ' + str(sys.argv) + '\n')
+        huc12, huc8, ProcSize = df.figureItOut(fill_or_void_tif)
 
+        if cleanup:
+            # log to file only
+            log, nowYmd, logName, startTime = df.setupLoggingNoCh(platform.node(), sys.argv[0], huc12)
+            verbose = False
+            arcpy.SetLogHistory = False
+        else:
+            # log to file and console
+            log, nowYmd, logName, startTime = df.setupLoggingNew(platform.node(), sys.argv[0], huc12)
+            verbose = True
+            arcpy.SetLogHistory = True
+
+        startTime = time.time()
+        log.info("Beginning execution: " + time.asctime())
+        messages.addMessage("Log file at " + logName)
+
+        ## Set the environments
+        # control where scratchFolder and GDB are created
+        ## Make sure output locations exist
+
+        ## Set the environments
+        if os.path.isdir(proc_dir):
+            df.nukedir(proc_dir)
+        os.makedirs(proc_dir)
+
+    # Create output directories
     ## Set the environments
-        arcpy.env.scratchWorkspace = CutProc
+        arcpy.env.scratchWorkspace = proc_dir
 
-        sfldr = arcpy.env.scratchFolder
         sgdb = arcpy.env.scratchGDB
-        arcpy.env.scratchWorkspace = sgdb#fldr#
+        sfldr = arcpy.env.scratchFolder
+        arcpy.env.scratchWorkspace = sgdb
         arcpy.env.workspace = sgdb
 
-        # gdb = sgdb + '\\'#FileGDB + "\\"
-        # cp = CutProc + "\\"
-        inm = 'in_memory'#\\'
+        inm = 'in_memory'
+
+        arcpy.env.snapRaster = fill_or_void_tif
+
+        arcpy.env.extent = fill_or_void_tif
+
+        arcpy.env.cellSize = fill_or_void_tif
+
+        arcpy.CheckOutExtension("Spatial")
+        arcpy.env.overwriteOutput = True
 
     # set up output raster names
         # RMSE = 18.0# cm
@@ -488,8 +431,6 @@ def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, searc
         minFrDistList3 = ['MIN_WS_DST3', 'DOUBLE']
         minFrDistFld = minFrDistList3[0]
 
-        frPctDropList = ['MAX_PCT_DROP', 'DOUBLE']
-
         medianFrFld = "Median_FR"        
 
         frAllCrvFrac = ['ALL_FR_CRV_FRAC', 'DOUBLE']
@@ -508,7 +449,6 @@ def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, searc
         minSummaryFld = 'MIN_MIN'
         revCutElFld = 'REV_CUT_EL'
 
-        bsMinUpElFld = 'bs_min_el_up'
         bsMinDnElFld = 'bs_min_el_dn'
 
         allDnCellsFld = 'all_dn'
@@ -518,6 +458,8 @@ def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, searc
 
         gridfield = 'gridcode'
         gridfield2 = 'grid_code'
+
+        frMaxSlopeFld = 'FR_MAX_SLP'
 
         ## wsSearchDistFld is an adjusted search distance used distance from deep point to ws boundary and a minimum width
         ## it is not adjusted for crossing a median, just used for figuring out if upstream points are close
@@ -544,19 +486,15 @@ def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, searc
 
         log.warning('log file is ' + logName)
 
-        punchGdb = os.path.join(sgdb, os.path.splitext(os.path.basename(punchTif))[0])
+        punchGdb = os.path.join(sgdb, os.path.splitext(os.path.basename(punch_tif))[0])
         if not arcpy.Exists(punchGdb):
-            punchGdbResult = arcpy.CopyRaster_management(punchTif, punchGdb)
-        punchedDEMNoHoles = Con(IsNull(punchGdb) == 1, fill_or_void_tif, punchTif)
+            punchGdbResult = arcpy.CopyRaster_management(punch_tif, punchGdb)
+        punchedDEMNoHoles = Con(IsNull(punchGdb) == 1, fill_or_void_tif, punch_tif)
         bestestDEM = punchedDEMNoHoles#Raster(punchGdb)
-
-        arcpy.env.extent = bestestDEM
 
         slopePct = Raster(opj(proc_dir, 'slope_pct'))
         flats2 = Con(slopePct == 0.0, 1, 0)
         noInteriorFlatsDEM = Con(flats2 == 0, bestestDEM, '')
-
-        frMaxSlopeFld = 'FR_MAX_SLP'
 
         fsPfdMdn = FocalStatistics(bestestDEM, "RECTANGLE 3 3 CELL", "MEDIAN")#pitFilledDEM
 
@@ -570,18 +508,22 @@ def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, searc
         df.tryAddField(match_stats, 'UP_PTS_RATIO', 'DOUBLE')
         df.tryAddField(match_stats, 'DN_PTS_RATIO', 'DOUBLE')
 
-        arcpy.env.workspace = proc_dir
-        frRasters = arcpy.ListRasters('fr0_*')
+        fr0_dir = os.path.dirname(fr0_rasters)
+        arcpy.env.workspace = fr0_dir
+        fr0_name = os.path.basename(fr0_rasters)
+        frRasters = arcpy.ListRasters(fr0_name[:4] + '*')#'fr0_*')
         frRasters.sort()
         for i, item in enumerate(frRasters[:]):
             log.warning('working on frRaster: ' + str(item))
             arcpy.env.workspace = proc_dir
             sfx = '_' + item.split('_')[-1]
-            dfsFC = os.path.join(sgdb, 'dfs_frToPoly' + sfx)
+            dfsFC = dfs_polys[:-2] + sfx
+            # dfsFC = os.path.join(sgdb, 'dfs_frToPoly' + sfx)
             dfsList.append(dfsFC)
             # add identifier for medians
             df.tryAddField(dfsFC, medianFrFld, "SHORT")
-            wsPolys = os.path.join(sgdb, 'ws_polys' + sfx)
+            # wsPolys = os.path.join(sgdb, 'ws_polys' + sfx)
+            wsPolys = ws_polys[:-2] + sfx
 
     ##                selFull = '(' + ofElFld + ' - ' + minElFld + ') > 67 OR ' + maxFrOfDistFld + ' >= ' + str(3 * ProcSize)
     ##        selFull = '(' + ofElFld + ' - ' + minElFld + ') > ' + str(3.0 * RMSE) + ' AND (' + ofElFld + ' - ' + minElFld + ')*0.01 / ' + minFrDistFld + ' >= 0.05'
@@ -767,13 +709,13 @@ def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, searc
                     df.joinDict(upPtsCmb, gridfield2, copiedRows, 'value', [deepEnoughFr0Name, df.getfields(upstreamCombine)[4], wsCostDistName])
                 ## create consistent field names for all levels by altering name
                 arcpy.AlterField_management(upPtsCmb, deepEnoughFr0Name, frFld)
-                if version.find('10.5') > -1 or version.find('10.6') > -1:
-                    arcpy.AlterField_management(upPtsCmb, df.getfields(upPtsCmb)[-1], 'WS_THKNS_CD')#frFld)
-                else:
-                    arcpy.AlterField_management(upPtsCmb, wsCostDistance.name, 'WS_THKNS_CD')#frFld)
+                # if version.find('10.5') > -1 or version.find('10.6') > -1:
+                #     arcpy.AlterField_management(upPtsCmb, df.getfields(upPtsCmb)[-1], 'WS_THKNS_CD')#frFld)
+                # else:
+                arcpy.AlterField_management(upPtsCmb, wsCostDistance.name, 'WS_THKNS_CD')#frFld)
 
-                if arcpy.Exists(mergedMdnsHuc8FC):
-                    mergedMdnsFc = arcpy.Clip_analysis(mergedMdnsHuc8FC, bndBuffer)
+                if arcpy.Exists(merged_medians):
+                    mergedMdnsFc = arcpy.Clip_analysis(merged_medians, buffered_fc)
 
                     if df.testForZero(mergedMdnsFc):
         ####                if mergedMdns is not None:
@@ -859,7 +801,7 @@ def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, searc
                         df.copyfc(verbose, wsLineBfrUnion, sgdb)
                         
 
-                    if arcpy.Exists(mergedMdnsHuc8FC):
+                    if arcpy.Exists(merged_medians):
                         if df.testForZero(mergedMdnsFc):# is not None:#len(mergedMdnList) > 0:
                             wsLineBfrUnionErase = arcpy.Erase_analysis(wsLineBfrUnion, mergedMdnsFc, inm + 'ws_line_bfr_union_no_mdns' + sfx)
                             if arcpy.Exists(wsLineBfrUnionErase):
@@ -991,7 +933,7 @@ def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, searc
     ##                                if df.testForZero(dnstreamCombine):
     ##                                    dnPtsCmb = arcpy.RasterToPoint_conversion(dnstreamCombine, opj(inm, "cb_dn" + sfx))
     ##
-    ##                                if arcpy.Exists(mergedMdnsHuc8FC):
+    ##                                if arcpy.Exists(merged_median):
     ##                                    if df.testForZero(mergedMdnsFc):# is not None:
     ##                                        idMedianPtsDn(dnPtsCmb, medianFrFld, mergedMdnsFc)
     ##                                    else:
@@ -1052,7 +994,7 @@ def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, searc
     ##
     ######                                dnPtsCmb = arcpy.RasterToPoint_conversion(dnstreamCombine, "in_memory/cb_dn" + sfx)
     ##        ##                                    if len(mergedMdnList) > 0:
-    ######                                if arcpy.Exists(mergedMdnsHuc8FC):
+    ######                                if arcpy.Exists(merged_median):
     ######                                    if df.testForZero(mergedMdnsFc):# is not None:
     ######                                        idMedianPtsDn(dnPtsCmb, medianFrFld, mergedMdnsFc)
     ######                                    else:
@@ -1127,7 +1069,7 @@ def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, searc
                                         if df.testForZero(dnstreamCombine):
                                             dnPtsConversion = arcpy.RasterToPoint_conversion(dnstreamCombine, opj(inm, "cb_dn" + sfx))
 
-                                        if arcpy.Exists(mergedMdnsHuc8FC):
+                                        if arcpy.Exists(merged_medians):
                                             if df.testForZero(mergedMdnsFc):# is not None:
                                                 idMedianPtsDn(dnPtsConversion, medianFrFld, mergedMdnsFc)
                                             else:
@@ -1273,7 +1215,7 @@ def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, searc
 
                                         inmgnt2 = arcpy.TableSelect_analysis(inmgnt, inm + gnt2, where4)
                                                     
-                                        if arcpy.Exists(mergedMdnsHuc8FC):
+                                        if arcpy.Exists(merged_medians):
                                             if df.testForZero(mergedMdnsFc):# is not None:#len(mergedMdnList) > 0:
                                                 log.debug('processing in merged medians at ' + time.asctime())
 
@@ -1511,7 +1453,7 @@ def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, searc
 
         arcpy.env.workspace = proc_dir
 
-        searchPickleFileObject = open(searchPickleFile, 'w+b')
+        searchPickleFileObject = open(search_distance_file, 'w+b')
         pickle.dump(maxSearchDistList, searchPickleFileObject, protocol=2)
         searchPickleFileObject.close()
 
@@ -1542,7 +1484,13 @@ def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, searc
             log.warning("Script execution lasted " + str(time.time()-startTime) + " seconds or " + str((time.time()-startTime)/60) + " minutes\n")
 
 
-
+class msgStub:
+    def addMessage(self,text):
+        arcpy.AddMessage(text)
+    def addErrorMessage(self,text):
+        arcpy.AddErrorMessage(text)
+    def addWarningMessage(self,text):
+        arcpy.AddWarningMessage(text)
 
 if __name__ == "__main__":
     import sys
@@ -1569,8 +1517,8 @@ if __name__ == "__main__":
         # clean up the folder after done processing
         cleanup = True
 
-    input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, search_distance_file, depth_threshold = [i for i in sys.argv[1:]]
+    input_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, depth_threshold = [i for i in sys.argv[1:]]
     messages = msgStub()
 
-    doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, search_distance_file, depth_threshold, cleanup, messages)
+    doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, depth_threshold, cleanup, messages)
     arcpy.AddMessage("Back from doMatcher!")
