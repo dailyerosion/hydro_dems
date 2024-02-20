@@ -288,11 +288,11 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
         frMaxSlopeFld = 'FR_MAX_SLP'
         frMeanSlopeFld = 'FR_MEAN_SLP'
 
-        inmDfs2Cut = arcpy.CopyFeatures_management(opj(sgdb, 'dfs2cut_' + huc12), inm + 'dfs_2_cut_' + huc12)
-    ##    inmDfs2Cut = arcpy.CopyFeatures_management(opj(sgdb, 'dfs2cut_' + huc12), inm + 'dfs_2_cut_' + huc12)
-        goodDslvAll = arcpy.CopyFeatures_management(opj(sgdb, 'good_int_dslv_all'), inm + 'good_int_dslv_all')
-        goodDnDslvAll = arcpy.CopyFeatures_management(opj(sgdb, 'good_dn_pts_all'), inm + 'good_dn_pts_all')
-        goodUpDslvAll = arcpy.CopyFeatures_management(opj(sgdb, 'good_up_pts_all'), inm + 'good_up_pts_all')
+        inmDfs2Cut = arcpy.CopyFeatures_management(opj(sgdb, 'dfs2cut_' + huc12), opj(inm, 'dfs_2_cut_' + huc12))
+    ##    inmDfs2Cut = arcpy.CopyFeatures_management(opj(sgdb, 'dfs2cut_' + huc12), opj(inm, 'dfs_2_cut_' + huc12))
+        goodDslvAll = arcpy.CopyFeatures_management(opj(sgdb, 'good_int_dslv_all'), opj(inm, 'good_int_dslv_all'))
+        goodDnDslvAll = arcpy.CopyFeatures_management(opj(sgdb, 'good_dn_pts_all'), opj(inm, 'good_dn_pts_all'))
+        goodUpDslvAll = arcpy.CopyFeatures_management(opj(sgdb, 'good_up_pts_all'), opj(inm, 'good_up_pts_all'))
 
         sfx = ''
         ofSfx = ''
@@ -302,7 +302,7 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
 
         arcpy.JoinField_management(goodDslvAll, frFld, inmDfs2Cut, frFld, [cutElFld, frThknsFld, minElFld, ofElFld, frAllCrvFracFld])#, compactFld
 
-        cutItrtr = df.intersectingFeaturesUniqueIteration4(goodDslvAll, str(ProcSize*3.0) + ' METERS', inm + 'gnt_fp', ofPassFld, frFld, minElFld)
+        cutItrtr = df.intersectingFeaturesUniqueIteration4(goodDslvAll, str(ProcSize*3.0) + ' METERS', opj(inm, 'gnt_fp'), ofPassFld, frFld, minElFld)
 
         arcpy.JoinField_management(inmDfs2Cut, frFld, goodDslvAll, frFld, ofPassFld)
         gdbSSdfs = df.copyfc(verbose, inmDfs2Cut, sgdb)
@@ -370,16 +370,16 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
                         log.debug('lcpFr count for sfx ' + sfx + ' is ' + arcpy.GetCount_management(lcpFr).getOutput(0))
                         log.debug('lcpFr name for sfx ' + sfx + ' is ' + str(lcpFr))
             ##                                                lcpFr.save(cp + 'lcp_fr' + sfx + ofSfx)
-                        lcpFrPoly = arcpy.RasterToPolyline_conversion(lcpFr, inm + 'lcp3_cuts' + sfx + ofSfx, simplify = 'NO_SIMPLIFY')
+                        lcpFrPoly = arcpy.RasterToPolyline_conversion(lcpFr, opj(inm, 'lcp3_cuts' + sfx + ofSfx), simplify = 'NO_SIMPLIFY')
                         log.debug('did lcp3 FrPoly for sfx ' + sfx + ' at ' + time.asctime())
 
-                        zstSrchLcpFrSlp = ZonalStatisticsAsTable(lcpFr, 'value', slopePct, inm + 'zst_srch_lcp_fr_slp1' + sfx)
+                        zstSrchLcpFrSlp = ZonalStatisticsAsTable(lcpFr, 'value', slopePct, opj(inm, 'zst_srch_lcp_fr_slp1' + sfx))
                         df.addCalcJoin(lcpFrPoly, gridfield2, zstSrchLcpFrSlp, 'value', ['LCP_FR_MAX_SLP', 'DOUBLE'], '!MAX!')
                         log.debug('did lcp3 stats 1 for sfx ' + sfx + ' at ' + time.asctime())
-                        zstSrchLcpFrCrv = ZonalStatisticsAsTable(lcpFr, 'value', proCrv, inm + 'zst_srch_lcp_fr_crv1' + sfx)
+                        zstSrchLcpFrCrv = ZonalStatisticsAsTable(lcpFr, 'value', proCrv, opj(inm, 'zst_srch_lcp_fr_crv1' + sfx))
                         df.addCalcJoin(lcpFrPoly, gridfield2, zstSrchLcpFrCrv, 'value', ['LCP_FR_MEAN_CRV', 'DOUBLE'], '!MEAN!')
                         log.debug('did lcp3 stats 2 for sfx ' + sfx + ' at ' + time.asctime())
-                        zstSrchLcpFrEl = ZonalStatisticsAsTable(lcpFr, 'value', input_dem, inm + 'zst_srch_lcp_fr_el1' + sfx)
+                        zstSrchLcpFrEl = ZonalStatisticsAsTable(lcpFr, 'value', input_dem, opj(inm, 'zst_srch_lcp_fr_el1' + sfx))
                         df.addCalcJoin(lcpFrPoly, gridfield2, zstSrchLcpFrEl, 'value', [lcpMaxElFld, 'DOUBLE'], '!MAX!')
                         df.copyfc(verbose, lcpFrPoly, sgdb)
                         log.debug('did lcp3 stats 3 for sfx ' + sfx + ' at ' + time.asctime())
@@ -393,26 +393,26 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
                             log.debug('did lcpNr for sfx ' + sfx + ' at ' + time.asctime())
                             lcpNrFr = Con(lcpNr, deepCloseBfr2Fr)
             ##                                                lcpFr.save(cp + 'lcp_fr' + sfx + ofSfx)
-                            lcpNrFrPoly = arcpy.RasterToPolyline_conversion(lcpNrFr, inm + 'lcp5_cuts' + sfx + ofSfx, simplify = 'NO_SIMPLIFY')
+                            lcpNrFrPoly = arcpy.RasterToPolyline_conversion(lcpNrFr, opj(inm, 'lcp5_cuts' + sfx + ofSfx), simplify = 'NO_SIMPLIFY')
 
-                            zstSrchLcpNrFrSlp = ZonalStatisticsAsTable(lcpNrFr, 'value', slopePct, inm + 'zst_srch_lcp_fr_slp3' + sfx)
+                            zstSrchLcpNrFrSlp = ZonalStatisticsAsTable(lcpNrFr, 'value', slopePct, opj(inm, 'zst_srch_lcp_fr_slp3' + sfx))
                             df.addCalcJoin(lcpNrFrPoly, gridfield2, zstSrchLcpNrFrSlp, 'value', ['LCP_FR_MAX_SLP', 'DOUBLE'], '!MAX!')
                             log.debug('did lcpNr stats 1 for sfx ' + sfx + ' at ' + time.asctime())
-                            zstSrchLcpNrFrCrv = ZonalStatisticsAsTable(lcpNrFr, 'value', proCrv, inm + 'zst_srch_lcp_fr_crv3' + sfx)
+                            zstSrchLcpNrFrCrv = ZonalStatisticsAsTable(lcpNrFr, 'value', proCrv, opj(inm, 'zst_srch_lcp_fr_crv3' + sfx))
                             df.addCalcJoin(lcpNrFrPoly, gridfield2, zstSrchLcpNrFrCrv, 'value', ['LCP_FR_MEAN_CRV', 'DOUBLE'], '!MEAN!')
                             log.debug('did lcpNr stats 2 for sfx ' + sfx + ' at ' + time.asctime())
-                            zstSrchLcpNrFrEl = ZonalStatisticsAsTable(lcpNrFr, 'value', input_dem, inm + 'zst_srch_lcp_fr_el3' + sfx)
+                            zstSrchLcpNrFrEl = ZonalStatisticsAsTable(lcpNrFr, 'value', input_dem, opj(inm, 'zst_srch_lcp_fr_el3' + sfx))
                             df.addCalcJoin(lcpNrFrPoly, gridfield2, zstSrchLcpNrFrEl, 'value', [lcpMaxElFld, 'DOUBLE'], '!MAX!')
                             log.debug('did lcpNr stats 3 for sfx ' + sfx + ' at ' + time.asctime())
 
                             df.copyfc(verbose, lcpNrFrPoly, sgdb)
 
                     ## If road cross is only option (no results otherwise), medianXFld = 1, or if dfs is non-linear use initial lcp
-                            lcpNrStats = arcpy.Statistics_analysis(lcpNrFrPoly, inm + 'lcpNr_stats' + sfx, [[gridfield2, 'COUNT']], gridfield2)
+                            lcpNrStats = arcpy.Statistics_analysis(lcpNrFrPoly, opj(inm, 'lcpNr_stats' + sfx), [[gridfield2, 'COUNT']], gridfield2)
                             df.copytbl(verbose, lcpNrStats, sgdb)
                             df.addCalcJoin(goodDslvAllLyrFc, frFld, lcpNrStats, gridfield2, ['CNT_LCP_NR', 'LONG'], '!COUNT_' + gridfield2 + '!')
                             
-                            lcpStats = arcpy.Statistics_analysis(lcpFrPoly, inm + 'lcp_stats' + sfx, [[gridfield2, 'COUNT']], gridfield2)
+                            lcpStats = arcpy.Statistics_analysis(lcpFrPoly, opj(inm, 'lcp_stats' + sfx), [[gridfield2, 'COUNT']], gridfield2)
                             df.copytbl(verbose, lcpStats, sgdb)
                             df.addCalcJoin(goodDslvAllLyrFc, frFld, lcpStats, gridfield2, ['CNT_LCP', 'LONG'], '!COUNT_' + gridfield2 + '!')
 
@@ -421,17 +421,17 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
                             goodLCP3CutsList = df.getFrsAsList(goodDslvAllLyrFc, frFld, '(CNT_LCP >= 0 AND CNT_LCP_NR IS NULL AND ((' + ofElFld + ' - ' + minElFld + ' > ' + str(3*float(match_depth)) + ') OR ' + frThknsFld + ' > ' + str(ProcSize * 2) + '))')
                             goodLCP3CutsSel = df.buildSelection(goodLCP3CutsList, gridfield2)
 
-                            goodLCP3Cuts = arcpy.Select_analysis(lcpFrPoly, inm + 'good_lcp3_cuts' + sfx + ofSfx, goodLCP3CutsSel)
+                            goodLCP3Cuts = arcpy.Select_analysis(lcpFrPoly, opj(inm, 'good_lcp3_cuts' + sfx + ofSfx), goodLCP3CutsSel)
                             df.copyfc(verbose, goodLCP3Cuts, sgdb)
 
                             goodLCP12CutsList = df.getFrsAsList(goodDslvAllLyrFc, frFld, '(CNT_LCP >= 0 AND CNT_LCP_NR >=0)')
                             goodLCP12CutsSel = df.buildSelection(goodLCP12CutsList, gridfield2)
 
-                            goodLCP12Cuts = arcpy.Select_analysis(lcpNrFrPoly, inm + 'good_lcp5_cuts' + sfx + ofSfx, goodLCP12CutsSel)
+                            goodLCP12Cuts = arcpy.Select_analysis(lcpNrFrPoly, opj(inm, 'good_lcp5_cuts' + sfx + ofSfx), goodLCP12CutsSel)
                             df.copyfc(verbose, goodLCP12Cuts, sgdb)
                             log.debug('finished goodLCP12Cuts')
 
-                            goodCuts4LvlPrlm = arcpy.Merge_management([goodLCP3Cuts, goodLCP12Cuts], inm + 'good_prlm_lcp_cuts' + sfx)
+                            goodCuts4LvlPrlm = arcpy.Merge_management([goodLCP3Cuts, goodLCP12Cuts], opj(inm, 'good_prlm_lcp_cuts' + sfx))
                             log.debug('finished goodCuts4LvlPrlm')
 
                         except arcpy.ExecuteError:#ExecuteError:
@@ -441,17 +441,17 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
                             log.info(msgs)
                             # intercept COSTPATH error, 'ERROR 010045: COSTPATH: The number of FROM cells is 0.'
                             if '010045' in msgs:
-                                lcpStats = arcpy.Statistics_analysis(lcpFrPoly, inm + 'lcp_stats' + sfx, [[gridfield2, 'COUNT']], gridfield2)
+                                lcpStats = arcpy.Statistics_analysis(lcpFrPoly, opj(inm, 'lcp_stats' + sfx), [[gridfield2, 'COUNT']], gridfield2)
                                 df.copytbl(verbose, lcpStats, sgdb)
                                 df.addCalcJoin(goodDslvAllLyrFc, frFld, lcpStats, gridfield2, ['CNT_LCP', 'LONG'], '!COUNT_' + gridfield2 + '!')
 
                                 goodLCP3CutsList = df.getFrsAsList(goodDslvAllLyrFc, frFld, '(CNT_LCP >= 0 AND ((' + ofElFld + ' - ' + minElFld + ' > ' + str(3*float(match_depth)) + ') OR ' + frThknsFld + ' > ' + str(ProcSize * 2) + '))')
                                 goodLCP3CutsSel = df.buildSelection(goodLCP3CutsList, gridfield2)
 
-                                goodLCP3Cuts = arcpy.Select_analysis(lcpFrPoly, inm + 'good_lcp3_cuts' + sfx + ofSfx, goodLCP3CutsSel)
+                                goodLCP3Cuts = arcpy.Select_analysis(lcpFrPoly, opj(inm, 'good_lcp3_cuts' + sfx + ofSfx), goodLCP3CutsSel)
                                 df.copyfc(verbose, goodLCP3Cuts, sgdb)
 
-                                goodCuts4LvlPrlm = arcpy.CopyFeatures_management(goodLCP3Cuts, inm + 'good_prlm_lcp_cuts' + sfx)
+                                goodCuts4LvlPrlm = arcpy.CopyFeatures_management(goodLCP3Cuts, opj(inm, 'good_prlm_lcp_cuts' + sfx))
                                 log.debug('No no-road cuts for sfx ' + sfx)
 
                             else:
@@ -531,7 +531,7 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
     ########                    sys.exit(1)
 
                     validCrossArea = lcpMaxSlpFld + ' >= ' + str(0.667*frSlpCrit) + ' OR ' + lcpMeanCrvFld + ' > ' + str(frCrvCrit)
-                    goodCuts4Lvl = arcpy.Select_analysis(goodCuts4LvlPrlm, inm + 'good_lcp_cuts' + sfx, validCrossArea)
+                    goodCuts4Lvl = arcpy.Select_analysis(goodCuts4LvlPrlm, opj(inm, 'good_lcp_cuts' + sfx), validCrossArea)
                     goodCutsList.append(goodCuts4Lvl)
 
                     arcpy.JoinField_management(goodCuts4Lvl, gridfield2, inmDfs2Cut, frFld, cutElFld)
@@ -540,7 +540,7 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
                     DEMpreviousCuts = DEMwGoodCutsLvl
 
         arcpy.env.workspace = proc_dir
-        goodCutsAll = df.condenseDataLvls(goodCutsList, inm + 'good_cuts_all')
+        goodCutsAll = df.condenseDataLvls(goodCutsList, opj(inm, 'good_cuts_all'))
 
         arcpy.JoinField_management(goodCutsAll, gridfield2, inmDfs2Cut, frFld, cutElFld)
 
@@ -557,8 +557,8 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
         frList.sort()
         for index, frl in enumerate(frList):
             sfx = '_' + str(index)
-            zstFillAftGoodCuts = ZonalStatisticsAsTable(frl, 'value', fillAfterGoodCuts, inm + 'zst_fil_aft_gd' + sfx)
-        zstFillAftGoodCutsAll = df.condenseTableLvls(zstFillAftGoodCuts, inm, inm + 'fil_aft_gd_all')
+            zstFillAftGoodCuts = ZonalStatisticsAsTable(frl, 'value', fillAfterGoodCuts, opj(inm, 'zst_fil_aft_gd' + sfx))
+        zstFillAftGoodCutsAll = df.condenseTableLvls(zstFillAftGoodCuts, inm, opj(inm, 'fil_aft_gd_all'))
         df.addCalcJoin(inmDfs2Cut, frFld, zstFillAftGoodCutsAll, 'VALUE', [filOfElFld, 'LONG'], '!MIN!')
     ####                                df.addCalcJoin(inmDfs2Cut, frFld, drainZST, 'VALUE', [filOfElFld, 'LONG'], '!MIN!')
         arcpy.JoinField_management(goodCutsAll, gridfield2, zstFillAftGoodCutsAll, 'VALUE', filOfElFld)
@@ -571,10 +571,10 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
         notBetterCutFrs = df.getFrsAsList(goodCutsAll, gridfield2, filOfElFld + ' > 0.65*(' + ofElFld + ' - ' + minElFld + ') + ' + minElFld + ' AND ' + filOfElFld + ' > 0.65*(' + maxFillFld + ' - ' + minElFld + ') + ' + minElFld)
 
         if len(notBetterCutFrs) > 0:
-            betterCutsAll = arcpy.Select_analysis(goodCutsAll, inm + 'better_cuts_all', df.buildAntiSelection(notBetterCutFrs, gridfield2))
+            betterCutsAll = arcpy.Select_analysis(goodCutsAll, opj(inm, 'better_cuts_all'), df.buildAntiSelection(notBetterCutFrs, gridfield2))
             df.copyfc(verbose, betterCutsAll, sgdb)
         else:
-            betterCutsAll = arcpy.CopyFeatures_management(goodCutsAll, inm + 'better_cuts_all')
+            betterCutsAll = arcpy.CopyFeatures_management(goodCutsAll, opj(inm, 'better_cuts_all'))
             df.copyfc(verbose, betterCutsAll, sgdb)
 
         bestCutsAll = arcpy.CopyFeatures_management(betterCutsAll, best_cuts_fc)#inm + 'best_cuts_all')
