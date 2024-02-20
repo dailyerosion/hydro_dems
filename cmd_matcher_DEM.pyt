@@ -1501,14 +1501,16 @@ if __name__ == "__main__":
 
         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
 	"C:/DEP/Scripts/basics/cmd_matcher_DEM.pyt",
-	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/07010102/idepACPF070101020507.gdb/buf_070101020507",
-	"M:/DEP/LiDAR_Current/elev_FLib_mean18/07010102/ef2m070101020507.tif",
-	"M:/DEP/LiDAR_Current/elev_PLib_mean18/07010102/ep2m070101020507.tif",
-	"M:/DEP/LiDAR_Current/elev_VLib_mean18/07010102/ev2m070101020507.tif",
-	"M:/DEP/LiDAR_Current/huc8_26915/huc_07010102.gdb/rd_rr_rd_rw_mrg_07010102",
-	"D:/DEP_Proc/DEMProc/Cut_dem2013_2m_070101020507",
-	"D:/DEP_Proc/DEMProc/Cut_dem2013_2m_070101020507/search_070101020507_mean18.pkl",
-    "5.0"]
+	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
+	"C:/DEP/LiDAR_Current/elev_PLib_mean18/07080105/ep3m070801050901.tif",
+	"C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/buf_070801050901",
+	"C:/DEP/LiDAR_Current/huc8_26915/huc_07080105.gdb/rd_rr_rd_rw_mrg_07080105",
+	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/fr0_0",
+	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/dfs_frToPoly_0",
+	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/ws_polys_0",
+	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901",
+	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/search_070801050901_mean18.pkl",
+	"9.0"]
 
         for i in parameters[2:]:
             sys.argv.append(i)
@@ -1517,8 +1519,8 @@ if __name__ == "__main__":
         # clean up the folder after done processing
         cleanup = True
 
-    input_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, depth_threshold = [i for i in sys.argv[1:]]
+    fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, depth_threshold = [i for i in sys.argv[1:]]
     messages = msgStub()
 
-    doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, depth_threshold, cleanup, messages)
+    doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, depth_threshold, cleanup, messages)
     arcpy.AddMessage("Back from doMatcher!")
