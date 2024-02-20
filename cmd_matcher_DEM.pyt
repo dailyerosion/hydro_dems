@@ -382,15 +382,6 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         log.info("Beginning execution: " + time.asctime())
         messages.addMessage("Log file at " + logName)
 
-        ## Set the environments
-        # control where scratchFolder and GDB are created
-        ## Make sure output locations exist
-
-        ## Set the environments
-        if os.path.isdir(proc_dir):
-            df.nukedir(proc_dir)
-        os.makedirs(proc_dir)
-
     # Create output directories
     ## Set the environments
         arcpy.env.scratchWorkspace = proc_dir
@@ -412,7 +403,6 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         arcpy.env.overwriteOutput = True
 
     # set up output raster names
-        # RMSE = 18.0# cm
 
         ## factor to increase search distance by
         srchMult = 3
