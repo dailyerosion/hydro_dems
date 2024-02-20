@@ -1456,7 +1456,13 @@ def doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, searc
                                             log.debug('done with dnMbgBfr2 at ' + time.asctime())
 
                                         ## Distill the connection search area...
-                                            allSearchIntPrelim = arcpy.Intersect_analysis([dnMbgBfr2, upMbgBfr2], inm + 'all_srch_int_prlm' + sfx)
+                                            try:
+                                                allSearchIntPrelim = arcpy.Intersect_analysis([dnMbgBfr2, upMbgBfr2], inm + 'all_srch_int_prlm' + sfx)
+                                            except:
+                                                arcpy.RepairGeometry_management(upMbgBfr2)
+                                                sgdbDnMbgBfr2 = df.copyfc(True, dnMbgBfr2, sgdb)
+                                                arcpy.RepairGeometry_management(sgdbDnMbgBfr2)
+                                                allSearchIntPrelim = arcpy.Intersect_analysis([sgdbDnMbgBfr2, upMbgBfr2], inm + 'all_srch_int_prlm' + sfx)                                                
                                             allSearchInt = arcpy.Select_analysis(allSearchIntPrelim, inm + 'all_srch_int' + sfx, frFld + ' = ' + frFld + '_1')
                                             allSearchIntDslv = arcpy.Dissolve_management(allSearchInt, inm + 'all_srch_int_dslv' + sfx, frFld, multi_part = 'SINGLE_PART')
                                             df.copyfc(verbose, allSearchIntPrelim, sgdb)

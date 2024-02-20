@@ -614,4 +614,3 @@ if __name__ == "__main__":
 
     doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8RoadsFC, procDir, cleanup, messages)
     arcpy.AddMessage("Back from doing!")
-
