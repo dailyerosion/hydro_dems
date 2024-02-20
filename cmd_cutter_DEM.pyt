@@ -5,7 +5,6 @@ import arcpy
 import pickle
 import sys
 import string
-import os
 from os.path import join as opj
 import traceback
 import time
@@ -155,17 +154,10 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
         log.info("Beginning execution: " + time.asctime())
         messages.addMessage("Log file at " + logName)
 
-        ## Set the environments
-        # control where scratchFolder and GDB are created
-        ## Make sure output locations exist
-
-        ## Set the environments
-        if os.path.isdir(proc_dir):
-            df.nukedir(proc_dir)
-        os.makedirs(proc_dir)
-
     # Create output directories
     ## Set the environments
+        # control where scratchFolder and GDB are created
+        ## Make sure output locations exist
         arcpy.env.scratchWorkspace = proc_dir
 
         sgdb = arcpy.env.scratchGDB
@@ -288,9 +280,8 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
         hucRoadsRaster = arcpy.PolylineToRaster_conversion(huc_roads, 'oneway', opj(proc_dir, 'roads_rast'), cellsize = ProcSize)
 
         meterDEM = 0.01 * input_dem
-        slopePct = Slope(meterDEM, 'PERCENT_RISE')
-    ####    flats2 = Con(slopePct == 0.0, 1, 0)
-    ####    noInteriorFlatsDEM = Con(flats2 == 0, bestestDEM, '')
+        # slopePct = Slope(meterDEM, 'PERCENT_RISE')
+        slopePct = Raster(opj(proc_dir, 'slope_pct'))
 
     ## Calculate curvature to find areas where curvature is positive (channels)
         crv = Curvature(meterDEM, '', opj(proc_dir, "pro_crv"), opj(proc_dir, "pln_crv"))
@@ -304,8 +295,6 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
         goodDslvAll = arcpy.CopyFeatures_management(opj(sgdb, 'good_int_dslv_all'), inm + 'good_int_dslv_all')
         goodDnDslvAll = arcpy.CopyFeatures_management(opj(sgdb, 'good_dn_pts_all'), inm + 'good_dn_pts_all')
         goodUpDslvAll = arcpy.CopyFeatures_management(opj(sgdb, 'good_up_pts_all'), inm + 'good_up_pts_all')
-
-
 
         sfx = ''
         ofSfx = ''
@@ -321,7 +310,6 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
         gdbSSdfs = df.copyfc(verbose, inmDfs2Cut, sgdb)
         arcpy.JoinField_management(goodUpDslvAll, frFld, goodDslvAll, frFld, ofPassFld)
         arcpy.JoinField_management(goodDnDslvAll, frFld, goodDslvAll, frFld, ofPassFld)
-
 
 
         # max of 18 iterations, just cause it might stop this one from crashing

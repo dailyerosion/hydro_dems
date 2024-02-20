@@ -486,17 +486,17 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
 
         log.warning('log file is ' + logName)
 
-        punchGdb = os.path.join(sgdb, os.path.splitext(os.path.basename(punch_tif))[0])
-        if not arcpy.Exists(punchGdb):
-            punchGdbResult = arcpy.CopyRaster_management(punch_tif, punchGdb)
-        punchedDEMNoHoles = Con(IsNull(punchGdb) == 1, fill_or_void_tif, punch_tif)
-        bestestDEM = punchedDEMNoHoles#Raster(punchGdb)
+        # punchGdb = os.path.join(sgdb, os.path.splitext(os.path.basename(punch_tif))[0])
+        # if not arcpy.Exists(punchGdb):
+        #     punchGdbResult = arcpy.CopyRaster_management(punch_tif, punchGdb)
+        # punchedDEMNoHoles = Con(IsNull(punchGdb) == 1, fill_or_void_tif, punch_tif)
+        # bestestDEM = punchedDEMNoHoles#Raster(punchGdb)
 
         slopePct = Raster(opj(proc_dir, 'slope_pct'))
         flats2 = Con(slopePct == 0.0, 1, 0)
-        noInteriorFlatsDEM = Con(flats2 == 0, bestestDEM, '')
+        noInteriorFlatsDEM = Con(flats2 == 0, fill_or_void_tif, '')
 
-        fsPfdMdn = FocalStatistics(bestestDEM, "RECTANGLE 3 3 CELL", "MEDIAN")#pitFilledDEM
+        fsPfdMdn = FocalStatistics(fill_or_void_tif, "RECTANGLE 3 3 CELL", "MEDIAN")#pitFilledDEM
 
         arcpy.env.workspace = inm
 
@@ -580,15 +580,15 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
                 log.debug('done with ofElFld at ' + time.asctime())
 
             ## Define the quartermost deepest parts of the watershed (deeper or equal to 1/4 fr depth)
-                wsMinEl = ZonalStatistics(wsLvl, 'value', bestestDEM, 'MINIMUM')#pitFilledDEM, 'MINIMUM')
+                wsMinEl = ZonalStatistics(wsLvl, 'value', fill_or_void_tif, 'MINIMUM')#pitFilledDEM, 'MINIMUM')
                 qrtrDeepEl = wsMinEl + 0.25*(wsOfEl-wsMinEl)
-                quarterDeepFr0 = Con(bestestDEM <= qrtrDeepEl, fr0)
+                quarterDeepFr0 = Con(fill_or_void_tif <= qrtrDeepEl, fr0)
                 quarterDeepFr1 = Con(quarterDeepFr0, 1)
 
             ## Define the deepest parts of the watershed (deeper or equal to fr median minimum elevation)
                 minMdnEl = ZonalStatistics(fr0, 'value', fsPfdMdn, 'MINIMUM')
                 cutEl = Con(minMdnEl < qrtrDeepEl, minMdnEl, qrtrDeepEl)
-                cutElFr0 = Con(bestestDEM <= cutEl, fr0)
+                cutElFr0 = Con(fill_or_void_tif <= cutEl, fr0)
                 cutElFr1 = Con(cutElFr0, 1)
 
                 zstCutElAlt = ZonalStatisticsAsTable(fr0, 'value', cutEl, inm + 'zst_alt_' + minFrDistFld + sfx, '', 'MINIMUM')

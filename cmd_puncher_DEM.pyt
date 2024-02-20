@@ -177,11 +177,6 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         if not arcpy.Exists(output_gdb):
             arcpy.CreateFileGDB_management(folder_dir, os.path.basename(output_gdb))            
 
-        ## Set the environments
-        if os.path.isdir(procDir):
-            df.nukedir(procDir)
-        os.makedirs(procDir)
-        
         arcpy.env.scratchWorkspace = procDir
 
         sfldr = arcpy.env.scratchFolder
