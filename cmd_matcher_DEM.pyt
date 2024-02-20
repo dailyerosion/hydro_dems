@@ -359,9 +359,9 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
 
         for a in arguments:
             if a == arguments[0]:
-                arg_str = a + '\n'
+                arg_str = str(a) + '\n'
             else:
-                arg_str += a + '\n'
+                arg_str += str(a) + '\n'
 
         messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 
