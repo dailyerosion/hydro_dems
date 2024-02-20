@@ -124,10 +124,10 @@ class Tool(object):
 
 
 
-def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_file, depth_threshold, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, cleanup, messages):
+def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_file, match_depth, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, cleanup, messages):
 
     try:
-        arguments = [input_dem, output_dem, clib_metadata, depth_threshold, huc_roads, proc_dir]
+        arguments = [input_dem, output_dem, clib_metadata, match_depth, huc_roads, proc_dir]
 
         for a in arguments:
             if a == arguments[0]:
@@ -420,7 +420,7 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
 
                             df.copyfc(verbose, goodDslvAllLyrFc, sgdb)
 
-                            goodLCP3CutsList = df.getFrsAsList(goodDslvAllLyrFc, frFld, '(CNT_LCP >= 0 AND CNT_LCP_NR IS NULL AND ((' + ofElFld + ' - ' + minElFld + ' > ' + str(6*depth_threshold) + ') OR ' + frThknsFld + ' > ' + str(ProcSize * 2) + '))')
+                            goodLCP3CutsList = df.getFrsAsList(goodDslvAllLyrFc, frFld, '(CNT_LCP >= 0 AND CNT_LCP_NR IS NULL AND ((' + ofElFld + ' - ' + minElFld + ' > ' + str(3*float(match_depth)) + ') OR ' + frThknsFld + ' > ' + str(ProcSize * 2) + '))')
                             goodLCP3CutsSel = df.buildSelection(goodLCP3CutsList, gridfield2)
 
                             goodLCP3Cuts = arcpy.Select_analysis(lcpFrPoly, inm + 'good_lcp3_cuts' + sfx + ofSfx, goodLCP3CutsSel)
@@ -447,7 +447,7 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
                                 df.copytbl(verbose, lcpStats, sgdb)
                                 df.addCalcJoin(goodDslvAllLyrFc, frFld, lcpStats, gridfield2, ['CNT_LCP', 'LONG'], '!COUNT_' + gridfield2 + '!')
 
-                                goodLCP3CutsList = df.getFrsAsList(goodDslvAllLyrFc, frFld, '(CNT_LCP >= 0 AND ((' + ofElFld + ' - ' + minElFld + ' > ' + str(6*depth_threshold) + ') OR ' + frThknsFld + ' > ' + str(ProcSize * 2) + '))')
+                                goodLCP3CutsList = df.getFrsAsList(goodDslvAllLyrFc, frFld, '(CNT_LCP >= 0 AND ((' + ofElFld + ' - ' + minElFld + ' > ' + str(3*float(match_depth)) + ') OR ' + frThknsFld + ' > ' + str(ProcSize * 2) + '))')
                                 goodLCP3CutsSel = df.buildSelection(goodLCP3CutsList, gridfield2)
 
                                 goodLCP3Cuts = arcpy.Select_analysis(lcpFrPoly, inm + 'good_lcp3_cuts' + sfx + ofSfx, goodLCP3CutsSel)

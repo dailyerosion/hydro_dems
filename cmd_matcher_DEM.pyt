@@ -327,7 +327,7 @@ def idMedianPtsDn(dnPtsAll, medianFrFld, mdnsOnly):
 
 
 
-def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, depth_threshold, cleanup, messages):
+def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth, cleanup, messages):
 
     ##This program was written to help remove issues in lidar DEMs caused
     ##by poor performance of interpolation algorithms in specific lcocations
@@ -355,7 +355,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
     # 2024.01.10 - moved selectFrAndWsDpPts into script and lowered threshold for splitting into subselections due to change in AG Pro
 
     try:
-        arguments = [fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, depth_threshold, cleanup]
+        arguments = [fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth, cleanup]
 
         for a in arguments:
             if a == arguments[0]:
@@ -517,7 +517,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
 
     ##                selFull = '(' + ofElFld + ' - ' + minElFld + ') > 67 OR ' + maxFrOfDistFld + ' >= ' + str(3 * ProcSize)
     ##        selFull = '(' + ofElFld + ' - ' + minElFld + ') > ' + str(3.0 * RMSE) + ' AND (' + ofElFld + ' - ' + minElFld + ')*0.01 / ' + minFrDistFld + ' >= 0.05'
-            selFull = frDepthFld + ' > ' + str(2.0 * depth_threshold) + ' AND ' + frMaxSlopeFld + ' > 5.0'
+            selFull = frDepthFld + ' > ' + str(2.0 * float(match_depth)) + ' AND ' + frMaxSlopeFld + ' > 5.0'
             ## instead of frPctDrop could analyze by water 'piling' up near edge
 
     ####        df.condDelete(verbose, wsPolys)
@@ -1509,8 +1509,8 @@ if __name__ == "__main__":
         # clean up the folder after done processing
         cleanup = True
 
-    fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, depth_threshold = [i for i in sys.argv[1:]]
+    fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth = [i for i in sys.argv[1:]]
     messages = msgStub()
 
-    doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, depth_threshold, cleanup, messages)
+    doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth, cleanup, messages)
     arcpy.AddMessage("Back from doMatcher!")
