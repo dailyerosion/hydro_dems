@@ -462,8 +462,8 @@ if __name__ == "__main__":
             sys.argv.append(i)
     else:
         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-        # clean up the folder after done processing
-        cleanup = True
+        # DO NOT clean up the folder after done processing - matcher needs this data
+        cleanup = False
 
     messages = msgStub()
 
