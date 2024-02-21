@@ -89,22 +89,8 @@ def doEPT(ept_wesm_file, cleanup, messages):
     import traceback
     import time
     import urllib.request
-    if sys.version_info.major == 2:
-        import getpass
-        login = getpass.getuser()
-    else:
-        login = os.getlogin()
-        
-    if login == 'bkgelder':
-        boxes = ['C:\\Users\\bkgelder\\Box\\Data_Sharing\\Scripts\\basics', 'O:\\DEP\\Scripts\\basics']
-    else:
-        boxes = ['C:\\Users\\idep2\\Box\\Scripts\\basics', 'O:\\DEP\\Scripts\\basics']
 
-    for box in boxes:
-        if os.path.isdir(box):
-            sys.path.append(box)
-
-    import dem_functions2 as df
+    import dem_functions as df
     from os.path import join as opj
 
     messages.addMessage("Tool: Executing with parameter '{:s}'".format(ept_wesm_file))

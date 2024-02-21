@@ -7,7 +7,6 @@ import datetime
 import logging
 from arcpy.sa import *
 import arcpy.metadata as md
-import subprocess
 import time
 from os.path import join as opj
 
@@ -2330,89 +2329,6 @@ def printParameters(parameters):
         else:
             print('\t"' + i.replace('\\', '/') + '",')
 
-def runAndPrint(runList, timeout, env):
-    subp = subprocess.Popen(runList, env=env, stdout = subprocess.PIPE, stderr=subprocess.PIPE)#, shell = True)
-    print('\tRunning process pid ' + str(subp.pid) + ' at ' + str(time.asctime()))
-    try:
-        wait_for_timeout(subp, timeout)
-    except RuntimeError:
-        print('\tRuntime Error - killing process pid ' + str(subp.pid) + ' after ' + str(timeout/60.0) + ' minutes')
-        #will take a bit for child's child processes to die (las2las, arcpy functions)
-        subp.terminate()
-
-    except:
-        print('\tsubprocess exception returned ' + str(subp.returncode))
-        # Get the traceback object
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-
-        # Concatenate information together concerning the error into a message string
-        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-        # Return python error messages for use in script tool or Python Window
-        arcpy.AddError(pymsg)
-        # Print Python error messages for use in Python / Python Window
-        print(pymsg + "\n")
-
-        if arcpy.GetMessages(2) not in pymsg:
-            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-            arcpy.AddError(msgs)
-            print(msgs)
-
-    if subp.returncode != 0:
-        print('\tsubprocess failure returned exit code: ' + str(subp.returncode))
-        comms = subp.communicate()
-        for comm in comms:#stdout, stderr
-            lines = comm.splitlines()
-            if comm == comms[0]:
-                print('\t' + 'STD OUT')
-            elif comm == comms[1]:
-                print('\n\t' + 'STD ERR')
-            for line in lines:
-                print('\t' + line)
-        
-    return subp
-
-def runAndPrintAlways(runList, timeout, env):
-    subp = subprocess.Popen(runList, env=env, stdout = subprocess.PIPE, stderr=subprocess.PIPE)#, shell = True)
-    print('\tRunning process pid ' + str(subp.pid) + ' at ' + str(time.asctime()))
-    try:
-        wait_for_timeout(subp, timeout)
-    except RuntimeError:
-        print('\tRuntime Error - killing process pid ' + str(subp.pid) + ' after ' + str(timeout/60.0) + ' minutes')
-        #will take a bit for child's child processes to die (las2las, arcpy functions)
-        subp.terminate()
-
-    except:
-        print('\tsubprocess exception returned ' + str(subp.returncode))
-        # Get the traceback object
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-
-        # Concatenate information together concerning the error into a message string
-        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-        # Return python error messages for use in script tool or Python Window
-        arcpy.AddError(pymsg)
-        # Print Python error messages for use in Python / Python Window
-        print(pymsg + "\n")
-
-        if arcpy.GetMessages(2) not in pymsg:
-            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-            arcpy.AddError(msgs)
-            print(msgs)
-
-##    if subp.returncode != 0:
-    print('\tsubprocess failure returned exit code: ' + str(subp.returncode))
-    comms = subp.communicate()
-    for comm in comms:#stdout, stderr
-        lines = comm.splitlines()
-        if comm == comms[0]:
-            print('\t' + 'STD OUT')
-        elif comm == comms[1]:
-            print('\n\t' + 'STD ERR')
-        for line in lines:
-            print('\t' + line)
-    
-    return subp
 
 
 def joinDict(in_data, in_field, join_data, join_field, fields_to_join, in_fields_to_add = []):

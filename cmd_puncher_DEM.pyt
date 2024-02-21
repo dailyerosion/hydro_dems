@@ -168,14 +168,21 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         messages.addMessage("Log file at " + logName)
 
         ## Set the environments
-        # control where scratchFolder and GDB are created
-        ## Make sure output locations exist
+        ## Make sure depression output locations exist
         output_gdb = os.path.dirname(depressions_fc)
         folder_dir = os.path.dirname(output_gdb)
         if not os.path.isdir(folder_dir):
             os.makedirs(folder_dir)
         if not arcpy.Exists(output_gdb):
             arcpy.CreateFileGDB_management(folder_dir, os.path.basename(output_gdb))            
+
+        # control where scratchFolder and GDB are created
+        if os.path.isdir(procDir):
+            log.warning('nuking: ' + procDir)
+            df.nukedir(procDir)
+
+        if not os.path.isdir(procDir):
+            os.makedirs(procDir)
 
         arcpy.env.scratchWorkspace = procDir
 
@@ -184,7 +191,6 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         arcpy.env.scratchWorkspace = sfldr#
         arcpy.env.workspace = sgdb
 
-##        cp = procDir + "\\"
         inm = 'in_memory'
 
         arcpy.env.snapRaster = input_dem
@@ -209,7 +215,6 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         gridfield = 'gridcode'
 
         dfsList = []
-
 
         ######------------------------------------------------------------------------------
 
@@ -293,7 +298,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
             log.info('Maximum depth for ' + str(sfx) + ': ' + str(maxDepth) + ' at ' + str(time.asctime()))
             # log.debug("After df.findMaxDepth( for " + str(sfx) + ' at ' + str(time.asctime()))
             ## save fillLvl, rDepth with next iteration number since that's when they would be used
-            # fillLvl.save(opj(procDir, 'fill_lvl_' + str(index+1)))
+            fillLvl.save(opj(procDir, 'fill_lvl_' + str(index+1)))
             # rDepth.save(opj(procDir, 'rdpth_' + str(index+1)))
 
 
