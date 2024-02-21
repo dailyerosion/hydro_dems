@@ -485,7 +485,7 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
                 apBfrFld = 'rw_bfr_dist'#bfrFldList[2]
                 df.tryAddField(hucRunways, apBfrFld, "SHORT")
                 arcpy.CalculateField_management(hucRunways, apBfrFld, apSrchExp, "PYTHON")
-                rwsBfr = arcpy.Buffer_analysis(hucRunways, opj(inm, "rw_srch_bfr"), apBfrFld, "FULL", "ROUND", "LIST", apBfrFld)
+                rwsBfr = arcpy.Buffer_analysis(hucRunways, opj(gdb, "rw_srch_bfr"), apBfrFld, "FULL", "ROUND", "LIST", apBfrFld)
                 mergedMdnList.append(rwsBfr)
 
     ## ------------------------------------------------------------------------------
@@ -499,10 +499,12 @@ def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thres
                     arcpy.CalculateField_management(mergedMdns, 'T', '1', 'PYTHON')
                     mergedMdnsRasterT = Raster(arcpy.PolygonToRaster_conversion(mergedMdns, 'T', opj(gdb, 'mrgd_mdn'), cellsize = ProcSize))
                     mergedMdnsRaster = Raster(arcpy.PolygonToRaster_conversion(mergedMdns, arcpy.Describe(mergedMdns).OIDFieldName, opj(gdb, 'mrgd_mdns'), cellsize = ProcSize))
-                    mergedMdnsCost = CostDistance(Con(IsNull(mergedMdnsRasterT) == 1, 1), Con(IsNull(mergedMdnsRasterT) == 1, 0, 1))
+                    # in Pro must use non-zero values for cost, 0.0001 was previously 0
+                    mergedMdnsCost = Con(IsNull(mergedMdnsRasterT) == 1, 0.0001, 1)
+                    mergedMdnsCostDist = CostDistance(Con(IsNull(mergedMdnsRasterT) == 1, 1), mergedMdnsCost)
     ####                mergedMdnsCost.save(cp + 'mdn_cost')
 
-                    mergedMdnsCostZst = ZonalStatisticsAsTable(mergedMdnsRaster, 'VALUE', mergedMdnsCost, opj(inm, 'mrgd_mdn_zst'))
+                    mergedMdnsCostZst = ZonalStatisticsAsTable(mergedMdnsRaster, 'VALUE', mergedMdnsCostDist, opj(inm, 'mrgd_mdn_zst'))
                 ## populate new search distance field - 2x because cost distance maxes at center, ##1.5x to cut at 60 degree angle, 
                     df.addCalcJoin(mergedMdns, arcpy.Describe(mergedMdns).OIDFieldName, mergedMdnsCostZst, 'VALUE', ['bfr_dist', 'DOUBLE'], '2*!MAX!')
 
