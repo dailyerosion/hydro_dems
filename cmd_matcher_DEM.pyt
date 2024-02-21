@@ -382,6 +382,10 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         log.info("Beginning execution: " + time.asctime())
         messages.addMessage("Log file at " + logName)
 
+        log.warning('log file is ' + logName)
+
+        log.info("Tool: Executing with parameters:\n" + arg_str)
+
     # Create output directories
     ## Set the environments
         arcpy.env.scratchWorkspace = proc_dir
@@ -473,8 +477,6 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         srchList = []
         upPtsList = []
         dnPtsList = []
-
-        log.warning('log file is ' + logName)
 
         # punchGdb = os.path.join(sgdb, os.path.splitext(os.path.basename(punch_tif))[0])
         # if not arcpy.Exists(punchGdb):

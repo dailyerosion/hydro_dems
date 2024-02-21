@@ -130,10 +130,10 @@ class Tool(object):
 
 
 
-def doSearcher(input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir, cleanup, messages):
+def doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8RoadsFC, procDir, cleanup, messages):
 
     try:
-        arguments = [input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir, cleanup, messages]
+        arguments = [input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8RoadsFC, procDir, cleanup]
 
         for a in arguments:
             if a == arguments[0]:
@@ -578,13 +578,13 @@ if __name__ == "__main__":
         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
 	"C:/DEP/Scripts/basics/cmd_searchAreas_DEM.pyt",
 	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
-	"D:/DEP/Basedata_Summaries/elev_PLib_mean18/07080105/ep3m070801050901.tif",
-	"D:/DEP/Basedata_Summaries/elev_PLib_mean18/07080105/ep3m070801050901.tif",
-	"D:/DEP/Basedata_Summaries/elev_PLib_mean18/07080105/ep3m070801050901.tif",
-	"C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/dprsns_mean18_dem2013_3m_070801050901",
-	"5.0",
-	"500",
-	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901"]
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/MW_HUC8_v2022",
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/railways_merge",
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/runways",
+	"C:/DEP/LiDAR_Current/huc8_26915/huc_07080105.gdb/rd_rr_rd_rw_mrg_07080105",
+	"C:/DEP/LiDAR_Current/huc8_26915/huc_07080105.gdb/roads_07080105",
+	"C:/DEP_Proc/Median_Proc/Medians_26915_07080105"]
 
         for i in parameters[2:]:
             sys.argv.append(i)

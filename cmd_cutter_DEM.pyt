@@ -114,7 +114,7 @@ class Tool(object):
     def execute(self, parameters, messages):
         """The source code of the tool."""
         cleanup = False
-        doCutter(parameters[0].valueAsText, parameters[1].valueAsText, parameters[2].valueAsText, parameters[3].valueAsText, parameters[4].valueAsText, parameters[5].valueAsText, parameters[6].valueAsText, parameters[7].valueAsText, cleanup, messages)
+        doCutter(parameters[0].valueAsText, parameters[1].valueAsText, parameters[2].valueAsText, parameters[3].valueAsText, parameters[4].valueAsText, parameters[5].valueAsText, parameters[6].valueAsText, parameters[7].valueAsText, parameters[8].valueAsText, parameters[9].valueAsText, cleanup, messages)
         return
 
     def postExecute(self, parameters):
@@ -124,16 +124,16 @@ class Tool(object):
 
 
 
-def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_file, match_depth, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, cleanup, messages):
+def doCutter(input_dem, huc_roads, search_distance_file, output_dem, clib_metadata, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup, messages):
 
     try:
-        arguments = [input_dem, output_dem, clib_metadata, match_depth, huc_roads, proc_dir]
+        arguments = [input_dem, huc_roads, search_distance_file, output_dem, clib_metadata, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup]
 
         for a in arguments:
             if a == arguments[0]:
-                arg_str = a + '\n'
+                arg_str = str(a) + '\n'
             else:
-                arg_str += a + '\n'
+                arg_str += str(a) + '\n'
 
         messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 
@@ -154,6 +154,10 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
         log.info("Beginning execution: " + time.asctime())
         messages.addMessage("Log file at " + logName)
 
+        log.info('log file is ' + logName)
+
+        log.info("Tool: Executing with parameters:\n" + arg_str)
+
     # Create output directories
     ## Set the environments
         # control where scratchFolder and GDB are created
@@ -163,11 +167,6 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
         sgdb = arcpy.env.scratchGDB
         arcpy.env.scratchWorkspace = sgdb
         arcpy.env.workspace = sgdb
-
-    ## Set the environments
-        arcpy.env.workspace = sgdb
-
-        arcpy.env.scratchWorkspace = proc_dir
 
         arcpy.env.snapRaster = input_dem
 
@@ -190,7 +189,6 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
         ofElList = ["FR_OF_EL", "LONG"]
         ofElFld = ofElList[0]
         frFld = 'FILL_RGN'
-        fillLvlFld = 'FILL_LVL'
 
         lcpMeanCrvFld = 'LCP_FR_MEAN_CRV'
         lcpMaxSlpFld = 'LCP_FR_MAX_SLP'
@@ -199,11 +197,7 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
         minElFld = 'FR_MIN_EL'
         cutElFld = 'FR_CUT_EL'
         filOfElFld = 'MIN_AFT_CUT'
-        maxMaxBfrFld = 'MAX_MAX_bfr_dist'
-        maxFrOfDistFld = 'MAX_FR_OF_DIST'
         maxFillFld = 'MAX_FILL'
-
-        wsSearchDistFld = 'WS_SRCH_DST'
 
         minFrDistList = ['MIN_WS_DST', 'DOUBLE']
         minFrDistList3 = ['MIN_WS_DST3', 'DOUBLE']
@@ -214,17 +208,9 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
         frPctDropList = ['MAX_PCT_DROP', 'DOUBLE']
         frPctDropFld = frPctDropList[0]
 
-        medianFrFld = "Median_FR"        
-
         frAllCrvFrac = ['ALL_FR_CRV_FRAC', 'DOUBLE']
         frAllCrvFracFld = frAllCrvFrac[0]
         frThknsFld = 'FR_THKNS'
-
-        cmb_score_fld = "Combo_score"
-
-        frDepthFld = 'FR_DEPTH'
-        frAreaFld = 'FR_AREA'
-        frVolFld = 'FR_VOLUME'
 
         minElDifFld = 'MIN_EL_DIF'
         minElDif = [minElDifFld, 'long']
@@ -232,48 +218,14 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
         maxElDifFld = 'MAX_EL_DIF'
         maxElDif = [maxElDifFld, 'long']
 
-        rect3x3Nbr = NbrRectangle(3, 3, 'CELL')
-        bsNbr = NbrRectangle(5, 5, 'CELL')
-        
-        annulus1x15Nbr = NbrAnnulus(1, 3, "CELL")
-        circle15Nbr = NbrCircle(15, 'CELL')
-
-        minSummaryFld = 'MIN_MIN'
-        revCutElFld = 'REV_CUT_EL'
-
-        bsMinUpElFld = 'bs_min_el_up'
-        bsMinDnElFld = 'bs_min_el_dn'
-
-        allDnCellsFld = 'all_dn'
-        wsLvlFld = 'ws_lvl'
-
-        crestMin = 9.0 # Meters
-
         gridfield = 'gridcode'
         gridfield2 = 'grid_code'
 
         goodCutsList = []
 
-        ## wsSearchDistFld is an adjusted search distance used distance from deep point to ws boundary and a minimum width
-        ## it is not adjusted for crossing a median, just used for figuring out if upstream points are close
-        ## wsMdnSearchDistField is ws search dist + max fr median search dist
-        ## Used for buffered watershed searches
-        ## pntSearchDistField is inner and outer ws search dist (i.e. x2)
-        ## pntMdnSearchDistField is inner and outer ws search dist (i.e. x2) + median search
-        ## Used for buffered point searches
-        maxWsMdnFld = 'MAX_bfr_dist'
-        pntMdnSearchDistFld = 'PNT_MDN_DIST'
-        wsMdnSearchDistFld = 'WS_MDN_DIST'
-        mdnFracFld = 'up_mdn_frac'
-
-        ## cutOneMinCrit is ratio of FR depth + min FR elevaiton that external elevation must be less than to be considered for cutting
-        cutOneMinCrit = 0.5#0.4
-
         searchPickleFileObject = open(search_distance_file, 'rb')
         maxSearchDistList = pickle.load(searchPickleFileObject)
         searchPickleFileObject.close()
-
-        log.info('log file is ' + logName)
 
         hucRoadsRaster = arcpy.PolylineToRaster_conversion(huc_roads, 'oneway', opj(proc_dir, 'roads_rast'), cellsize = ProcSize)
 
@@ -284,9 +236,6 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
     ## Calculate curvature to find areas where curvature is positive (channels)
         crv = Curvature(meterDEM, '', opj(proc_dir, "pro_crv"), opj(proc_dir, "pln_crv"))
         proCrv = Raster(opj(proc_dir, 'pro_crv'))
-
-        frMaxSlopeFld = 'FR_MAX_SLP'
-        frMeanSlopeFld = 'FR_MEAN_SLP'
 
         inmDfs2Cut = arcpy.CopyFeatures_management(opj(sgdb, 'dfs2cut_' + huc12), opj(inm, 'dfs_2_cut_' + huc12))
     ##    inmDfs2Cut = arcpy.CopyFeatures_management(opj(sgdb, 'dfs2cut_' + huc12), opj(inm, 'dfs_2_cut_' + huc12))
@@ -329,12 +278,10 @@ def doCutter(input_dem, output_dem, clib_metadata, huc_roads, search_distance_fi
                 df.copyfc(verbose, goodUpLyrFc, sgdb)
                 log.debug('set up layers for sfx ' + sfx + ' at ' + time.asctime())
 
-                inDEM = DEMpreviousCuts
-
                 upCellsIter = arcpy.PointToRaster_conversion(goodUpLayer, frFld, 'up_prlm' + sfx)
 
-                maxCostDist = max(maxSearchDistList) * 100
-                distToUp = CostDistance(upCellsIter, Con(input_dem, 1))#, maxCostDist)
+                # maxCostDist = max(maxSearchDistList) * 100
+                # distToUp = CostDistance(upCellsIter, Con(input_dem, 1))#, maxCostDist)
 
                 deepCloseBfr2Fr = arcpy.PolygonToRaster_conversion(goodDslvAllLayer, frFld, opj(proc_dir, 'cut_fr' + sfx + ofSfx), '', '', ProcSize)
 
@@ -663,17 +610,18 @@ if __name__ == "__main__":
 
     # inputs
     input_dem = sys.argv[1]
-    huc8fc = sys.argv[2]
-    roadsFC = sys.argv[3]
-    rrsFC = sys.argv[4]
-    apFC = sys.argv[5]
-
+    huc_roads = sys.argv[2]
+    search_distance_file = sys.argv[3]
     # outputs
-    mergedMdnsHuc8FC = sys.argv[6]
-    huc8RoadsFC = sys.argv[7]
+    output_dem = sys.argv[4]
+    clib_metadata = sys.argv[5]
+    good_cuts_fc = sys.argv[6]
+    best_cuts_fc = sys.argv[7]
+    depressions2cut_fc = sys.argv[8]
 
     # local processing directory
-    proc_dir = sys.argv[8]
+    proc_dir = sys.argv[9]
+    match_depth = sys.argv[10]
 
-    doCutter(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8RoadsFC, proc_dir, cleanup, messages)
+    doCutter(input_dem, huc_roads, search_distance_file, output_dem, clib_metadata, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup, messages)
     arcpy.AddMessage("Back from doing!")
