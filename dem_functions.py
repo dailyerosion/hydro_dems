@@ -566,16 +566,16 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         "watershedBoundaries" : opj(ACPFDir, "bnd" + huc12),
         "bufferedBoundaries" : opj(ACPFDir, "buf_" + huc12),
         "wesm_project_boundaries" : opj(ACPFDir, "_".join(["wesm", ept_first_of_month_name, huc12])),
-        "snapraster" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/Snap1m'),
-        "roadsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/roads_merge'),
-        "rrsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/railways_merge'),
-        "rwsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/runways'),
-        "waterwaysfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/waterways'),
-        "waterfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/water'),
+        "snapraster" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'Snap1m'),
+        "roadsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'roads_merge'),
+        "rrsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'railways_merge'),
+        "rwsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'runways'),
+        "waterwaysfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'waterways'),
+        "waterfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'water'),
 
-        "mn_dnr_forest_roads" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/mn_dnr_roads'),
-        "us_fs_forest_roads" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/us_fs_roads'),
-        "us_fs_forest_trails" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/us_fs_trails'),
+        "mn_dnr_forest_roads" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'mn_dnr_roads'),
+        "us_fs_forest_roads" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'us_fs_roads'),
+        "us_fs_forest_trails" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'us_fs_trails'),
 
         # other datasets where feature, thus name, is based on DEM year vintage
         "goodcutsfc" : opj(ACPFDir, "cuts_prelim" + uinterpType + dem_year + ucellSize + uhuc12),
@@ -638,18 +638,18 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
 ##        "snaps" : opj(ACPFDir, 'snaps' + str(cellSize) + 'm_' + interpType + '_' + huc12),
 ##        "tillages" : opj(ACPFDir, 'tillage' + str(cellSize) + 'm' + '_' + huc12),
 ##
-        "blFile" : opj(lidarOutputDir, 'bl_Lib\\' + huc8 + '\\breaklines_' + huc12 + '.shp'),
+        "blFile" : opj(lidarOutputDir, 'bl_Lib', huc8, 'breaklines_' + huc12 + '.shp'),
         "breaklines" : opj(lidarOutputDir, 'bl_Lib', huc8, "breaks_" + huc8 + ".gdb", 'break_lines_' + huc12),
         "breakpolys" : opj(lidarOutputDir, 'bl_Lib', huc8, "breaks_" + huc8 + ".gdb", 'break_polys_' + huc12),
         "lasTilesDrive" : opj(basedataDir, 'Basedata_5070.gdb','IA_MN_NE_Tiles_Merge'),
         "kansasTilesPath" : opj(basedataDir, 'Basedata_5070.gdb','Kansas_tiles_available_actual_extents'),
 
-        "stripsFlumes_old" : opj(depBase, 'temp\\STRIPS2_flume_points\\STRIPS2_flume_points.gdb\\flume_points'),
-        "ephemeralGullies_old" : opj(depBase, 'temp\\Gord_cmwang\\ruraldata\\data' + huc12 + '.gdb\\Gullyhead'),
+        "stripsFlumes_old" : opj(depBase, 'temp', 'STRIPS2_flume_points', 'STRIPS2_flume_points.gdb', 'flume_points'),
+        "ephemeralGullies_old" : opj(depBase, 'temp', 'Gord_cmwang', 'ruraldata', 'data' + huc12 + '.gdb', 'Gullyhead'),
 
-        "stripsFlumes" : opj(otherBaseNoVersion, 'Gully_data\\STRIPS2_flume_points\\STRIPS2_flume_points.gdb\\flume_points'),
-        "ephemeralGullies" : opj(otherBaseNoVersion, 'Gully_data\\cmwang\\data' + huc12 + '.gdb\\Gullyhead'),
-        "nrcs_gullies" : opj(otherBaseNoVersion, 'Gully_data\\NRCS\\NRCS_Gulley_' + huc12 + '.gdb\\GullyHeads_' + huc12),
+        "stripsFlumes" : opj(otherBaseNoVersion, 'Gully_data', 'STRIPS2_flume_points', 'STRIPS2_flume_points.gdb', 'flume_points'),
+        "ephemeralGullies" : opj(otherBaseNoVersion, 'Gully_data', 'cmwang', 'data' + huc12 + '.gdb', 'Gullyhead'),
+        "nrcs_gullies" : opj(otherBaseNoVersion, 'Gully_data', 'NRCS', 'NRCS_Gulley_' + huc12 + '.gdb', 'GullyHeads_' + huc12),
 
         # processing directories
         "peukProcDir" : opj(localProc, 'DEMProc', 'Catch' + dem_year + '_' + str(cellSize) + 'm_' + huc12),
@@ -672,7 +672,7 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         "NEKernelFile" : opj(depBase, 'kernels', 'FlowNE_Kernel.txt'),
 
         # residue cover directory
-        "rescoverDir" : opj(os.path.dirname(basedataDir), 'Man_Data_Other\\GEE_residue_cover'),
+        "rescoverDir" : opj(os.path.dirname(basedataDir), 'Man_Data_Other', 'GEE_residue_cover'),
 
         # DEP SSURGO soils directory
         # altered SOL file to remove SOL = ACPF + 1 year assumption, on consultation with David James, 2021.10.28 bkgelder
@@ -687,17 +687,17 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
 
 
         if int(ACPFyear) <= 2015:
-            geeResidueMap = opj(otherBaseNoVersion, 'Iowa_RC.gdb\\huc' + huc8 + '_ACPF2017')
+            geeResidueMap = opj(otherBaseNoVersion, 'Iowa_RC.gdb', 'huc' + huc8 + '_ACPF2017')
         elif int(ACPFyear) <= 2025:
             geeResidueMap = opj(otherBaseNoVersion, 'GEE_residue_cover', 'residue_cover_' + ACPFyear + '.tif')
         if int(ACPFyear) <= 2017:
-            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota\\2017_combo_agonly_recount_combo_residue_times2.img')
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', '2017_combo_agonly_recount_combo_residue_times2.img')
         elif int(ACPFyear) <= 2020:
-            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota\\minnesota_2020_boax_rowcrop_noforage_residue_times2_rc200_new_combo2019_2020_model.img')
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_2020_boax_rowcrop_noforage_residue_times2_rc200_new_combo2019_2020_model.img')
         elif int(ACPFyear) == 2021:
-            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota\\minnesota_2021_boax_rowcrop_noforage_residue_times2_rc200_new_combo2019_2020_model.img')
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_2021_boax_rowcrop_noforage_residue_times2_rc200_new_combo2019_2020_model.img')
         elif int(ACPFyear) == 2022:
-            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota\\minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage_final_w_flood_mask_out.tif')
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage_final_w_flood_mask_out.tif')
         
         locationsDict.update({
         "irrigationMap" : opj(otherBaseNoVersion, 'lanid2011-2017', 'lanid2017.tif'),
