@@ -232,7 +232,7 @@ def doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8Ro
             if int(arcpy.GetCount_management(mwRoadsMdn).getOutput(0)) > 0:
 
                 rdMedianNearLine = arcpy.XYToLine_management(mwRoadsMdn, opj(inm, 'mdn_roads_near_lines'), 'FROM_X', 'FROM_Y', 'NEAR_X', 'NEAR_Y', spatial_reference = mwRoads)
-                rdMedianNearLineCentroid = arcpy.CreateFeatureclass_management(inm[:-1], 'rd_mdn_poly_centroid', 'POINT', spatial_reference = mwRoads)
+                rdMedianNearLineCentroid = arcpy.CreateFeatureclass_management(inm, 'rd_mdn_poly_centroid', 'POINT', spatial_reference = mwRoads)
                 df.tryAddField(rdMedianNearLineCentroid, 'NEAR_DIST', 'DOUBLE')
                 iCurCentroid = arcpy.da.InsertCursor(rdMedianNearLineCentroid, ['SHAPE@', 'NEAR_DIST'])
                 with arcpy.da.SearchCursor(rdMedianNearLine, ['SHAPE@XY', 'SHAPE@LENGTH']) as sCurCentroid:
