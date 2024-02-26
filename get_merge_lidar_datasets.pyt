@@ -93,13 +93,21 @@ def doEPT(ept_wesm_file, cleanup, messages):
     import dem_functions as df
     from os.path import join as opj
 
-    messages.addMessage("Tool: Executing with parameter '{:s}'".format(ept_wesm_file))
-
-    arcpy.env.overwriteOutput = True
-
     # if True:
     try:
-            
+        arguments = [ept_wesm_file, cleanup]
+
+        for a in arguments:
+            if a == arguments[0]:
+                arg_str = str(a) + '\n'
+            else:
+                arg_str += str(a) + '\n'
+
+        messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
+
+        arcpy.env.overwriteOutput = True
+
+
         huc12 = 'XXXXXXXXXXXX'
         if cleanup:
             # log to file only
@@ -112,11 +120,15 @@ def doEPT(ept_wesm_file, cleanup, messages):
         log.info("Log file at " + logName)
         messages.addMessage("Log file at " + logName)
 
+        log.info("Tool: Executing with parameters:\n" + arg_str)
+
         # inputs then outputs
 ##        ept_wesm_file = sys.argv[1]
 
         eptDir = os.path.dirname(os.path.dirname(ept_wesm_file))
 
+        if not os.path.isdir(eptDir):
+            os.makedirs(eptDir)
 
         #get geoJSON from https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson
         first_of_month_string = ept_wesm_file[-10:]#datetime.datetime.today().replace(day=1)
