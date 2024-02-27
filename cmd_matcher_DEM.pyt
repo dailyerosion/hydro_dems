@@ -693,6 +693,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
                 wsCostDistName = df.getfields(upstreamCombine)[5]
 
                 upPtsCmb = arcpy.RasterToPoint_conversion(upstreamCombine, opj(inm, 'cb_up' + sfx))
+                log.debug(f"upPtsCount is: " + str(arcpy.GetCount_management(upPtsCmb).getOutput(0)))
 
                 try:
                     arcpy.JoinField_management(upPtsCmb, gridfield2, upstreamCombine, 'value', [deepEnoughFr0Name, df.getfields(upstreamCombine)[4], wsCostDistName])
