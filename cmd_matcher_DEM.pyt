@@ -681,19 +681,21 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
             ## Just get those at the minimum block elevation
                 upPtsDEM = Raster(fill_or_void_tif)#ndAllFixedDEM)#bigNdFixed
                 bsMinUpEl = BlockStatistics(Con(deepEnoughFr0ToCut, upPtsDEM), bsNbr, 'MINIMUM')
-                bsMinUpElName = str(bsMinUpEl).split('\\')[-1]
 
                 # rgBsMinUpEl = RegionGroup(bsMinUpEl)
 
                 deepEnoughFr0Bs = Con(upPtsDEM == bsMinUpEl, deepEnoughFr0ToCut)
+                deepEnoughFr0Bs.save(opj(proc_dir, 'up_bs' + sfx))
+                deepBsMinUpElName = os.path.basename(deepEnoughFr0Bs)
 
                 upstreamCombine = Combine([deepEnoughFr0Bs, upPtsDEM, wsCostDistance])#bestestDEM, wsCostDistance])
                 upstreamCombine.save(opj(proc_dir, 'up_cmb' + sfx))
+                log.debug(f"upPtsCombine count is: " + str(arcpy.GetCount_management(upstreamCombine)))
                 deepEnoughFr0Name = df.getfields(upstreamCombine)[3]
                 wsCostDistName = df.getfields(upstreamCombine)[5]
 
                 upPtsCmb = arcpy.RasterToPoint_conversion(upstreamCombine, opj(inm, 'cb_up' + sfx))
-                log.debug(f"upPtsCount is: " + str(arcpy.GetCount_management(upPtsCmb).getOutput(0)))
+                log.debug(f"upPtsCmb count is: " + str(arcpy.GetCount_management(upPtsCmb).getOutput(0)))
 
                 try:
                     arcpy.JoinField_management(upPtsCmb, gridfield2, upstreamCombine, 'value', [deepEnoughFr0Name, df.getfields(upstreamCombine)[4], wsCostDistName])
@@ -1164,7 +1166,8 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
 
     ##                                    print(time.clock())
                                         log.debug('starting upPtsFlds at ' + time.asctime())
-                                        upPtsFlds = [df.getfields(upPtsCmb)[5], frFld, medianFrFld]#upPtsDEM.name
+                                        upPtsFlds = [deepBsMinUpElName, frFld, medianFrFld]
+                                        # upPtsFlds = [df.getfields(upPtsCmb)[5], frFld, medianFrFld]#upPtsDEM.name
                                         dfsFlds = [minElFld, ofElFld, revCutElFld, pntMdnSearchDistFld, wsSearchDistFld, mdnFracFld, maxWsMdnFld]
                                         dnPtsFlds = [wsLvlFld, dn_demName]
                                         allFlds = upPtsFlds + dnPtsFlds + dfsFlds
@@ -1291,11 +1294,11 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
                                         log.debug('done with medians at ' + time.asctime())
 
                                     ## further winnow upstream points for lowest elevation
-                                        statsUpCells = arcpy.Statistics_analysis(gntXNoX, opj(inm, 'stat_up_pts_dem' + sfx), [[df.getfields(upPtsCmb)[5], 'MIN'], [df.getfields(upPtsCmb)[5], 'MEAN']], frFld)#, [bestestDEM.name, 'STD']#str(upPtsDEM.name)
-                                        arcpy.JoinField_management(gntXNoX, frFld, statsUpCells, frFld, ['MEAN_' + df.getfields(upPtsCmb)[5], 'MIN_' + df.getfields(upPtsCmb)[5]])#str(upPtsDEM.name)
-                                        minShort = str('MIN_' + df.getfields(upPtsCmb)[5])#str(upPtsDEM.name))#[:16]
-                                        meanShort = str('MEAN_' + df.getfields(upPtsCmb)[5])#str(upPtsDEM.name))#[:16]
-                                        gntXNoXUpBstDeep = arcpy.TableSelect_analysis(gntXNoX, opj(inm, 'gnt_7_up_bst_dp' + sfx), df.getfields(upPtsCmb)[5] + ' <= ' + revCutElFld + ' OR (' + df.getfields(upPtsCmb)[5] + ' <= ' + meanShort + ' AND ' + minShort + ' > ' + revCutElFld + ')')
+                                        statsUpCells = arcpy.Statistics_analysis(gntXNoX, opj(inm, 'stat_up_pts_dem' + sfx), [[deepBsMinUpElName, 'MIN'], [deepBsMinUpElName, 'MEAN']], frFld)#, [bestestDEM.name, 'STD']#str(upPtsDEM.name)
+                                        arcpy.JoinField_management(gntXNoX, frFld, statsUpCells, frFld, ['MEAN_' + deepBsMinUpElName, 'MIN_' + deepBsMinUpElName])#str(upPtsDEM.name)
+                                        minShort = str('MIN_' + deepBsMinUpElName)#str(upPtsDEM.name))#[:16]
+                                        meanShort = str('MEAN_' + deepBsMinUpElName)#str(upPtsDEM.name))#[:16]
+                                        gntXNoXUpBstDeep = arcpy.TableSelect_analysis(gntXNoX, opj(inm, 'gnt_7_up_bst_dp' + sfx), deepBsMinUpElName + ' <= ' + revCutElFld + ' OR (' + deepBsMinUpElName + ' <= ' + meanShort + ' AND ' + minShort + ' > ' + revCutElFld + ')')
 
                                         log.debug('done with gntXNoXUpBstDeep at ' + time.asctime())
 
