@@ -686,7 +686,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
 
                 deepEnoughFr0Bs = Con(upPtsDEM == bsMinUpEl, deepEnoughFr0ToCut)
                 deepEnoughFr0Bs.save(opj(proc_dir, 'up_bs' + sfx))
-                deepBsMinUpElName = os.path.basename(deepEnoughFr0Bs)
+                deepBsMinUpElName = os.path.basename(str(deepEnoughFr0Bs))
 
                 upstreamCombine = Combine([deepEnoughFr0Bs, upPtsDEM, wsCostDistance])#bestestDEM, wsCostDistance])
                 upstreamCombine.save(opj(proc_dir, 'up_cmb' + sfx))
