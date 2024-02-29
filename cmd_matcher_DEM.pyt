@@ -881,9 +881,11 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
                                 ucur.updateRow(urow)
                         df.copyfc(verbose, dfs2cut4step, sgdb)
 
+                        area2searchDescribe = arcpy.da.Describe(area2searchWithMedians)
                         startDelIndex = df.getfields(area2searchWithMedians).index(frFld + '_1')
                         for fld in df.getfields(area2searchWithMedians)[startDelIndex:]:
-                            arcpy.DeleteField_management(area2searchWithMedians, fld)
+                            if fld != area2searchDescribe['areaFieldName'] and fld != area2searchDescribe['lengthFieldName']:
+                                arcpy.DeleteField_management(area2searchWithMedians, fld)
 
                         arcpy.JoinField_management(area2searchWithMedians, frFld, dfs2cut4step, frFld, [ofElFld, minElFld, revCutElFld, minSummaryFld])
 
