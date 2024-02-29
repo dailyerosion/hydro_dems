@@ -129,10 +129,10 @@ def doEPT(ept_wesm_file, cleanup, messages):
             os.makedirs(eptDir)
 
         #get geoJSON from https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson
-        first_of_month_string = ept_wesm_file[-10:]#datetime.datetime.today().replace(day=1)
-        ept_first_of_month_name = "ept_resources_" + first_of_month_string
-        ept_4269_first_of_month_name = "ept_resources_epsg4269_" + first_of_month_string
-        wesm_first_of_month_name = "main_wesm_" + first_of_month_string
+        now_ymd_string = nowYmd[:10]#ept_wesm_file[-10:]#datetime.datetime.today().replace(day=1)
+        ept_first_of_month_name = "ept_resources_" + now_ymd_string
+        ept_4269_first_of_month_name = "ept_resources_epsg4269_" + now_ymd_string
+        wesm_first_of_month_name = "main_wesm_" + now_ymd_string
         ept_gdb_path = opj(eptDir, 'ept.gdb')
 
         if not arcpy.Exists(ept_gdb_path):
@@ -215,7 +215,7 @@ def doEPT(ept_wesm_file, cleanup, messages):
             log.info(rslt2.getMessages())
             arcpy.management.JoinField(main_wesm_copy, workunit_lower_field, ept_features, alt2_name_field, "id;count;url;opr_year")
 
-            select_not_null4 = arcpy.analysis.Select(main_wesm_copy, 'wesm_ept_valid_' + first_of_month_string, where_clause = "id_12 IS NOT NULL OR id_1 IS NOT NULL OR id IS NOT NULL")
+            select_not_null4 = arcpy.analysis.Select(main_wesm_copy, 'wesm_ept_valid_' + now_ymd_string, where_clause = "id_12 IS NOT NULL OR id_1 IS NOT NULL OR id IS NOT NULL")
             select_is_null4 = arcpy.analysis.Select(main_wesm_copy, where_clause = "id_12 IS NULL AND id_1 IS NULL AND id IS NULL")
             mn_ept_features = arcpy.analysis.Select(ept_features, 'mn_fullstate', "name = 'MN_FullState'")
 
