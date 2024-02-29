@@ -122,9 +122,7 @@ def doEPT(ept_wesm_file, cleanup, messages):
 
         log.info("Tool: Executing with parameters:\n" + arg_str)
 
-        # inputs then outputs
-##        ept_wesm_file = sys.argv[1]
-
+        #create names of outputs so we can see test if it's been run recently
         eptDir = os.path.dirname(os.path.dirname(ept_wesm_file))
 
         if not os.path.isdir(eptDir):
@@ -136,6 +134,10 @@ def doEPT(ept_wesm_file, cleanup, messages):
         ept_4269_first_of_month_name = "ept_resources_epsg4269_" + first_of_month_string
         wesm_first_of_month_name = "main_wesm_" + first_of_month_string
         ept_gdb_path = opj(eptDir, 'ept.gdb')
+
+        if not arcpy.Exists(ept_gdb_path):
+            ept_gdb = arcpy.CreateFileGDB_management(os.path.dirname(ept_gdb_path), os.path.basename(ept_gdb_path))
+
         arcpy.env.workspace = ept_gdb_path#'in_memory'
         ept_features_path = opj(ept_gdb_path, ept_first_of_month_name)
         ept_4269_features_path = opj(ept_gdb_path, ept_4269_first_of_month_name)
@@ -152,9 +154,6 @@ def doEPT(ept_wesm_file, cleanup, messages):
                 log.info('requesting wesm to ' + wesm_download_location)
                 download_file('https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/metadata/WESM.gpkg', wesm_download_location, log)
 ##                wesm_response = urllib.request.urlretrieve('https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/metadata/WESM.gpkg', wesm_download_location)
-
-            if not arcpy.Exists(ept_gdb_path):
-                ept_gdb = arcpy.CreateFileGDB_management(os.path.dirname(ept_gdb_path), os.path.basename(ept_gdb_path))
 
             log.info('projecting WESM to EPSG 4269 (NAD83)')
             # do WESM first so map will be in epsg 4269 (NAD83)
