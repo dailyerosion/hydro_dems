@@ -144,7 +144,8 @@ def doEPT(ept_wesm_file, cleanup, messages):
             ept_download_location = opj(eptDir, ept_first_of_month_name + '.geojson')
             if not os.path.exists(ept_download_location):
                 log.info('requesting ept to ' + ept_download_location)
-                ept_response = urllib.request.urlretrieve('https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson', ept_download_location)
+                # ept_response = urllib.request.urlretrieve('https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson', ept_download_location)
+                download_file('https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson', ept_download_location, log)
             # requests.request()
             wesm_download_location = opj(eptDir, wesm_first_of_month_name + '.gpkg')
             if not os.path.exists(wesm_download_location):
