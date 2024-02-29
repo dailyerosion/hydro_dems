@@ -1168,8 +1168,8 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
 
     ##                                    print(time.clock())
                                         log.debug('starting upPtsFlds at ' + time.asctime())
-                                        upPtsFlds = [deepBsMinUpElName, frFld, medianFrFld]
-                                        # upPtsFlds = [df.getfields(upPtsCmb)[5], frFld, medianFrFld]#upPtsDEM.name
+                                        # upPtsFlds = [deepBsMinUpElName, frFld, medianFrFld]
+                                        upPtsFlds = [df.getfields(upPtsCmb)[5], frFld, medianFrFld]#upPtsDEM.name
                                         dfsFlds = [minElFld, ofElFld, revCutElFld, pntMdnSearchDistFld, wsSearchDistFld, mdnFracFld, maxWsMdnFld]
                                         dnPtsFlds = [wsLvlFld, dn_demName]
                                         allFlds = upPtsFlds + dnPtsFlds + dfsFlds
