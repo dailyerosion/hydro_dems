@@ -145,9 +145,10 @@ def doEPT(ept_wesm_file, cleanup, messages):
             # pass # get the ept file
             ept_download_location = opj(eptDir, ept_first_of_month_name + '.geojson')
             if not os.path.exists(ept_download_location):
+                log.info(f'downloading from: https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson')
                 log.info('requesting ept to ' + ept_download_location)
-                # ept_response = urllib.request.urlretrieve('https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson', ept_download_location)
-                download_file('https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson', ept_download_location, log)
+                ept_response = urllib.request.urlretrieve('https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson', ept_download_location)
+                # download_file('https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson', ept_download_location, log)
             # requests.request()
             wesm_download_location = opj(eptDir, wesm_first_of_month_name + '.gpkg')
             if not os.path.exists(wesm_download_location):
@@ -296,8 +297,8 @@ if __name__ == "__main__":
         # clean up the folder after done processing
         cleanup = True
 
-    # ept_fc = "C:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_05_20"
-    ept_fc = sys.argv[1]
-    doEPT(ept_fc, cleanup, msgStub())
+    # ept_wesm_file = "C:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_05_20"
+    ept_wesm_file = sys.argv[1]
+    doEPT(ept_wesm_file, cleanup, msgStub())
 
     # arcpy.AddMessage("Back from doEPT!")
