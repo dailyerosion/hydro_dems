@@ -43,9 +43,8 @@ class Toolbox(object):
     def __init__(self):
         """Define the toolbox (the name of the toolbox is the name of the
         .pyt file)."""
-        self.label = "Toolbox"
-        self.alias = "toolbox"
-
+        self.label = "CMD_Puncher"
+        self.alias = "CMD_Puncher"
         # List of tool classes associated with this toolbox
         self.tools = [Tool]
 
@@ -56,25 +55,29 @@ class Tool(object):
         self.label = "Hole_Puncher"
         self.description = "Punches holes in a DEM and fills remaining to remove depressions shallower than a criteria"
         self.canRunInBackground = False
+        self.category = "DEM Puncher"
 
     def getParameterInfo(self):
         """Define parameter definitions"""
 
         param0 = arcpy.Parameter(
+            name="input_dem",
             displayName="Input Elevation Model",
             datatype="DERasterDataset",
             parameterType='Required',
             direction="Input")
         
         param1 = arcpy.Parameter(
+            name="output_dem",
             displayName="Output Punched Elevation Model",
             datatype="DERasterDataset",
             parameterType='Required',
             direction="Output")
         
         param2 = arcpy.Parameter(
+            name="plib_metadata",
             displayName="Punched DEM metadata template",
-            datatype="GPDataFile",
+            datatype="DEFile",
             parameterType='Required',
             direction="Input")
         
@@ -86,12 +89,14 @@ class Tool(object):
             direction="Output")
         
         param4 = arcpy.Parameter(
+            name="depth_threshold",
             displayName="Depression Punch Depth Threshold",
             datatype="GPString",
             parameterType='Required',
             direction="Input")
         
         param5 = arcpy.Parameter(
+            name="area_threshold",
             displayName="Depression Punch Area Threshold",
             datatype="GPString",
             parameterType='Optional',
