@@ -123,9 +123,13 @@ def doEPT(ept_wesm_file, cleanup, messages):
         log.info("Tool: Executing with parameters:\n" + arg_str)
 
         #create names of outputs so we can see test if it's been run recently
+        assert ept_wesm_file.find('.gdb') != -1, "Output must be located in '.gdb' (File Geodatabase)"
+
         eptDir = os.path.dirname(os.path.dirname(ept_wesm_file))
+        log.debug(f"checking for dir: {eptDir}")
 
         if not os.path.isdir(eptDir):
+            log.debug(f"making dir: {eptDir}")
             os.makedirs(eptDir)
 
         #get geoJSON from https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson
@@ -133,7 +137,8 @@ def doEPT(ept_wesm_file, cleanup, messages):
         ept_first_of_month_name = "ept_resources_" + now_ymd_string
         ept_4269_first_of_month_name = "ept_resources_epsg4269_" + now_ymd_string
         wesm_first_of_month_name = "main_wesm_" + now_ymd_string
-        ept_gdb_path = opj(eptDir, 'ept.gdb')
+        requested_gdb = os.path.basename(os.path.dirname(ept_wesm_file))
+        ept_gdb_path = opj(eptDir, requested_gdb)#'ept.gdb')
 
         if not arcpy.Exists(ept_gdb_path):
             ept_gdb = arcpy.CreateFileGDB_management(os.path.dirname(ept_gdb_path), os.path.basename(ept_gdb_path))
@@ -155,6 +160,7 @@ def doEPT(ept_wesm_file, cleanup, messages):
                 log.info('requesting wesm to ' + wesm_download_location)
                 download_file('https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/metadata/WESM.gpkg', wesm_download_location, log)
 ##                wesm_response = urllib.request.urlretrieve('https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/metadata/WESM.gpkg', wesm_download_location)
+                assert os.path.getsize(wesm_download_location) > 1000000000, "Check WESM download address, should be larger than 1 GB"
 
             log.info('projecting WESM to EPSG 4269 (NAD83)')
             # do WESM first so map will be in epsg 4269 (NAD83)
