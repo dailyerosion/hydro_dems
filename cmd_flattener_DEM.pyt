@@ -269,11 +269,11 @@ def fixByInversionByStartingPath(ndPlus, fenceEl, invertTargetDEM, spot4Hole, nd
     ## To correct an inverted DEM, remember water must flow out the upstream ends (before inversion), not downstream!
     ## ndPlus is 2 at regions2Fix, else 1 in area to process
     fencedRegion2Fix = Pick(ndPlus, [fenceEl, invertTargetDEM])
-    log.warning('fencedRegion2Fix at time: ' + time.asctime())
+    log.info('fencedRegion2Fix at time: ' + time.asctime())
     holeAtMin = Con(IsNull(spot4Hole) == 1, fencedRegion2Fix, '')
     
     fillNdBarrier = Fill(holeAtMin)
-    log.warning('fillNdBarrier at time: ' + time.asctime())
+    log.info('fillNdBarrier at time: ' + time.asctime())
 
     ## Calculate the difference between the original inverted and filled inverted DEMs
     ## This should be the change to apply to the initial DEM make things flow
@@ -293,7 +293,7 @@ def fixByInversionByStartingPath(ndPlus, fenceEl, invertTargetDEM, spot4Hole, nd
     unfiltered_correction_needs_adjustment = starting_path_min_fs < correctionToApply_unfiltered
     # above does not allow for corrections outside of starting stream link
     pathStartingNeedsCorrectionTrue = Con(unfiltered_correction_needs_adjustment, unfiltered_correction_needs_adjustment)
-    log.warning('correctionToApply at time: ' + time.asctime())
+    log.info('correctionToApply at time: ' + time.asctime())
     isNullPathStartingCorrection = IsNull(pathStartingNeedsCorrectionTrue)
     filtered_corrections_everywhere = Con(isNullPathStartingCorrection == 0, starting_path_min_fs, correctionToApply_unfiltered)
     isnull_filtered_corrections = IsNull(filtered_corrections_everywhere)
@@ -302,9 +302,9 @@ def fixByInversionByStartingPath(ndPlus, fenceEl, invertTargetDEM, spot4Hole, nd
     return correctedDEM
 
 
-def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12Fc, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, cleanup, messages):
+def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, cleanup, messages):
     try:
-        arguments = [fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12Fc, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, cleanup]
+        arguments = [fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, cleanup]
 
         for a in arguments:
             if a == arguments[0]:
@@ -338,6 +338,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12F
         messages.addMessage("Log file at " + logName)
 
     ## Set the environments
+        arcpy.env.overwriteOutput = True
         arcpy.env.scratchWorkspace = voidProc
 
         sfldr = arcpy.env.scratchFolder
@@ -355,7 +356,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12F
 
     ####------------------------------------------------------------------------------
 
-        log.warning('log file is ' + logName)
+        log.info('log file is ' + logName)
         log.debug('starting raster copy')
     ## Copy the Pitfilled and Punched DEMs to the workspace (not needed, just better for display than TIFFs)
         pitFilledDEM = Raster(arcpy.CopyRaster_management(fillTif, opj(gdb, os.path.splitext(os.path.basename(fillTif))[0])))
@@ -370,12 +371,13 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12F
 
     ####------------------------------------------------------------------------------
     ## Create a layer of WBD boundary to buffer and clip datasets with
-        huc12Lyr = arcpy.MakeFeatureLayer_management(huc12Fc, 'HUC12FCLayer', '"HUC12" = \'' + huc12 + "'")
-        bnd = arcpy.CopyFeatures_management(huc12Lyr, opj(gdb, "bnd_" + huc12))
-        Clip = arcpy.Buffer_analysis(huc12Lyr, opj(gdb, 'buf_' + huc12 + '_1km'), '1000 METER')
-        Clip5K = arcpy.Buffer_analysis(huc12Lyr, opj(gdb, 'buf_' + huc12 + '_5km'), '5000 METER')
+        # huc12Lyr = arcpy.MakeFeatureLayer_management(huc12Fc, 'HUC12FCLayer', '"HUC12" = \'' + huc12 + "'")
+        # bnd = arcpy.CopyFeatures_management(huc12Lyr, opj(gdb, "bnd_" + huc12))
+        Clip = arcpy.CopyFeatures_management(buf_bnd, opj(gdb, 'buf_' + huc12 + '_1km'), '1000 METER')
+        # buffer buffered boundary another 4km
+        Clip5K = arcpy.Buffer_analysis(Clip, opj(gdb, 'buf_' + huc12 + '_5km'), '4000 METER')
 
-        waterways = arcpy.Clip_analysis(input_waterway, Clip, opj(gdb, 'waterways'))
+        # waterways = arcpy.Clip_analysis(input_waterway, Clip, opj(gdb, 'waterways'))
         water = arcpy.Clip_analysis(input_water, Clip, opj(gdb, 'water'))
         water5K = arcpy.Clip_analysis(input_water, Clip5K, opj(gdb, 'water5K'))
         if arcpy.Exists(breakpolys):
@@ -443,7 +445,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12F
                     back_to_normal = Shrink(thin_expand2, 1, 1)
                     # core_no_data = Shrink(thin_no_data, 2, 1)
                     ndRegionsPre = RegionGroup(back_to_normal, 'EIGHT')
-                    ndZst = ZonalStatistics(ndRegionsPre, 'VALUE', firstCount0Ws, 'MEAN')
+                    ndZst = ZonalStatistics(ndRegionsPre, 'VALUE', class2Count0Ws, 'MEAN')#firstCount0Ws, 'MEAN')
                     ndRegions = Con(ndZst < 0.25, ndRegionsPre)
 
     #             ## These are the no data areas we want to work on 
@@ -457,10 +459,10 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12F
                     
                     pitFilledDEM_fd = FlowDirection(pitFilledDEM)
                     pitFilledDEM_basins = Basin(pitFilledDEM_fd)
-                    pf_basins_rtp = arcpy.conversion.RasterToPolygon(pitFilledDEM_basins, opj(sgdb, 'pf_basins'), 'NO_SIMPLIFY')
-                    initialWs = pitFilledDEM_basins
-                    basin_min = ZonalStatistics(pitFilledDEM_basins, 'Value', pitFilledDEM, 'MINIMUM')
-                    deepest_cells_el = Con(basin_min == pitFilledDEM, pitFilledDEM)
+                    # pf_basins_rtp = arcpy.conversion.RasterToPolygon(pitFilledDEM_basins, opj(sgdb, 'pf_basins'), 'NO_SIMPLIFY')
+                    # initialWs = pitFilledDEM_basins
+                    # basin_min = ZonalStatistics(pitFilledDEM_basins, 'Value', pitFilledDEM, 'MINIMUM')
+                    # deepest_cells_el = Con(basin_min == pitFilledDEM, pitFilledDEM)
                     
                     rDepth, MaxDepth, fillPrevLvl = df.findMaxDepth(pitFilledDEM)
 
@@ -528,7 +530,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12F
                                         big_river_nd_basins = Basin(big_river_nd_fd)
                                         big_river_nd_flow = fence_and_flow_region(bigRiver, big_river_nd_basins, big_river_nd_dem)
                                         big_river_nd_flow_fd = FlowDirection(big_river_nd_flow)
-                                        big_river_nd_flow_fa = FlowAccumulation(big_river_nd_flow_fd)
+                                        # big_river_nd_flow_fa = FlowAccumulation(big_river_nd_flow_fd)
 
                                         # run a downstream trace to separate mainstem and branches
                                         cp_other_nd_down = CostPath(otherNdEndBuffers, big_river_nd_flow, big_river_nd_flow_fd)
@@ -538,7 +540,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12F
                                         distance_threshold = (ndThRivers.mean + ndThRivers.maximum) / 2 * 2
         ##                                mainStem = Con(ndThRivers < distance_threshold, bigRiver)
                                         mainStem = Con(distToMainStem < distance_threshold, bigRiver)
-                                        if False:#mainStem.maximum is not None:
+                                        if mainStem.maximum is not None:#False
                                             mainStemPoly = arcpy.RasterToPolygon_conversion(mainStem, gdb + mspName)
 
                                             # now make the main stem flow
@@ -639,7 +641,10 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12F
                                             rg_distant_branches = RegionGroup(distant_branches, 'EIGHT')
                                             big_distant_branches_pre = Con(rg_distant_branches, rg_distant_branches, '', 'COUNT >= 5')
 
-
+                                            fstNdSum = FocalStatistics(ndTF, rect3x3Nbr, 'SUM')
+                                            nd2WorkTF = Con(pitFilledDEM, Con(fstNdSum > 1, ndTF, 0))#class2Count0Ws == 0, 1, 0)
+                                            ndExpand = Expand(Con(nd2WorkTF, 1), 1, 1)#nd2WorkTF, 1, 1)
+                                            ndRegionsExp = RegionGroup(ndExpand, 'EIGHT')
 
                                             branches_starter = Con(big_distant_branches_pre, ndRegionsExp)
                                             full_starter = df.fullZoneByZs(branches_starter, ndRegionsExp)
@@ -774,9 +779,10 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12F
                         f = []
                         with arcpy.da.SearchCursor(water_only_shrink, [water_only_desc['OIDFieldName'], 'osm_id'], sql_clause = ('DISTINCT osm_id', None)) as scur:
                             for srow in scur:
-                                f.append(srow[0])
+                                f.append(srow[1])
                         # c = df.getFrsAsList(water_only_polys, 'osm_id', '')
-                        big_water = df.selectByList(f, water_only_desc['OIDFieldName'], water5K, 'big_water_5k', '_0', inm)
+                        # big_water = df.selectByList(f, water_only_desc['OIDFieldName'], water5K, 'big_water_5k', '_0', inm)
+                        big_water = df.selectByList(f, 'osm_id', water5K, 'big_water_5k', '_0', inm)
 
                         # find 'large' lakes/reservoirs that we will flatten
                         water_only_polys5K = arcpy.analysis.Select(big_water, 'just_water5K', "fclass = 'water' OR fclass = 'reservoir'")
@@ -790,51 +796,54 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12F
                         #     edge_water = 
                         # use edge detection from int1rMaxFile to find waterline break
                         water_only_raster = arcpy.conversion.PolygonToRaster(water_only5K_shrink200, water_only_desc['OIDFieldName'])
-                        water_only_shrink_std = ZonalStatistics(water_only_raster, 'Value', pitFilledDEM, 'STD')
-                        water_only_shrink_rdepth = ZonalStatistics(water_only_raster, 'Value', rDepth, 'MEAN')
+                        # water_only_shrink_std = ZonalStatistics(water_only_raster, 'Value', pitFilledDEM, 'STD')
+                        # water_only_shrink_rdepth = ZonalStatistics(water_only_raster, 'Value', rDepth, 'MEAN')
                         water_only_count = Con(water_only_raster, class2Count0Ws)
                         water_only_countTF = Con(water_only_count > 0, 1, 0)
-                        water_only_int = Con(water_only_raster, int1rMaxFile)
+                        try:
+                            # water_only_int = Con(water_only_raster, int1rMaxFile)
 
-                        # redo the NoData zones in the big water area, use focal stats to remove 'rogue' returns'
-                        count_width = 5
-                        fs5_cnt_sum = FocalStatistics(class2Count0Ws, NbrRectangle(count_width, count_width), 'SUM')
-                        fs5_cnt_voids = Con(fs5_cnt_sum < (0.2*count_width**2), 0, class2Count0Ws)
-                        fs5_cnt0 = Con(fs5_cnt_voids == 0, 1)
+                            # redo the NoData zones in the big water area, use focal stats to remove 'rogue' returns'
+                            # count_width = 5
+                            # fs5_cnt_sum = FocalStatistics(class2Count0Ws, NbrRectangle(count_width, count_width), 'SUM')
+                            # fs5_cnt_voids = Con(fs5_cnt_sum < (0.2*count_width**2), 0, class2Count0Ws)
+                            # fs5_cnt0 = Con(fs5_cnt_voids == 0, 1)
 
-                        shrinkAndExpand = 1
-                        shrinkBigWater = Shrink(fs5_cnt0, shrinkAndExpand, 1)
-                        expandBigWater = Expand(shrinkBigWater, shrinkAndExpand, 1)
+                            # shrinkAndExpand = 1
+                            # shrinkBigWater = Shrink(fs5_cnt0, shrinkAndExpand, 1)
+                            # expandBigWater = Expand(shrinkBigWater, shrinkAndExpand, 1)
 
-                        rg_fs5_cnt0 = RegionGroup(expandBigWater, 'EIGHT')
-                        partial_cnt0_rg = Con(water_only_raster, expandBigWater)
-                        full_cnt0_big_water = df.fullZoneByZs(partial_cnt0_rg, expandBigWater)#rg_fs5_cnt0)
+                            # rg_fs5_cnt0 = RegionGroup(expandBigWater, 'EIGHT')
+                            # partial_cnt0_rg = Con(water_only_raster, expandBigWater)
+                            # full_cnt0_big_water = df.fullZoneByZs(partial_cnt0_rg, expandBigWater)#rg_fs5_cnt0)
 
-                        # based on an analysis of OSM water and wetland polygons on HUC102500091002, this separates water from non-water well
-                        water_to_flatten_osm = Con(water_only_countTF.mean > 0.4, water_only_raster)
-                        # water_to_flatten_osm.save('flat_osm')
+                            # based on an analysis of OSM water and wetland polygons on HUC102500091002, this separates water from non-water well
+                            water_to_flatten_osm = Con(water_only_countTF.mean > 0.4, water_only_raster)
+                            # water_to_flatten_osm.save('flat_osm')
 
-                        partial_nd_osm = Con(water_to_flatten_osm, ndCleanNotConnectedPre)
-                        full_nd_osm = df.fullZoneByZs(partial_nd_osm, ndCleanNotConnectedPre)
+                            partial_nd_osm = Con(water_to_flatten_osm, ndCleanNotConnectedPre)
+                            full_nd_osm = df.fullZoneByZs(partial_nd_osm, ndCleanNotConnectedPre)
 
-                        water_to_flatten_max_value = int(ndCleanNotConnectedPre.maximum + 1)
-                        cell_stat_nd = CellStatistics([full_nd_osm, water_to_flatten_osm], 'MAXIMUM')
-                        water_to_flatten_osm_value = Con(cell_stat_nd, water_to_flatten_max_value)
-                        water_to_flatten_osm_value.save('flat_osm')
-                        water_to_flatten_list.append(water_to_flatten_osm_value)
+                            water_to_flatten_max_value = int(ndCleanNotConnectedPre.maximum + 1)
+                            cell_stat_nd = CellStatistics([full_nd_osm, water_to_flatten_osm], 'MAXIMUM')
+                            water_to_flatten_osm_value = Con(cell_stat_nd, water_to_flatten_max_value)
+                            water_to_flatten_osm_value.save('flat_osm')
+                            water_to_flatten_list.append(water_to_flatten_osm_value)
 
-                        intRaster = Raster(int1rMaxFile)
-                        high_int = intRaster < 32
-                        low_int = intRaster > 248
-                        low_high_int = low_int | high_int
+                            intRaster = Raster(int1rMaxFile)
+                            high_int = intRaster < 32
+                            low_int = intRaster > 248
+                            low_high_int = low_int | high_int
 
-                        small_nd = Con(IsNull(water_to_flatten_osm_value), ndCleanNotConnectedPre)
+                            small_nd = Con(IsNull(water_to_flatten_osm_value), ndCleanNotConnectedPre)
 
-                        # use these regions to aggregate the original basins. Analyze the edge elevations
-                        # lagoons should have fairly even edge elevations all the way around, unlike other basins
-                        # edge_shrunk = 
+                            # use these regions to aggregate the original basins. Analyze the edge elevations
+                            # lagoons should have fairly even edge elevations all the way around, unlike other basins
+                            # edge_shrunk = 
 
-                    #     water_only_polys_not_large = df.antiSelectByList(f, water_only_desc['OIDFieldName'], water, 'little_water_5k', '_0', inm)
+                        #     water_only_polys_not_large = df.antiSelectByList(f, water_only_desc['OIDFieldName'], water, 'little_water_5k', '_0', inm)
+                        except:
+                            small_nd = ndCleanNotConnectedPre
 
                     else:
                         small_nd = ndCleanNotConnectedPre
@@ -869,18 +878,21 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12F
                 ponds2smoothRg = water_to_flatten_rg
 
                 if ponds2smoothRg is not False:
+                    try:
 
-                    # remove ponds that are actually tall buildings in a low spot
-                    hag = surfaceElevFile - pitFilledDEM
-                    ponds_hag = ZonalStatistics(ponds2smoothRg, 'Value', hag, 'MEAN')
-                    hag0 = Con(IsNull(hag), 0, hag)
-                    ponds_hag0 = ZonalStatistics(ponds2smoothRg, 'Value', hag0, 'MEAN')
-                    # threshold at 200 cm
-                    hag0_threshold = 200
-                    ponds2keep = Con(ponds_hag0 < hag0_threshold, ponds2smoothRg)
+                        # remove ponds that are actually tall buildings in a low spot
+                        hag = surfaceElevFile - pitFilledDEM
+                        ponds_hag = ZonalStatistics(ponds2smoothRg, 'Value', hag, 'MEAN')
+                        hag0 = Con(IsNull(hag), 0, hag)
+                        ponds_hag0 = ZonalStatistics(ponds2smoothRg, 'Value', hag0, 'MEAN')
+                        # threshold at 200 cm
+                        hag0_threshold = 200
+                        ponds2keep = Con(ponds_hag0 < hag0_threshold, ponds2smoothRg)
 
-                    int2keep = Con(hag < hag0_threshold, low_high_int)
-                    int1rPlus1 = intRaster + 1
+                        int2keep = Con(hag < hag0_threshold, low_high_int)
+                        int1rPlus1 = intRaster + 1
+                    except:
+                        ponds2keep = ponds2smoothRg
 
                     if ponds2keep.maximum is not None:
 
@@ -1153,8 +1165,8 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12F
     finally:
         
         if 'logName' in locals():
-            log.warning("Ending script execution at " + time.asctime())
-            log.warning("Script execution lasted " + str(time.time()-startTime) + " seconds or " + str((time.time()-startTime)/60) + " minutes\n")
+            log.info("Ending script execution at " + time.asctime())
+            log.info("Script execution lasted " + str(time.time()-startTime) + " seconds or " + str((time.time()-startTime)/60) + " minutes\n")
 
 
 
@@ -1175,22 +1187,21 @@ if __name__ == "__main__":
         cleanup = False
 
         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-        "O:/DEP/Scripts/basics/cmd_flatten_voids.py",
-        "O:/DEP/LiDAR_2013/elev_FLib_mean18_26914/10250009/ef2m102500091002.tif",
-        "O:/DEP/LiDAR_2013/count_Lib_26914/10250009/cbe2m102500091002.tif",
-        "O:/DEP/LiDAR_2013/count_Lib_26914/10250009/cfr2m102500091002.tif",
-        "O:/DEP/LiDAR_2013/surf_el_Lib_26914/10250009/frmax2m102500091002.tif",
-        "O:/DEP/LiDAR_2013/int_Lib_26914/10250009/fr_int_max2m102500091002.tif",
-        "O:/DEP/LiDAR_2013/int_Lib_26914/10250009/fr_int_min2m102500091002.tif",
-        "O:/DEP/Basedata_Summaries/Basedata_26914.gdb/MW_HUC12_v2019",
-        "O:/DEP/Basedata_Summaries/Basedata_26914.gdb/roads_merge",
-        "O:/DEP/Basedata_Summaries/Basedata_26914.gdb/waterways",
-        "O:/DEP/Basedata_Summaries/Basedata_26914.gdb/water",
-        "O:/DEP/LiDAR_2013/bl_Lib/10250009/breaks_10250009.gdb/break_polys_102500091002",
-        "D:/DEP_Proc/DEMProc/Void_dem2013_2m_102500091002",
-        "O:/DEP/LiDAR_2013/elev_VLib_mean18_26914/10250009/ev2m102500091002.tif",
-        "O:/DEP/LiDAR_2013/voids_Lib_mean18_26914/10250009/bigvds2m102500091002.tif",
-        "O:/DEP/LiDAR_2013/voids_Lib_mean18_26914/10250009/medvds2m102500091002.tif"]
+	"C:/DEP/Scripts/basics/cmd_flattener_DEM.pyt",
+	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
+	"C:/DEP/LiDAR_Current/count_Lib/07080105/cbe3m070801050901.tif",
+    "C:/DEP/LiDAR_Current/count_Lib/07080105/cfr3m070801050901.tif",
+	"C:/DEP/LiDAR_Current/surf_el_Lib/07080105/frmax3m070801050901.tif",
+	"C:/DEP/LiDAR_Current/int_Lib/07080105/fr_int_max3m070801050901.tif",
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/MW_HUC12_v2022",
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/waterways",
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/water",
+	"C:/DEP/LiDAR_Current/bl_Lib/07080105/breaks_07080105.gdb/break_polys_070801050901",
+	"C:/DEP_Proc/DEMProc/Void_dem2013_3m_070801050901",
+	"C:/DEP/LiDAR_Current/elev_VLib_mean18/07080105/ev3m070801050901.tif",
+	"C:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/bigvds3m070801050901.tif",
+	"C:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/medvds3m070801050901.tif"]
 
         for i in parameters[2:]:
             sys.argv.append(i)
@@ -1202,7 +1213,7 @@ if __name__ == "__main__":
     messages = msgStub()
 
     # input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir = [i for i in sys.argv[1:]]
-    fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12Fc, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas = [i for i in sys.argv[1:]]
+    fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas = [i for i in sys.argv[1:]]
 
-    doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12Fc, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, cleanup, messages)
+    doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, cleanup, messages)
     arcpy.AddMessage("Back from doing!")
