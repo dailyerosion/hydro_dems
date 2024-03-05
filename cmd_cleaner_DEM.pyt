@@ -752,7 +752,7 @@ def doCleaner(fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile, clea
     ####        zf_crv_TF.save(opj(sgdb, 'zf_crv_TF' + str(tcounter)))
             stepThinUpdateDEM_crv, stepTuBasins_crv = create_zf_update_dem(crv_ws_zf_true, stepZfDem_crv, stepDEM_crv, tcounter)#, thickThreshold)
 
-            stepDEM_crv, stepDeepestCellEl_crv, stepHolesAtDeepestDEM_crv, tcounter = create_dem_filled_to_holes(stepTuBasins_crv, stepDeepestCellEl_crv, thin_shallow_fixed_DEM, tcounter)#, stepDEM_crv, tcounter)
+            stepDEM_crv, stepDeepestCellEl_crv, stepHolesAtDeepestDEM_crv, tcounter = create_dem_filled_to_holes(stepTuBasins_crv, stepDeepestCellEl_crv, thin_shallow_fixed_DEM, tcounter, log)#, stepDEM_crv, tcounter)
             stepDEM_crv.save(opj(sgdb, 'stp_dem_' + str(tcounter)))
             stepDeepestCellEl_crv.save(opj(sgdb, 'stp_dpst_' + str(tcounter)))
             stepfill2Fd_crv = FlowDirection(stepDEM_crv)
