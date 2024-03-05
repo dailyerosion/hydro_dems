@@ -130,7 +130,7 @@ class Tool(object):
         """The source code of the tool."""
         cleanup = False
         params = parameters
-        doPuncher(params[0].valueAsText, params[1].valueAsText, params[2].valueAsText, params[3].valueAsText, params[4].valueAsText, params[5].valueAsText, params[6].valueAsText, cleanup, messages)
+        doFlattener(params[0].valueAsText, params[1].valueAsText, params[2].valueAsText, params[3].valueAsText, params[4].valueAsText, params[5].valueAsText, params[6].valueAsText, cleanup, messages)
         return
 
     def postExecute(self, parameters):
@@ -141,16 +141,6 @@ class Tool(object):
 
 
 
-##time.clock()
-## set verbose (True = all output, False = minimal output saved)
-verbose = True
-if not verbose:
-    arcpy.SetLogHistory(False)
-
-arcpy.CheckOutExtension('Spatial')
-arcpy.env.overwriteOutput = True
-
-outputString = 'system arguments are ' + str(sys.argv) + '\n'
 
 def smoothByShrink(regions, shrinkAmount, zoneValue):
     """Shrinks then expands regions by a given amount"""
@@ -312,8 +302,18 @@ def fixByInversionByStartingPath(ndPlus, fenceEl, invertTargetDEM, spot4Hole, nd
     return correctedDEM
 
 
-def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, int1rMinFile, HUC12FC, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas):
+def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12Fc, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, cleanup, messages):
     try:
+        arguments = [fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12Fc, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, cleanup]
+
+        for a in arguments:
+            if a == arguments[0]:
+                arg_str = str(a) + '\n'
+            else:
+                arg_str += str(a) + '\n'
+
+        messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
+
         huc12, huc8, proc_size = df.figureItOut(fillTif)
 
         if cleanup:
@@ -333,11 +333,9 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, int1rM
                 os.makedirs(jdir)
 
         startTime = time.time()
-        log.warning("Beginning logging for script at " + str(time.asctime()))
-        ##log.debug('This message should go to just the log file')
-        ##log.warning('This one goes to both')
-
-        log.warning('sys.argv is: ' + str(sys.argv) + '\n')
+        log.info("Beginning execution: " + time.asctime())
+        log.info("Tool: Executing with parameters:\n" + arg_str)
+        messages.addMessage("Log file at " + logName)
 
     ## Set the environments
         arcpy.env.scratchWorkspace = voidProc
@@ -372,7 +370,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, int1rM
 
     ####------------------------------------------------------------------------------
     ## Create a layer of WBD boundary to buffer and clip datasets with
-        huc12Lyr = arcpy.MakeFeatureLayer_management(HUC12FC, 'HUC12FCLayer', '"HUC12" = \'' + huc12 + "'")
+        huc12Lyr = arcpy.MakeFeatureLayer_management(huc12Fc, 'HUC12FCLayer', '"HUC12" = \'' + huc12 + "'")
         bnd = arcpy.CopyFeatures_management(huc12Lyr, opj(gdb, "bnd_" + huc12))
         Clip = arcpy.Buffer_analysis(huc12Lyr, opj(gdb, 'buf_' + huc12 + '_1km'), '1000 METER')
         Clip5K = arcpy.Buffer_analysis(huc12Lyr, opj(gdb, 'buf_' + huc12 + '_5km'), '5000 METER')
@@ -468,7 +466,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, int1rM
 
                 ## Find ND regions that intersect HUC 12 boundary and move in a couple cells to avoid edge issues
                     bndBufLine = arcpy.PolygonToLine_management(Clip, inm + 'bnd_buf_line')
-                    df.copyfc(verbose, bndBufLine, gdb)
+                    # df.copyfc(verbose, bndBufLine, gdb)
                     bndBufRasterLinePre = Raster(arcpy.PolylineToRaster_conversion(bndBufLine, 'OBJECTID', opj(cp, 'buf_raster'), cellsize = str(proc_size)))
                     bndBufRasterLine = Expand(bndBufRasterLinePre, 1, bndBufRasterLinePre.maximum)
 
@@ -1204,7 +1202,7 @@ if __name__ == "__main__":
     messages = msgStub()
 
     # input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir = [i for i in sys.argv[1:]]
-    fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, int1rMinFile, HUC12FC, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas = [i for i in sys.argv[1:]]
+    fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12Fc, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas = [i for i in sys.argv[1:]]
 
-    doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, int1rMinFile, HUC12FC, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, cleanup, messages)
+    doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, huc12Fc, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, cleanup, messages)
     arcpy.AddMessage("Back from doing!")

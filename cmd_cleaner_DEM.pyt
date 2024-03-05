@@ -57,7 +57,7 @@ def create_zf_update_dem(step_ws_zf_tested, step_zf_dem, step_dem, counter):
     return step_tu_DEM, step_tu_basins
 
 
-def create_dem_filled_to_holes(step_tu_basins, step_deepest_cell, base_dem, counter):
+def create_dem_filled_to_holes(step_tu_basins, step_deepest_cell, base_dem, counter, log):
     '''recover initial DEM around initial sinks of each new watershed
        need to keep each new sink (deep zonal fill area) separate, can't just route to deepest sink in tuws
        and must remember that deepest zonal filled area does not always have the deepest sink
@@ -265,7 +265,7 @@ def create_no_pass_through_basins(basin, starts, cp, dem):
 
     return starts_no_pass_through_all, starts_no_pass_through_full
 
-def get_cost_path_favor_deeper(pre_zf_deepest_cells_el, fd_for_cp, pre_zf_dem, step_dem_cp, stepWs, stepDEMwithHoles, step_deepest_cells_el, fixed_dif, counter):
+def get_cost_path_favor_deeper(pre_zf_deepest_cells_el, fd_for_cp, pre_zf_dem, step_dem_cp, stepWs, stepDEMwithHoles, step_deepest_cells_el, fixed_dif, counter, sgdb):
     '''This function is designed to find the 'best' cost path from previous
     deepest cells to new deepest cells (which are a subset of the previous
     ones). It does this by creating potential pathways between these points
@@ -352,7 +352,7 @@ def find_last_deepest_go_cell(go_raster, cp, step_fill_fd, pre_zf_deepest):
 
 
 
-def get_cost_path_with_new_breaks(expLowAspTF, roadsRaster, cp_favor_deeper, cost_dist_from_deepest, dif_plus1, cp_counter, stepfill2Fd, pre_zf_deepest, step_deepest, pre_zf_dem, log):
+def get_cost_path_with_new_breaks(expLowAspTF, roadsRaster, cp_favor_deeper, cost_dist_from_deepest, dif_plus1, cp_counter, stepfill2Fd, pre_zf_deepest, step_deepest, pre_zf_dem, log, sgdb):
     '''Revises a cost path to stop at various restrictions including profile
     curvature and roads. This requires adding additional stops to the cost
     path, thus slicing the original path into multiple segments where aggregation
@@ -517,8 +517,18 @@ def new_cp_to_enforce_after_inversion(all_cp_stops, fixed_dem, fixed_basins):
     return cp_for_next_fix, fill_dem_to_deepest, fd_to_deepest
 
 
-def doCleaner(fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile):
+def doCleaner(fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile, cleanup, messages):
     try:
+        arguments = [fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile, cleanup]
+
+        for a in arguments:
+            if a == arguments[0]:
+                arg_str = str(a) + '\n'
+            else:
+                arg_str += str(a) + '\n'
+
+        messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
+
         huc12, huc8, proc_size = df.figureItOut(fillTif)
 
         if cleanup:
@@ -530,6 +540,11 @@ def doCleaner(fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile):
             log, nowYmd, logName, startTime = df.setupLoggingNew(platform.node(), sys.argv[0], huc12, '')#'_' + version)
 
         log.info(outputString)
+
+        startTime = time.time()
+        log.info("Beginning execution: " + time.asctime())
+        log.info("Tool: Executing with parameters:\n" + arg_str)
+        messages.addMessage("Log file at " + logName)
 
         ##try:
         arcpy.CheckOutExtension('Spatial')
@@ -633,7 +648,7 @@ def doCleaner(fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile):
             #   need to keep each new sink (deep zonal fill area) separate, can't just route to deepest sink in tuws
             #   and must remember that deepest zonal filled area does not always have the deepest sink
             # first find deepest cells in each tuws
-            stepNoHolesAtDeepestDEM_thin, stepDeepestCellEl_thin, stepDEM_thin, counter = create_dem_filled_to_holes(stepTuBasins_thin, stepDeepestCellEl_thin, fillInitDEM, counter)
+            stepNoHolesAtDeepestDEM_thin, stepDeepestCellEl_thin, stepDEM_thin, counter = create_dem_filled_to_holes(stepTuBasins_thin, stepDeepestCellEl_thin, fillInitDEM, counter, log)
 
             stepfill2Fd_thin = FlowDirection(stepNoHolesAtDeepestDEM_thin)#fill2Deepest)
 
@@ -780,10 +795,10 @@ def doCleaner(fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile):
         cp_new_elevation = Con(cp_from_other_minima, stepTuBasins_min)
 
 
-        cp_favor_deeper_crv, cost_dist_from_deepest_crv, dif_plus1 = get_cost_path_favor_deeper(thin_shallow_fixed_deepest_cell_el, stepfill2Fd_crv, thin_shallow_fixed_DEM, stepDEM_crv, stepWs_crv, stepHolesAtDeepestDEM_crv, stepDeepestCellEl_crv, thin_shallow_fixed_dif, tcounter)
+        cp_favor_deeper_crv, cost_dist_from_deepest_crv, dif_plus1 = get_cost_path_favor_deeper(thin_shallow_fixed_deepest_cell_el, stepfill2Fd_crv, thin_shallow_fixed_DEM, stepDEM_crv, stepWs_crv, stepHolesAtDeepestDEM_crv, stepDeepestCellEl_crv, thin_shallow_fixed_dif, tcounter, sgdb)
 
         cp_to_new_holes_crv, dem_cp_stops_crv, fd_cp_stops_crv, all_cp_stops_crv, fill_2_cp_stops_crv, fill_2_cp_stops_crv_fd = get_cost_path_with_new_breaks(
-            expLowAspTF, hucRoadsRaster, cp_favor_deeper_crv, cost_dist_from_deepest_crv, dif_plus1, tcounter, stepfill2Fd_crv, thin_shallow_fixed_deepest_cell_el, stepDeepestCellEl_crv, thin_shallow_fixed_DEM, log)
+            expLowAspTF, hucRoadsRaster, cp_favor_deeper_crv, cost_dist_from_deepest_crv, dif_plus1, tcounter, stepfill2Fd_crv, thin_shallow_fixed_deepest_cell_el, stepDeepestCellEl_crv, thin_shallow_fixed_DEM, log, sgdb)
 
         cp_simple_crv, no_pass_basins_crv, no_pass_basins_crv_full, doublefiltered_crv = cost_path_simplify_and_starting_basins(cp_to_new_holes_crv, dem_cp_stops_crv, fd_cp_stops_crv, thin_shallow_fixed_basins, thin_shallow_fixed_DEM)
 
@@ -898,6 +913,14 @@ def doCleaner(fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile):
 
 
 
+
+class msgStub:
+    def addMessage(self,text):
+        arcpy.AddMessage(text)
+    def addErrorMessage(self,text):
+        arcpy.AddErrorMessage(text)
+    def addWarningMessage(self,text):
+        arcpy.AddWarningMessage(text)
 
 
 
