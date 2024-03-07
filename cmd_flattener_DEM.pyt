@@ -871,6 +871,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
     ####                    pondsShrinkRg = RegionGroup(pondsShrink, 'EIGHT')
                         # log.debug('pondsShrinkRg here! at ' + time.asctime())
 
+                hag = surfaceElevFile - pitFilledDEM
                 # ndCleanNotConnected = CellStatistics([ndCleanNotConnectedPre, water_to_flatten], 'MAXIMUM')
                 if len(water_to_flatten_list) > 0:
                     water_to_flatten_rg = CellStatistics(water_to_flatten_list, 'MAXIMUM')
@@ -879,9 +880,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
 
                     if ponds2smoothRg is not False:
                         try:
-
                             # remove ponds that are actually tall buildings in a low spot
-                            hag = surfaceElevFile - pitFilledDEM
                             ponds_hag = ZonalStatistics(ponds2smoothRg, 'Value', hag, 'MEAN')
                             hag0 = Con(IsNull(hag), 0, hag)
                             ponds_hag0 = ZonalStatistics(ponds2smoothRg, 'Value', hag0, 'MEAN')
