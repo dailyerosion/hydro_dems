@@ -373,7 +373,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
     ## Create a layer of WBD boundary to buffer and clip datasets with
         # huc12Lyr = arcpy.MakeFeatureLayer_management(huc12Fc, 'HUC12FCLayer', '"HUC12" = \'' + huc12 + "'")
         # bnd = arcpy.CopyFeatures_management(huc12Lyr, opj(gdb, "bnd_" + huc12))
-        Clip = arcpy.CopyFeatures_management(buf_bnd, opj(gdb, 'buf_' + huc12 + '_1km'), '1000 METER')
+        Clip = arcpy.CopyFeatures_management(buf_bnd, opj(gdb, 'buf_' + huc12 + '_1km'))#, '1000 METER')
         # buffer buffered boundary another 4km
         Clip5K = arcpy.Buffer_analysis(Clip, opj(gdb, 'buf_' + huc12 + '_5km'), '4000 METER')
 
@@ -495,7 +495,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                             # if True:
                             try:
                             ## Only enforce the 'big' rivers (more than 2 acres (8400 m2))
-                                bigRivers = Con(ptlRiversOnBnd, ndCleanRegions, '', 'COUNT > ' + str(int(8400/ndCleanRegions.meanCellHeight*ndCleanRegions.meanCellWidth)))#1000')
+                                bigRivers = Con(ptlRiversOnBnd, ndCleanRegions, '', 'COUNT > ' + str(int(8400/(ndCleanRegions.meanCellHeight*ndCleanRegions.meanCellWidth))))#1000')
 
                                 if bigRivers.maximum is not None:
                                     if bigRivers.maximum > 0.0:
@@ -850,79 +850,81 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                     #     water_only_polys_not_large = arcpy.CopyFeatures_management(water_only_polys)
 
                     log.debug('analyzing for small voids/open water areas at ' + time.asctime())
-                    maxNdTh = ZonalStatistics(small_nd, 'VALUE', ndThickness, 'MAXIMUM')
+                    # maxNdTh = ZonalStatistics(small_nd, 'VALUE', ndThickness, 'MAXIMUM')
                     #refine ndCleanNotConnected by curvature, intensity
                     ## if high max thickness and mostly flooded to flow, keep
                     pondFillCrit = 0.8
                     rDepthPos = ExtractByAttributes(rDepth, 'VALUE > 0')
                     rDepthPosAs1 = Con(rDepthPos, 1)
-                    rDepthPosExpand = Expand(rDepthPos, 7, 1)
-                    ptlPonds = Con(maxNdTh > proc_size*2.5, Con(rDepthPosExpand, small_nd))
+                    # rDepthPosExpand = Expand(rDepthPos, 7, 1)
+                    # ptlPonds = Con(maxNdTh > proc_size*2.5, Con(rDepthPosExpand, small_nd))
 
-                    if df.testForZero(ptlPonds):
-                        pondCountRatio = Lookup(ptlPonds, 'COUNT')*1.0/Lookup(small_nd, 'COUNT')
-                        ponds2Flatten = Con(pondCountRatio > pondFillCrit, small_nd)#ndCleanNotConnectedPre)
-                        ponds2FlattenAs1 = Con(ponds2Flatten, 1)
-                        pondsShrink = smoothByShrink(ponds2FlattenAs1, 2, 1)
-                        pondsShrinkTF = IsNull(pondsShrink)
-                        rgPondsShrinkTF = RegionGroup(pondsShrinkTF, 'EIGHT')
-                        pondsShrink_no_small_voids = Con(rgPondsShrinkTF, 1, '', 'LINK = 0 or (LINK = 1 AND Count < 100)')
-                        pondsShrinkRg = RegionGroup(pondsShrink_no_small_voids, 'EIGHT')
+                    # if df.testForZero(ptlPonds):
+                        # pondCountRatio = Lookup(ptlPonds, 'COUNT')*1.0/Lookup(small_nd, 'COUNT')
+                        # ponds2Flatten = Con(pondCountRatio > pondFillCrit, small_nd)#ndCleanNotConnectedPre)
+                        # ponds2FlattenAs1 = Con(ponds2Flatten, 1)
+                        # pondsShrink = smoothByShrink(ponds2FlattenAs1, 2, 1)
+                        # pondsShrinkTF = IsNull(pondsShrink)
+                        # rgPondsShrinkTF = RegionGroup(pondsShrinkTF, 'EIGHT')
+                        # pondsShrink_no_small_voids = Con(rgPondsShrinkTF, 1, '', 'LINK = 0 or (LINK = 1 AND Count < 100)')
+                        # pondsShrinkRg = RegionGroup(pondsShrink_no_small_voids, 'EIGHT')
     ####                    pondsShrinkRg = RegionGroup(pondsShrink, 'EIGHT')
-                        log.debug('pondsShrinkRg here! at ' + time.asctime())
+                        # log.debug('pondsShrinkRg here! at ' + time.asctime())
 
                 # ndCleanNotConnected = CellStatistics([ndCleanNotConnectedPre, water_to_flatten], 'MAXIMUM')
-                water_to_flatten_rg = CellStatistics(water_to_flatten_list, 'MAXIMUM')
+                if len(water_to_flatten_list) > 0:
+                    water_to_flatten_rg = CellStatistics(water_to_flatten_list, 'MAXIMUM')
 
+                    ponds2smoothRg = water_to_flatten_rg
 
-                ponds2smoothRg = water_to_flatten_rg
+                    if ponds2smoothRg is not False:
+                        try:
 
-                if ponds2smoothRg is not False:
-                    try:
+                            # remove ponds that are actually tall buildings in a low spot
+                            hag = surfaceElevFile - pitFilledDEM
+                            ponds_hag = ZonalStatistics(ponds2smoothRg, 'Value', hag, 'MEAN')
+                            hag0 = Con(IsNull(hag), 0, hag)
+                            ponds_hag0 = ZonalStatistics(ponds2smoothRg, 'Value', hag0, 'MEAN')
+                            # threshold at 200 cm
+                            hag0_threshold = 200
+                            ponds2keep = Con(ponds_hag0 < hag0_threshold, ponds2smoothRg)
 
-                        # remove ponds that are actually tall buildings in a low spot
-                        hag = surfaceElevFile - pitFilledDEM
-                        ponds_hag = ZonalStatistics(ponds2smoothRg, 'Value', hag, 'MEAN')
-                        hag0 = Con(IsNull(hag), 0, hag)
-                        ponds_hag0 = ZonalStatistics(ponds2smoothRg, 'Value', hag0, 'MEAN')
-                        # threshold at 200 cm
-                        hag0_threshold = 200
-                        ponds2keep = Con(ponds_hag0 < hag0_threshold, ponds2smoothRg)
+                            # int2keep = Con(hag < hag0_threshold, low_high_int)
+                            # int1rPlus1 = intRaster + 1
+                        except:
+                            ponds2keep = ponds2smoothRg
 
-                        int2keep = Con(hag < hag0_threshold, low_high_int)
-                        int1rPlus1 = intRaster + 1
-                    except:
-                        ponds2keep = ponds2smoothRg
+                        if ponds2keep.maximum is not None:
 
-                    if ponds2keep.maximum is not None:
+                            ponds2FlattenPoly = arcpy.RasterToPolygon_conversion(ponds2keep, opj(gdb, 'ponds_2_flatten'))
 
-                        ponds2FlattenPoly = arcpy.RasterToPolygon_conversion(ponds2keep, opj(gdb, 'ponds_2_flatten'))
+                            # get a good estimate of the actual pond elevation 
+                            flat_fs5_range_el = FocalStatistics(flatterRiverDEM, NbrRectangle(5,5), 'RANGE')
+                            stability_threshold = 100
+                            stable_flatterRiver = Con(flat_fs5_range_el < stability_threshold, flatterRiverDEM)
+                            minPondEl = ZonalStatistics(ponds2keep, 'VALUE', stable_flatterRiver, 'MINIMUM')#pitFilledDEM, 'MINIMUM')
+                            majPondEl = ZonalStatistics(ponds2keep, 'VALUE', stable_flatterRiver, 'MAJORITY')#pitFilledDEM, 'MAJORITY')
+                            # let's go with minimum plus 50% of the way to the majority
+                            bestPondEl = Int(minPondEl + 0.5*(majPondEl-minPondEl))
 
-                        # get a good estimate of the actual pond elevation 
-                        flat_fs5_range_el = FocalStatistics(flatterRiverDEM, NbrRectangle(5,5), 'RANGE')
-                        stability_threshold = 100
-                        stable_flatterRiver = Con(flat_fs5_range_el < stability_threshold, flatterRiverDEM)
-                        minPondEl = ZonalStatistics(ponds2keep, 'VALUE', stable_flatterRiver, 'MINIMUM')#pitFilledDEM, 'MINIMUM')
-                        majPondEl = ZonalStatistics(ponds2keep, 'VALUE', stable_flatterRiver, 'MAJORITY')#pitFilledDEM, 'MAJORITY')
-                        # let's go with minimum plus 50% of the way to the majority
-                        bestPondEl = Int(minPondEl + 0.5*(majPondEl-minPondEl))
+                            # we don't want the ponds to be completely flat or Flow Direction goes nuts
+                            fstBestPondEl = FocalStatistics(bestPondEl, circle3Nbr, 'MAXIMUM')
+                            fstBestPondElPlus1 = fstBestPondEl + 1
+                            flatPondDemWithPits = Con(IsNull(bestPondEl), flatterRiverDEM, bestPondEl)
 
-                        # we don't want the ponds to be completely flat or Flow Direction goes nuts
-                        fstBestPondEl = FocalStatistics(bestPondEl, circle3Nbr, 'MAXIMUM')
-                        fstBestPondElPlus1 = fstBestPondEl + 1
-                        flatPondDemWithPits = Con(IsNull(bestPondEl), flatterRiverDEM, bestPondEl)
+                            pondElLE_FstBest = flatPondDemWithPits <= fstBestPondEl
+                            pondElAndPlus1 = Con(pondElLE_FstBest == 1, fstBestPondElPlus1, flatPondDemWithPits)
+                            flatPondDEM = Con(IsNull(pondElAndPlus1), flatterRiverDEM, pondElAndPlus1)
+                            flatPondDemFd = FlowDirection(flatPondDEM)
+                            flatPondDemBasins = Basin(flatPondDemFd)
+                            fp_basins_rtp = arcpy.conversion.RasterToPolygon(flatPondDemBasins, opj(sgdb, 'flat_ponds_basins'), 'NO_SIMPLIFY')
 
-                        pondElLE_FstBest = flatPondDemWithPits <= fstBestPondEl
-                        pondElAndPlus1 = Con(pondElLE_FstBest == 1, fstBestPondElPlus1, flatPondDemWithPits)
-                        flatPondDEM = Con(IsNull(pondElAndPlus1), flatterRiverDEM, pondElAndPlus1)
-                        flatPondDemFd = FlowDirection(flatPondDEM)
-                        flatPondDemBasins = Basin(flatPondDemFd)
-                        fp_basins_rtp = arcpy.conversion.RasterToPolygon(flatPondDemBasins, opj(sgdb, 'flat_ponds_basins'), 'NO_SIMPLIFY')
+                            ndFixedList.append(ponds2keep)#Flatten)
+                            log.debug(str(ndFixedList))
+                            log.debug('nd here! at ' + time.asctime())
 
-                        ndFixedList.append(ponds2keep)#Flatten)
-                        log.debug(str(ndFixedList))
-                        log.debug('nd here! at ' + time.asctime())
-
+                        else:
+                            flatPondDEM = flatterRiverDEM
                     else:
                         flatPondDEM = flatterRiverDEM
                 else:
@@ -965,7 +967,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                 rDepth_fs = FocalStatistics(rDepth)
                 partial_nd_in_rdepth = Con(rDepth_fs, partialNdRegions)
 
-                if False:#df.testForZero(partial_nd_in_rdepth):
+                if df.testForZero(partial_nd_in_rdepth):#False
 
                     full_nd_2_test = df.fullZoneByZs(partial_nd_in_rdepth, moreNdRegions2Fix)
 
@@ -1104,12 +1106,15 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                         bridge_fix_el.save(opj(sgdb, 'b_fx_el' + str(j)))
                         bridge_fix_list.append(bridge_fix_el)
 
-                    bridge_fix_els = CellStatistics(bridge_fix_list, 'MINIMUM')
+                    if len(bridge_fix_list) > 0:
+                        bridge_fix_els = CellStatistics(bridge_fix_list, 'MINIMUM')
 
-                    # replace bridge and nearbly low elevations in DEM
-                    bridge_fixed_dem = Con(IsNull(bridge_fix_els), flatPondDEM, bridge_fix_els)
+                        # replace bridge and nearbly low elevations in DEM
+                        bridge_fixed_dem = Con(IsNull(bridge_fix_els), flatPondDEM, bridge_fix_els)
 
-                    ndAllFixedDEM = bridge_fixed_dem
+                        ndAllFixedDEM = bridge_fixed_dem
+                    else:
+                        ndAllFixedDEM = flatPondDEM
 
                 else:
                     ndAllFixedDEM = flatPondDEM
@@ -1193,7 +1198,7 @@ if __name__ == "__main__":
     "C:/DEP/LiDAR_Current/count_Lib/07080105/cfr3m070801050901.tif",
 	"C:/DEP/LiDAR_Current/surf_el_Lib/07080105/frmax3m070801050901.tif",
 	"C:/DEP/LiDAR_Current/int_Lib/07080105/fr_int_max3m070801050901.tif",
-	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/MW_HUC12_v2022",
+	"C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/buf_070801050901",
 	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
 	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/waterways",
 	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/water",
