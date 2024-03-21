@@ -440,7 +440,7 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
 
         depDocumentation = opj(basedataDir, 'Documentation')
 
-        depMetadata = opj(depBase, 'toolMetadata')
+        depMetadata = opj(depBase.replace(uversion, ""), 'toolMetadata')
 
         gullyOutputs = opj(depBase, 'Gully_Outputs')
 
