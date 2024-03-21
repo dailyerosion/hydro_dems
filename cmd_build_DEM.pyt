@@ -86,111 +86,97 @@ class Tool(object):
             direction="Input")
         
         param3 = arcpy.Parameter(
-            name = "flib_metadata_template",
-            displayName="DEM metadata template",
-            datatype="GPDataFile",
-            parameterType='Required',
-            direction="Input")
-        
-        param4 = arcpy.Parameter(
-            name = "derivative_metadata",
-            displayName="LiDAR derivatives metadata template",
-            datatype="GPDataFile",
-            parameterType='Required',
-            direction="Input")
-        
-        param5 = arcpy.Parameter(
             name = "procDir",
             displayName="Local Processing Directory",
             datatype="DEFolder",
             parameterType='Required',
             direction="Input")
         
-        param6 = arcpy.Parameter(
+        param4 = arcpy.Parameter(
             name = "pdal_exe",
             displayName="PDAL.exe Location",
-            datatype="GPDataFile",
+            datatype="DEFile",
             parameterType='Required',
             direction="Input")
         
-        param7 = arcpy.Parameter(
+        param5 = arcpy.Parameter(
             name = "gsds",
             displayName="Integer Resolution/Ground Sample Distance of output rasters, multiples joined by comma",
             datatype="GPString",
             parameterType='Required',
             direction="Input")
         
-        param8 = arcpy.Parameter(
+        param6 = arcpy.Parameter(
             name = "fElevFile",
             displayName="Output Pit-Filled Elevation Model",
             datatype="DERasterDataset",
             parameterType='Required',
             direction="Output")
         
-        param9 = arcpy.Parameter(
+        param7 = arcpy.Parameter(
             name = "bareEarthReturnMinFile",
             displayName="Output Bare Earth Minimum Elevation Model",
             datatype="DERasterDataset",
             parameterType='Optional',
             direction="Output")
         
-        param10 = arcpy.Parameter(
+        param8 = arcpy.Parameter(
             name = "firstReturnMaxFile",
             displayName="Output First Return Maximum Elevation/Surface Model",
             datatype="DERasterDataset",
             parameterType='Optional',
             direction="Output")
         
-        param11 = arcpy.Parameter(
+        param9 = arcpy.Parameter(
             name = "cntFile",
             displayName="Output Bare Earth Return Count Raster",
             datatype="DERasterDataset",
             parameterType='Optional',
             direction="Output")
         
-        param12 = arcpy.Parameter(
+        param10 = arcpy.Parameter(
             name = "cnt1rFile",
             displayName="Output First Return Count Raster",
             datatype="DERasterDataset",
             parameterType='Optional',
             direction="Output")
         
-        param13 = arcpy.Parameter(
+        param11 = arcpy.Parameter(
             name = "int1rMinFile",
             displayName="Output Intensity First Return Minimum Raster",
             datatype="DERasterDataset",
             parameterType='Optional',
             direction="Output")
         
-        param14 = arcpy.Parameter(
+        param12 = arcpy.Parameter(
             name = "int1rMaxFile",
             displayName="Output Intensity First Return Maximum Raster",
             datatype="DERasterDataset",
             parameterType='Optional',
             direction="Output")
         
-        param15 = arcpy.Parameter(
+        param13 = arcpy.Parameter(
             name = "intBeMaxFile",
             displayName="Output Intensity Bare Earth Maximum Raster",
             datatype="DERasterDataset",
             parameterType='Optional',
             direction="Output")
         
-        param16 = arcpy.Parameter(
+        param14 = arcpy.Parameter(
             name = "breakpolys",
             displayName="Output HUC12 Merged Breakline Polygon Features",
             datatype="DEFeatureClass",
             parameterType='Optional',
             direction="Output")
         
-        param17 = arcpy.Parameter(
+        param15 = arcpy.Parameter(
             name = "breaklines",
             displayName="Output HUC12 Merged Breakline Polyline Features",
             datatype="DEFeatureClass",
             parameterType='Optional',
             direction="Output")
         
-        param18 = arcpy.Parameter(
+        param16 = arcpy.Parameter(
             name = "ept_wesm_project_file",
             displayName="EPT WESM Feature for AOI",
             datatype="DEFeatureClass",
@@ -203,7 +189,7 @@ class Tool(object):
                   param4, param5, param6, param7,
                   param8, param9, param10, param11,
                   param12, param13, param14, param15,
-                  param16, param17, param18]
+                  param16]
         # params = [dem_polygon, snap, ept_wesm_project_file, flib_metadata_template, derivative_metadata,
         #  procDir, eleBaseDir, softwareDir, pdal_exe, gsds,
         #  fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
@@ -1771,7 +1757,7 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 
     return cl2Las, geom_srOut_copy
 
-def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
+def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup,
          procDir, pdal_exe, gsds,
          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_project_file, cleanup, messages):
@@ -2050,6 +2036,8 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_templa
                 # arcpy.env.snapRaster
                 cntFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntFile)#paths)
                 terrainList = createRastersFromTerrains(log, demList, procDir, terrains, huc12)
+
+                flib_metadata_template, derivative_metadata = df.getMetadata(['flib', 'deriv'], procDir)
 
                 buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, internal_regions, lidar_metadata_info, derivative_metadata)
 

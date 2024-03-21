@@ -9,6 +9,7 @@ from arcpy.sa import *
 import arcpy.metadata as md
 import time
 from os.path import join as opj
+import requests
 
 # a compendium of functions to enable DEM processing
 # written by Brian Gelder, bkgelder@iastate.edu
@@ -2449,3 +2450,44 @@ def cleanupOther(procDir, log = None, sgdb = None, inm = None):
         del tbls
 
     del root, listDirs, listFiles
+
+def getMetadata(md_list, procdir):
+    dem_url = 'https://raw.githubusercontent.com/bkgelder/hydro_dems/dev'
+    web_md_dict = {
+    "clib_metadata" : opj(dem_url, 'CLib_DEMs2022_mTemplate.xml'),
+    "flib_metadata" : opj(dem_url, 'FLib_DEMs2022_mTemplate.xml'),
+    "plib_metadata" : opj(dem_url, 'PLib_DEMs2022_mTemplate.xml'),
+    "vlib_metadata" : opj(dem_url, 'VLib_DEMs2022_mTemplate.xml'),
+    "derivative_metadata" : opj(dem_url, 'FLib_Derivatives2022_mTemplate.xml')}
+
+    local_md_dict = {
+    "clib_metadata" : opj(procdir, 'CLib_DEMs2022_mTemplate.xml'),
+    "flib_metadata" : opj(procdir, 'FLib_DEMs2022_mTemplate.xml'),
+    "plib_metadata" : opj(procdir, 'PLib_DEMs2022_mTemplate.xml'),
+    "vlib_metadata" : opj(procdir, 'VLib_DEMs2022_mTemplate.xml'),
+    "derivative_metadata" : opj(procdir, 'FLib_Derivatives2022_mTemplate.xml')}
+
+    return_metadata = []
+
+    for m in md_list:
+        if m == 'clib':
+            request_details = web_md_dict['clib_metadata'], local_md_dict['clib_metadata']
+        elif m == 'flib':
+            request_details = web_md_dict['flib_metadata'], local_md_dict['flib_metadata']
+        elif m == 'plib':
+            request_details = web_md_dict['plib_metadata'], local_md_dict['plib_metadata']
+        elif m == 'vlib':
+            request_details = web_md_dict['vlib_metadata'], local_md_dict['vlib_metadata']
+        elif m == 'deriv':
+            request_details = web_md_dict['derivative_metadata'], local_md_dict['derivative_metadata']
+
+        r = requests.get(request_details[0])
+        if r.status_code == 404:
+            print(f"bad request: {request_details[0]}")
+        filename = request_details[1]
+        f = open(filename,'wb')
+        f.write(r.content)
+
+        return_metadata.append(request_details[1])
+
+    return return_metadata
