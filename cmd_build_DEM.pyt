@@ -1762,7 +1762,7 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup,
          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_project_file, cleanup, messages):
 
-    arguments = [dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
+    arguments = [dem_polygon, snap, monthly_wesm_ept_mashup,# flib_metadata_template, derivative_metadata,
          procDir, pdal_exe, gsds,
          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_project_file]
@@ -1793,10 +1793,10 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup,
             # log to file and console
             log, nowYmd, logName, startTime = df.setupLoggingNew(platform.node(), sys.argv[0], huc12)
 
-        if not os.path.isfile(flib_metadata_template):
-            log.warning('flib_metadata does not exist')
-        if not os.path.isfile(derivative_metadata):
-            log.warning('derivative_metadata does not exist')
+        # if not os.path.isfile(flib_metadata_template):
+        #     log.warning('flib_metadata does not exist')
+        # if not os.path.isfile(derivative_metadata):
+        #     log.warning('derivative_metadata does not exist')
         log.info("Beginning execution: " + time.asctime())
         log.debug('sys.argv is: ' + str(sys.argv) + '\n')
         log.info("Processing HUC: " + huc12)
@@ -2128,7 +2128,7 @@ if __name__ == "__main__":
 
 
     # inputs then outputs
-    (dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
+    (dem_polygon, snap, monthly_wesm_ept_mashup,# flib_metadata_template, derivative_metadata,
          procDir, pdal_exe, gsds,
          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_project_file
@@ -2136,7 +2136,7 @@ if __name__ == "__main__":
 
     messages = msgStub()
 
-    doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup, flib_metadata_template, derivative_metadata,
+    doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup,# flib_metadata_template, derivative_metadata,
          procDir, pdal_exe, gsds,
          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_project_file, cleanup, messages)#msgStub())
