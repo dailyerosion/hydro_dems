@@ -1754,21 +1754,21 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 
     return cl2Las, geom_srOut_copy
 
-def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup,
-         procDir, pdal_exe, gsds,
-         fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
+def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon, 
+         pdal_exe, gsds, fElevFile, 
+         procDir, snap, bareEarthReturnMinFile, firstReturnMaxFile, cntFile, cnt1rFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_project_file, cleanup, messages):
 
-    arguments = [dem_polygon, snap, monthly_wesm_ept_mashup,
-         procDir, pdal_exe, gsds,
-         fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
-         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_project_file]
+    arguments = [monthly_wesm_ept_mashup, dem_polygon, 
+         pdal_exe, gsds, fElevFile, 
+         procDir, snap, bareEarthReturnMinFile, firstReturnMaxFile, cntFile, cnt1rFile,
+         int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_project_file, cleanup]
 
     for a in arguments:
         if a == arguments[0]:
-            arg_str = a + '\n'
+            arg_str = str(a) + '\n'
         else:
-            arg_str += a + '\n'
+            arg_str += str(a) + '\n'
 
     messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 
@@ -1870,7 +1870,7 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup,
     ## otherwise it defaults to a user's temp folder
     ## if you don't set anything it will go to 'in_memory'
         inm = 'in_memory'
-        if snap != ""
+        if snap != "":
             arcpy.env.snapRaster = snap
 
         # also set output to VCS 5703, NAVD88 Meters
@@ -1927,7 +1927,7 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup,
             
             ept_wesm_project_gdb = os.path.dirname(ept_wesm_project_file)
             if not arcpy.Exists(ept_wesm_project_gdb):
-                log.debug(f"making gdb: {ept_gdb_path}")
+                log.debug(f"making gdb: {ept_wesm_project_gdb}")
                 ept_gdb = arcpy.CreateFileGDB_management(os.path.dirname(ept_wesm_project_gdb), os.path.basename(ept_wesm_project_gdb))
             merged_copy = arcpy.CopyFeatures_management(prev_merged, ept_wesm_project_file)
 
@@ -2128,17 +2128,17 @@ if __name__ == "__main__":
 
 
     # inputs then outputs
-    (dem_polygon, snap, monthly_wesm_ept_mashup,
-         procDir, pdal_exe, gsds,
-         fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
+    (monthly_wesm_ept_mashup, dem_polygon, 
+         pdal_exe, gsds, fElevFile, 
+         procDir, snap, bareEarthReturnMinFile, firstReturnMaxFile, cntFile, cnt1rFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_project_file
         ) = [i for i in sys.argv[1:]]
 
     messages = msgStub()
 
-    doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup,
-         procDir, pdal_exe, gsds,
-         fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntFile,cnt1rFile,
+    doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon, 
+         pdal_exe, gsds, fElevFile, 
+         procDir, snap, bareEarthReturnMinFile, firstReturnMaxFile, cntFile, cnt1rFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, breakpolys, breaklines, ept_wesm_project_file, cleanup, messages)#msgStub())
 
     # arcpy.AddMessage("Back from doEPT!")
