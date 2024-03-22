@@ -1807,14 +1807,16 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         log.info("Output will be in EPSG Code (spatial reference): " + str(srOutCode))#sys.argv[9])
         log.info("Log file at " + logName)
 
-        if os.path.isdir(procDir):
-            log.info('nuking: ' + procDir)
-            df.nukedir(procDir)
+        if procDir != "":
+            if os.path.isdir(procDir):
+                log.info('nuking: ' + procDir)
+                df.nukedir(procDir)
 
-        if not os.path.isdir(procDir):
-            os.makedirs(procDir)
+            if not os.path.isdir(procDir):
+                os.makedirs(procDir)
 
-        arcpy.env.scratchWorkspace = procDir
+            arcpy.env.scratchWorkspace = procDir
+
         sfldr = arcpy.env.scratchFolder
         sgdb = arcpy.env.scratchGDB
         arcpy.env.scratchWorkspace = sgdb
@@ -1925,8 +1927,11 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
             internal_regions = Con(fs1 == 0, int_ptr)
             internal_regions.save(opj(sgdb, 'intrnl_rgns'))
             
+            #assume not in a feature dataset...
             ept_wesm_project_gdb = os.path.dirname(ept_wesm_project_file)
             if not arcpy.Exists(ept_wesm_project_gdb):
+                if not os.path.isdir(os.path.dirname(ept_wesm_project_gdb)):
+                    os.makedirs(os.path.dirname(ept_wesm_project_gdb))
                 log.debug(f"making gdb: {ept_wesm_project_gdb}")
                 ept_gdb = arcpy.CreateFileGDB_management(os.path.dirname(ept_wesm_project_gdb), os.path.basename(ept_wesm_project_gdb))
             merged_copy = arcpy.CopyFeatures_management(prev_merged, ept_wesm_project_file)
