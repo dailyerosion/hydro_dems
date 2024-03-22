@@ -65,54 +65,54 @@ class Tool(object):
         """Define parameter definitions"""
 
         param0 = arcpy.Parameter(
-            name="dem_polygon",
-            displayName="Buffered HUC12 Feature",
-            datatype="DEFeatureClass",
-            parameterType='Required',
-            direction="Input")
-        
-        param1 = arcpy.Parameter(
-            name="snap",
-            displayName="Snap Raster",
-            datatype="DEFeatureClass",
-            parameterType='Required',
-            direction="Input")
-        
-        param2 = arcpy.Parameter(
             name="monthly_ept_wesm_mashup",
             displayName="EPT WESM Merged Features",
             datatype="DEFeatureClass",
             parameterType='Required',
             direction="Input")
         
-        param3 = arcpy.Parameter(
-            name = "procDir",
-            displayName="Local Processing Directory",
-            datatype="DEFolder",
+        param1 = arcpy.Parameter(
+            name="dem_polygon",
+            displayName="Buffered HUC12 Feature",
+            datatype="DEFeatureClass",
             parameterType='Required',
             direction="Input")
         
-        param4 = arcpy.Parameter(
+        param2 = arcpy.Parameter(
             name = "pdal_exe",
             displayName="PDAL.exe Location",
             datatype="DEFile",
             parameterType='Required',
             direction="Input")
         
-        param5 = arcpy.Parameter(
+        param3 = arcpy.Parameter(
             name = "gsds",
             displayName="Integer Resolution/Ground Sample Distance of output rasters, multiples joined by comma",
             datatype="GPString",
             parameterType='Required',
             direction="Input")
-        param5.values = "3,2,1"#default gsds value to create 3, 2, and 1 meter rasters
+        param3.values = "3,2,1"#default gsds value to create 3, 2, and 1 meter rasters
         
-        param6 = arcpy.Parameter(
+        param4 = arcpy.Parameter(
             name = "fElevFile",
             displayName="Output Pit-Filled Elevation Model",
             datatype="DERasterDataset",
             parameterType='Required',
             direction="Output")
+        
+        param5 = arcpy.Parameter(
+            name = "procDir",
+            displayName="Local Processing Directory",
+            datatype="DEFolder",
+            parameterType='Optional',
+            direction="Input")
+        
+        param6 = arcpy.Parameter(
+            name="snap",
+            displayName="Snap Raster",
+            datatype="DERasterDataset",
+            parameterType='Optional',
+            direction="Input")
         
         param7 = arcpy.Parameter(
             name = "bareEarthReturnMinFile",
@@ -573,7 +573,7 @@ def buildTerrains(finalMP, FDSet, tcdFdSet, finalHb, finalHl, finalNoZHb, poorZH
 
 def createRastersFromTerrains(log, demList, procDir, terrains, huc12):
     try:
-        log.debug('snapRaster for Terrain to raster: ' + arcpy.env.snapRaster)
+        # log.debug('snapRaster for Terrain to raster: ' + arcpy.env.snapRaster)
         interpTechnique = 'NATURAL_NEIGHBORS'
         pyramidLevel = '4'
         dem_cellSize = demList[0]
@@ -1015,7 +1015,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
     try:
         maskRastOut = opj(sgdb, maskRastBase + str(demList[0]))
 
-        log.debug('snapRaster for LAS Dataset to raster: ' + arcpy.env.snapRaster)
+        # log.debug('snapRaster for LAS Dataset to raster: ' + arcpy.env.snapRaster)
 
         # procDir = locDict['fProcDir']
 ##        frMinFile_sized = updateResolution(frMinFile, named_cell_size, demList[0], huc12, log)
@@ -1870,7 +1870,8 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup,
     ## otherwise it defaults to a user's temp folder
     ## if you don't set anything it will go to 'in_memory'
         inm = 'in_memory'
-        arcpy.env.snapRaster = snap
+        if snap != ""
+            arcpy.env.snapRaster = snap
 
         # also set output to VCS 5703, NAVD88 Meters
         srOut = arcpy.SpatialReference(int(srOutCode), 5703)
@@ -1924,6 +1925,10 @@ def doLidarDEMs(dem_polygon, snap, monthly_wesm_ept_mashup,
             internal_regions = Con(fs1 == 0, int_ptr)
             internal_regions.save(opj(sgdb, 'intrnl_rgns'))
             
+            ept_wesm_project_gdb = os.path.dirname(ept_wesm_project_file)
+            if not arcpy.Exists(ept_wesm_project_gdb):
+                log.debug(f"making gdb: {ept_gdb_path}")
+                ept_gdb = arcpy.CreateFileGDB_management(os.path.dirname(ept_wesm_project_gdb), os.path.basename(ept_wesm_project_gdb))
             merged_copy = arcpy.CopyFeatures_management(prev_merged, ept_wesm_project_file)
 
             ept_lidar_fcs = arcpy.ListFeatureClasses(os.path.basename(geom_srOut_copy.getOutput(0))[:10] + '*')
