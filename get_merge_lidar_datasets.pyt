@@ -141,12 +141,13 @@ def doEPT(ept_wesm_file, cleanup, messages):
         ept_gdb_path = opj(eptDir, requested_gdb)#'ept.gdb')
 
         if not arcpy.Exists(ept_gdb_path):
+            log.debug(f"making ept gdb: {ept_gdb_path}")
             ept_gdb = arcpy.CreateFileGDB_management(os.path.dirname(ept_gdb_path), os.path.basename(ept_gdb_path))
 
         arcpy.env.workspace = ept_gdb_path#'in_memory'
         ept_features_path = opj(ept_gdb_path, ept_first_of_month_name)
         ept_4269_features_path = opj(ept_gdb_path, ept_4269_first_of_month_name)
-        if not arcpy.Exists(ept_features_path):
+        if not arcpy.Exists(ept_features_path) or not arcpy.Exists(ept_wesm_file):
             # pass # get the ept file
             ept_download_location = opj(eptDir, ept_first_of_month_name + '.geojson')
             if not os.path.exists(ept_download_location):
@@ -236,7 +237,7 @@ def doEPT(ept_wesm_file, cleanup, messages):
             arcpy.management.DeleteField(mn_sj_data, 'Shape_Length_1; Shape_Area_1')
             arcpy.management.AddFields(select_not_null4, [['id_12_13', 'DOUBLE'], ['count_12_13', 'DOUBLE'], ['url_12_13', 'TEXT'], ['opr_year_12_13', 'TEXT'], ['name_lower', 'TEXT'], ['alt_name', 'TEXT'], ['alt2_name', 'TEXT'], ['name', 'TEXT']])
 
-            select_not_null4_copy = arcpy.management.CopyFeatures(select_not_null4, ept_features_path)#'wesm_copy')
+            select_not_null4_copy = arcpy.management.CopyFeatures(select_not_null4, ept_wesm_file)#ept_features_path)#'wesm_copy')
 
             log.info('figure out Minnesota statewide data vagaries')
             # srow_copy = arcpy.management.CopyFeatures(srow[1], 'srow_copy')
