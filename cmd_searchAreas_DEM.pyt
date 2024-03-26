@@ -22,6 +22,7 @@ import time
 import platform
 from math import sqrt, atan2, pi
 from arcpy.sa import *
+sys.path.append("C:\\DEP\\Scripts\\basics")
 import dem_functions as df
 from os.path import join as opj
 import winsound
@@ -130,8 +131,61 @@ class Tool(object):
 
 
 
-def doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8RoadsFC, procDir, cleanup, messages):
+# def doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8RoadsFC, procDir, cleanup, messages):
 
+
+
+class msgStub:
+    def addMessage(self,text):
+        arcpy.AddMessage(text)
+    def addErrorMessage(self,text):
+        arcpy.AddErrorMessage(text)
+    def addWarningMessage(self,text):
+        arcpy.AddWarningMessage(text)
+
+if __name__ == "__main__":
+##if True:
+
+    if len(sys.argv) == 1:
+        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+        cleanup = False
+
+        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+	"C:/DEP/Scripts/basics/cmd_searchAreas_DEM.pyt",
+	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/MW_HUC8_v2022",
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/railways_merge",
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/runways",
+	"C:/DEP_bkg_search_newtest/LiDAR_Current/huc8_26915/huc_07080105.gdb/rd_rr_rd_rw_mrg_07080105",
+	"C:/DEP_bkg_search_newtest/LiDAR_Current/huc8_26915/huc_07080105.gdb/roads_07080105",
+	"C:/DEP_Proc_bkg_search_newtest/Median_Proc/Medians_26915_07080105"]
+
+        for i in parameters[2:]:
+            sys.argv.append(i)
+    else:
+        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+        # clean up the folder after done processing
+        cleanup = True
+
+    messages = msgStub()
+
+    # inputs
+    input_dem = sys.argv[1]
+    huc8fc = sys.argv[2]
+    roadsFC = sys.argv[3]
+    rrsFC = sys.argv[4]
+    apFC = sys.argv[5]
+
+    # outputs
+    mergedMdnsHuc8FC = sys.argv[6]
+    huc8RoadsFC = sys.argv[7]
+
+    # local processing directory
+    procDir = sys.argv[8]
+
+    # doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8RoadsFC, procDir, cleanup, messages)
+    # arcpy.AddMessage("Back from doing!")
     try:
         arguments = [input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8RoadsFC, procDir, cleanup]
 
@@ -243,9 +297,10 @@ def doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8Ro
 
                 ftpRoadsBuf = arcpy.FeatureToPolygon_management([hucRoads, bndBuffer], opj(inm, 'rd_buf_ftp'))
                 ftpRoadsBufLayer = arcpy.MakeFeatureLayer_management(ftpRoadsBuf, 'ftp_rd_buf_layer')
-                # rdParallelNear = arcpy.SelectLayerByLocation_management(ftpRoadsBufLayer, 'CONTAINS_CLEMENTINI', rdMedianNearLineCentroid)
+                rdParallelNear = arcpy.SelectLayerByLocation_management(ftpRoadsBufLayer, 'CONTAINS_CLEMENTINI', rdMedianNearLineCentroid)
 
                 rdMdnPrelim = arcpy.CopyFeatures_management(ftpRoadsBufLayer, opj(inm, 'rd_mdn_polys_prelim'))
+                log.info(f"Road Median Prelim count is: " + arcpy.GetCount_management(rdMdnPrelim).getOutput(0))
 
     ##            ## filter out the polygons not really close to the raods with medians
                 df.tryAddField(rdMdnPrelim, 'ID_RD_MDN', 'LONG')
@@ -273,6 +328,7 @@ def doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8Ro
                             ucur.updateRow(urow)
                 del valueDict
                 rdMdn = arcpy.Select_analysis(rdMdnPrelim, where_clause = 'AREA_CLIP/AREA_TRUE > 0.99')
+                log.info(f"Road Medians count is: " + arcpy.GetCount_management(rdMdn).getOutput(0))
                 mergedMdnList.append(rdMdn)
 
     ## ---------------------------------------------------------------------
@@ -418,6 +474,7 @@ def doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8Ro
                         ftpSel = arcpy.SelectLayerByLocation_management(ftpLayer3, 'INTERSECT', hucRailDissolve)#prllIntRoads))
                         ftpSel2 = arcpy.SelectLayerByLocation_management(ftpSel, 'INTERSECT', prllIntRoads, selection_type = 'SUBSET_SELECTION')
                         rdRrMdnFinal = arcpy.CopyFeatures_management(ftpSel2, opj(gdb, 'rr_mdn_polys3'))
+                        log.info(f"Road Railroad Medians count is: " + arcpy.GetCount_management(rdRrMdnFinal).getOutput(0))
                         mergedMdnList.append(rdRrMdnFinal)#MdnSeparate)
 
     ## ------------------------------------------------------------------------------
@@ -474,6 +531,7 @@ def doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8Ro
                         gridfield = 'gridcode'
                         gridfield2 = 'grid_code'
                         rrPrllBg = arcpy.MinimumBoundingGeometry_management(rrPrllInt, opj(inm, 'rr_prll_bg'), 'CONVEX_HULL', group_option = 'LIST', group_field = gridfield)
+                        log.info(f"Railroad Parallel Roads count is: " + arcpy.GetCount_management(rrPrllBg).getOutput(0))
                         mergedMdnList.append(rrPrllBg)
 
     ## ------------------------------------------------------------------------------
@@ -486,6 +544,7 @@ def doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8Ro
                 df.tryAddField(hucRunways, apBfrFld, "SHORT")
                 arcpy.CalculateField_management(hucRunways, apBfrFld, apSrchExp, "PYTHON")
                 rwsBfr = arcpy.Buffer_analysis(hucRunways, opj(gdb, "rw_srch_bfr"), apBfrFld, "FULL", "ROUND", "LIST", apBfrFld)
+                log.info(f"Runways Buffer count is: " + arcpy.GetCount_management(rwsBfr).getOutput(0))
                 mergedMdnList.append(rwsBfr)
 
     ## ------------------------------------------------------------------------------
@@ -502,6 +561,7 @@ def doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8Ro
                     # in Pro must use non-zero values for cost, 0.0001 was previously 0
                     mergedMdnsCost = Con(IsNull(mergedMdnsRasterT) == 1, 0.0001, 1)
                     mergedMdnsCostDist = CostDistance(Con(IsNull(mergedMdnsRasterT) == 1, 1), mergedMdnsCost)
+                    log.info(f"merged Medians Cost Distance maximum is: {mergedMdnsCostDist.maximum}")
     ####                mergedMdnsCost.save(cp + 'mdn_cost')
 
                     mergedMdnsCostZst = ZonalStatisticsAsTable(mergedMdnsRaster, 'VALUE', mergedMdnsCostDist, opj(inm, 'mrgd_mdn_zst'))
@@ -558,56 +618,3 @@ def doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8Ro
             log.info("Ending script execution at " + time.asctime())
             log.info("Script execution lasted " + str(time.time()-startTime) + " seconds or " + str((time.time()-startTime)/60) + " minutes\n")
 
-
-
-class msgStub:
-    def addMessage(self,text):
-        arcpy.AddMessage(text)
-    def addErrorMessage(self,text):
-        arcpy.AddErrorMessage(text)
-    def addWarningMessage(self,text):
-        arcpy.AddWarningMessage(text)
-
-if __name__ == "__main__":
-##if True:
-
-    if len(sys.argv) == 1:
-        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-        cleanup = False
-
-        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-	"C:/DEP/Scripts/basics/cmd_searchAreas_DEM.pyt",
-	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
-	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/MW_HUC8_v2022",
-	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
-	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/railways_merge",
-	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/runways",
-	"C:/DEP/LiDAR_Current/huc8_26915/huc_07080105.gdb/rd_rr_rd_rw_mrg_07080105",
-	"C:/DEP/LiDAR_Current/huc8_26915/huc_07080105.gdb/roads_07080105",
-	"C:/DEP_Proc/Median_Proc/Medians_26915_07080105"]
-
-        for i in parameters[2:]:
-            sys.argv.append(i)
-    else:
-        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-        # clean up the folder after done processing
-        cleanup = True
-
-    messages = msgStub()
-
-    # inputs
-    input_dem = sys.argv[1]
-    huc8fc = sys.argv[2]
-    roadsFC = sys.argv[3]
-    rrsFC = sys.argv[4]
-    apFC = sys.argv[5]
-
-    # outputs
-    mergedMdnsHuc8FC = sys.argv[6]
-    huc8RoadsFC = sys.argv[7]
-
-    # local processing directory
-    procDir = sys.argv[8]
-
-    doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8RoadsFC, procDir, cleanup, messages)
-    arcpy.AddMessage("Back from doing!")
