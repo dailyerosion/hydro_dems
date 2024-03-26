@@ -3,41 +3,17 @@
 DEMs facilitating flow improvements to the DEM. This table of match points is then used 
 in later programs to cut and 'improve' the DEM.'''
 import arcpy
-# coding: utf-8
-
 import sys
 import os
 import platform
-import pathlib
-import datetime
 import time
 from os.path import join as opj
-import numpy as np
 import traceback
 from arcpy.sa import *
 import pickle
 
-login = os.getlogin()
-    
-if login == 'bkgelder':
-    boxes = ['C:\\Users\\bkgelder\\Box\\Data_Sharing\\Scripts\\basics', 'M:\\DEP\\Scripts\\basics']
-else:
-    boxes = ['C:\\Users\\idep2\\Box\\Scripts\\basics', 'M:\\DEP\\Scripts\\basics']
-
-for box in boxes:
-    if os.path.isdir(box):
-        sys.path.append(box)
-
 import dem_functions as df
 
-
-class msgStub:
-    def addMessage(self,text):
-        arcpy.AddMessage(text)
-    def addErrorMessage(self,text):
-        arcpy.AddErrorMessage(text)
-    def addWarningMessage(self,text):
-        arcpy.AddWarningMessage(text)
 
 class Toolbox(object):
     def __init__(self):
@@ -107,11 +83,17 @@ class Tool(object):
             datatype="DEFile",
             parameterType='Required',
             direction="Output")
+        
+        param7 = arcpy.Parameter(
+            displayName="Depression Punch Area Threshold",
+            datatype="GPString",
+            parameterType='Optional',
+            direction="Input")
                
-        params = [param0, param1, param2, param3,
-                  param4, param5, param6]
+        parameters = [param0, param1, param2, param3,
+                  param4, param5, param6, param7]
 
-        return params
+        return parameters
 
     def isLicensed(self):
         """Set whether tool is licensed to execute."""
@@ -131,7 +113,7 @@ class Tool(object):
     def execute(self, parameters, messages):
         """The source code of the tool."""
         cleanup = False
-        doMatcher(parameters[0].valueAsText, cleanup, messages)
+        doMatcher(parameters[0].valueAsText, parameters[1].valueAsText, parameters[2].valueAsText, parameters[3].valueAsText, parameters[4].valueAsText, parameters[5].valueAsText, parameters[6].valueAsText, parameters[7].valueAsText, cleanup, messages)
         return
 
     def postExecute(self, parameters):
@@ -153,7 +135,7 @@ def setupNoMedians(upPtsCmb, medianFrFld, dfs2cut4step, minElFld, frFld, maxWsMd
     return maxWsMedian
 
 
-def selectFrAndWsDpPts(gdbTable, dnPts, frFld, sfx, log, inm = 'in_memory\\'):
+def selectFrAndWsDpPts(gdbTable, dnPts, frFld, sfx, log, inm = 'in_memory'):
     dnFrWsList = []
     with arcpy.da.SearchCursor(gdbTable, ['FILL_RGN', 'ws_lvl'], sql_clause = (None, 'GROUP BY ' + frFld + ', ws_lvl')) as scur:
         for srow in scur:
@@ -184,9 +166,9 @@ def selectFrAndWsDpPts(gdbTable, dnPts, frFld, sfx, log, inm = 'in_memory\\'):
                     sel += ' OR ' + frFld + ' = ' + str(int(item[0])) + ' AND ws_lvl = ' + str(int(item[1]))
                     
             if i == 1:
-                selInit = arcpy.Select_analysis(dnPts, inm + 'dn_pts_bst2' + sfx, sel)
+                selInit = arcpy.Select_analysis(dnPts, opj(inm, 'dn_pts_bst2' + sfx), sel)
             else:
-                selLater = arcpy.Select_analysis(dnPts, inm + 'dn_pts_bst2' + sfx + ofSfx, sel)
+                selLater = arcpy.Select_analysis(dnPts, opj(inm, 'dn_pts_bst2' + sfx + ofSfx), sel)
                 appendList.append(selLater)
         selOut = arcpy.Append_management(appendList, selInit)
     else:
@@ -197,7 +179,7 @@ def selectFrAndWsDpPts(gdbTable, dnPts, frFld, sfx, log, inm = 'in_memory\\'):
             else:
                 sel += ' OR ' + frFld + ' = ' + str(int(item[0])) + ' AND ws_lvl = ' + str(int(item[1]))
 ##        gcSel4step = buildSelection(in_list, in_field)
-        selOut = arcpy.Select_analysis(dnPts, inm + 'dn_pts_bst2' + sfx, sel)
+        selOut = arcpy.Select_analysis(dnPts, opj(inm, 'dn_pts_bst2' + sfx), sel)
     return selOut
 
 
@@ -345,7 +327,7 @@ def idMedianPtsDn(dnPtsAll, medianFrFld, mdnsOnly):
 
 
 
-def doMatcher():
+def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth, cleanup, messages):
 
     ##This program was written to help remove issues in lidar DEMs caused
     ##by poor performance of interpolation algorithms in specific lcocations
@@ -372,119 +354,59 @@ def doMatcher():
     # 2024.01.05 - added multiple try/except statements to handle upgrade to Python 3.9/AG Pro 3.2, mostly using join by dictionary instead of JoinField
     # 2024.01.10 - moved selectFrAndWsDpPts into script and lowered threshold for splitting into subselections due to change in AG Pro
 
-    versionDir = arcpy.GetInstallInfo()
-    AGinstallDir = versionDir['InstallDir'].split('\\')[-2].capitalize()
-    version = AGinstallDir.strip('Desktop')
-
-    # get HUC code and state abbreviation to find file to process
-    scriptNameSplit = os.path.basename(sys.argv[0]).split('_')
-
-    ## set verbose (True = all output, False = minimal output saved)
-    verbose = True
-    if not verbose:
-        arcpy.SetLogHistory(False)
-
-    arcpy.CheckOutExtension("Spatial")
-    arcpy.env.overwriteOutput = True
-
-    outputString = 'system arguments are ' + str(sys.argv) + '\n'
-
-    # load system arguments directly (for debugging)
-    if len(sys.argv) == 1:
-        cleanup = False
-
-        parameters = ["C:/Python27/ArcGISx6410.3/pythonw.exe",
-        "C:/DEP/Scripts/basics/cmd_matcher.py",
-        "090300060805",
-        "2022",
-        "26915",
-        "mean18",
-        "2"]
-    ##    ["C:/Python27/ArcGISx6410.3/pythonw.exe",
-    ##	"O:/DEP/Scripts/basics/cmd_matcher.py",
-    ##	"101800091505",
-    ##	"2020",
-    ##	"26913",
-    ##	"mean18",
-    ##	"3"]
-
-        for i in parameters[2:]:
-            sys.argv.append(i)
-        outputString += 'running via shell'#; parameters were: ' + str(parameters)
-
-
-    else:
-        outputString += 'parameters were passed in via command line'
-        cleanup = True
-
-    huc12 = sys.argv[1]
-    huc8 = huc12[:8]
-    ACPFyear = sys.argv[2]
-    srOutCode = sys.argv[3]
-    interpType = sys.argv[4]
-    cellSize = int(sys.argv[5])
-    if len(sys.argv) > 6:
-        version = sys.argv[6]
-    else:
-        version = ''
-
-    if cleanup:
-        # log to file only
-        log, nowYmd, logName, startTime = df.setupLoggingNoCh(platform.node(), sys.argv[0], huc12)
-    else:
-        # log to file and console
-        log, nowYmd, logName, startTime = df.setupLoggingNew(platform.node(), sys.argv[0], huc12)
-
-    paths = df.loadVariablesDict(platform.node(), ACPFyear, huc12, srOutCode, interpType, cellSize, nowYmd, version)
-
-    ## Create variable directory names for final processed DEMs (ProcDir), scratch processing (scratchDir), and a file geodatabase
-    # input rasters and features and snap environment
-    scriptName = sys.argv[0]
-    # filled tif DEM input name
-    fill_or_void_tif = paths['fElevFile']#sys.argv[1]
-    ### snap raster
-    ##snapRaster = sys.argv[2]
-    # local processing directory
-    # output punched DEM
-    punchTif = paths['pElevFile']#sys.argv[4]
-    # optional input DEM (hydroflattened)
-    # voidFixTif = paths['vElevFile']#sys.argv[5]
-    # optional output hole raster
-    # holesTif = paths['holesFile']#sys.argv[6]
-    # HUC12FC = paths['mwHuc12s']
-    bndBuffer = paths['buf_boundary']
-
-    mergedMdnsHuc8FC = paths['mergedMdnsHuc8FC']#sys.argv[6]
-    CutProc = paths['cutProcDir']#sys.argv[3]
-    searchPickleFile = paths['pickleDistanceFile']#sys.argv[7]
-
-
     try:
-        ProcSize = int(arcpy.Raster(fill_or_void_tif).meanCellHeight)
+        arguments = [fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth, cleanup]
 
-        arcpy.env.snapRaster = fill_or_void_tif#snapRaster
-        arcpy.env.cellSize = ProcSize
+        for a in arguments:
+            if a == arguments[0]:
+                arg_str = str(a) + '\n'
+            else:
+                arg_str += str(a) + '\n'
 
-        startTime = datetime.datetime.now()
-        log.debug(f'starting up at: {startTime}')
-        log.warning(outputString)
+        messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 
-        log.warning('sys.argv is: ' + str(sys.argv) + '\n')
+        huc12, huc8, ProcSize = df.figureItOut(fill_or_void_tif)
 
+        if cleanup:
+            # log to file only
+            log, nowYmd, logName, startTime = df.setupLoggingNoCh(platform.node(), sys.argv[0], huc12)
+            verbose = False
+            arcpy.SetLogHistory = False
+        else:
+            # log to file and console
+            log, nowYmd, logName, startTime = df.setupLoggingNew(platform.node(), sys.argv[0], huc12)
+            verbose = True
+            arcpy.SetLogHistory = True
+
+        startTime = time.time()
+        log.info("Beginning execution: " + time.asctime())
+        messages.addMessage("Log file at " + logName)
+
+        log.warning('log file is ' + logName)
+
+        log.info("Tool: Executing with parameters:\n" + arg_str)
+
+    # Create output directories
     ## Set the environments
-        arcpy.env.scratchWorkspace = CutProc
+        arcpy.env.scratchWorkspace = proc_dir
 
-        sfldr = arcpy.env.scratchFolder
         sgdb = arcpy.env.scratchGDB
-        arcpy.env.scratchWorkspace = sgdb#fldr#
+        sfldr = arcpy.env.scratchFolder
+        arcpy.env.scratchWorkspace = sgdb
         arcpy.env.workspace = sgdb
 
-        gdb = sgdb + '\\'#FileGDB + "\\"
-        cp = CutProc + "\\"
-        inm = 'in_memory\\'
+        inm = 'in_memory'
+
+        arcpy.env.snapRaster = fill_or_void_tif
+
+        arcpy.env.extent = fill_or_void_tif
+
+        arcpy.env.cellSize = fill_or_void_tif
+
+        arcpy.CheckOutExtension("Spatial")
+        arcpy.env.overwriteOutput = True
 
     # set up output raster names
-        RMSE = 18.0# cm
 
         ## factor to increase search distance by
         srchMult = 3
@@ -500,24 +422,15 @@ def doMatcher():
 
         wsSearchDistFld = 'WS_SRCH_DST'
 
-        minFrDistList = ['MIN_WS_DST', 'DOUBLE']
         minFrDistList3 = ['MIN_WS_DST3', 'DOUBLE']
         minFrDistFld = minFrDistList3[0]
-
-        frPctDropList = ['MAX_PCT_DROP', 'DOUBLE']
-        frPctDropFld = frPctDropList[0]
 
         medianFrFld = "Median_FR"        
 
         frAllCrvFrac = ['ALL_FR_CRV_FRAC', 'DOUBLE']
-        frAllCrvFracFld = frAllCrvFrac[0]
         frThknsFld = 'FR_THKNS'
 
-        cmb_score_fld = "Combo_score"
-
         frDepthFld = 'FR_DEPTH'
-        frAreaFld = 'FR_AREA'
-        frVolFld = 'FR_VOLUME'
 
         minElDifFld = 'MIN_EL_DIF'
         minElDif = [minElDifFld, 'long']
@@ -530,7 +443,6 @@ def doMatcher():
         minSummaryFld = 'MIN_MIN'
         revCutElFld = 'REV_CUT_EL'
 
-        bsMinUpElFld = 'bs_min_el_up'
         bsMinDnElFld = 'bs_min_el_dn'
 
         allDnCellsFld = 'all_dn'
@@ -540,6 +452,8 @@ def doMatcher():
 
         gridfield = 'gridcode'
         gridfield2 = 'grid_code'
+
+        frMaxSlopeFld = 'FR_MAX_SLP'
 
         ## wsSearchDistFld is an adjusted search distance used distance from deep point to ws boundary and a minimum width
         ## it is not adjusted for crossing a median, just used for figuring out if upstream points are close
@@ -563,31 +477,18 @@ def doMatcher():
         srchList = []
         upPtsList = []
         dnPtsList = []
-        goodCutsList = []
 
-        log.warning('log file is ' + logName)
+        # punchGdb = os.path.join(sgdb, os.path.splitext(os.path.basename(punch_tif))[0])
+        # if not arcpy.Exists(punchGdb):
+        #     punchGdbResult = arcpy.CopyRaster_management(punch_tif, punchGdb)
+        # punchedDEMNoHoles = Con(IsNull(punchGdb) == 1, fill_or_void_tif, punch_tif)
+        # bestestDEM = punchedDEMNoHoles#Raster(punchGdb)
 
-    ## Create a layer of WBD boundary to buffer and clip datasets with
-        # huc12Lyr = arcpy.MakeFeatureLayer_management(HUC12FC, 'HUC12FCLayer', '"HUC12" = \'' + huc12 + "'")
-        # bnd = arcpy.CopyFeatures_management(huc12Lyr, gdb + "bnd_" + huc12)
-        # bndBuffer = arcpy.Buffer_analysis(huc12Lyr, gdb + 'buf_' + huc12 + '_1km', '1000 METER')
-
-        punchGdb = os.path.join(gdb, os.path.splitext(os.path.basename(punchTif))[0])
-        if not arcpy.Exists(punchGdb):
-            punchGdbResult = arcpy.CopyRaster_management(punchTif, punchGdb)
-        punchedDEMNoHoles = Con(IsNull(punchGdb) == 1, fill_or_void_tif, punchTif)
-        bestestDEM = punchedDEMNoHoles#Raster(punchGdb)
-
-        arcpy.env.extent = bestestDEM
-
-        slopePct = Raster(cp + 'slope_pct')
+        slopePct = Raster(opj(proc_dir, 'slope_pct'))
         flats2 = Con(slopePct == 0.0, 1, 0)
-        noInteriorFlatsDEM = Con(flats2 == 0, bestestDEM, '')
+        noInteriorFlatsDEM = Con(flats2 == 0, fill_or_void_tif, '')
 
-        frMaxSlopeFld = 'FR_MAX_SLP'
-        frMeanSlopeFld = 'FR_MEAN_SLP'
-
-        fsPfdMdn = FocalStatistics(bestestDEM, "RECTANGLE 3 3 CELL", "MEDIAN")#pitFilledDEM
+        fsPfdMdn = FocalStatistics(fill_or_void_tif, "RECTANGLE 3 3 CELL", "MEDIAN")#pitFilledDEM
 
         arcpy.env.workspace = inm
 
@@ -599,41 +500,45 @@ def doMatcher():
         df.tryAddField(match_stats, 'UP_PTS_RATIO', 'DOUBLE')
         df.tryAddField(match_stats, 'DN_PTS_RATIO', 'DOUBLE')
 
-        arcpy.env.workspace = cp
-        frRasters = arcpy.ListRasters('fr0_*')
+        fr0_dir = os.path.dirname(fr0_rasters)
+        arcpy.env.workspace = fr0_dir
+        fr0_name = os.path.basename(fr0_rasters)
+        frRasters = arcpy.ListRasters(fr0_name[:4] + '*')#'fr0_*')
         frRasters.sort()
         for i, item in enumerate(frRasters[:]):
             log.warning('working on frRaster: ' + str(item))
-            arcpy.env.workspace = cp
+            arcpy.env.workspace = proc_dir
             sfx = '_' + item.split('_')[-1]
-            dfsFC = os.path.join(gdb, 'dfs_frToPoly' + sfx)
+            dfsFC = dfs_polys[:-2] + sfx
+            # dfsFC = os.path.join(sgdb, 'dfs_frToPoly' + sfx)
             dfsList.append(dfsFC)
             # add identifier for medians
             df.tryAddField(dfsFC, medianFrFld, "SHORT")
-            wsPolys = os.path.join(gdb, 'ws_polys' + sfx)
+            # wsPolys = os.path.join(sgdb, 'ws_polys' + sfx)
+            wsPolys = ws_polys[:-2] + sfx
 
     ##                selFull = '(' + ofElFld + ' - ' + minElFld + ') > 67 OR ' + maxFrOfDistFld + ' >= ' + str(3 * ProcSize)
     ##        selFull = '(' + ofElFld + ' - ' + minElFld + ') > ' + str(3.0 * RMSE) + ' AND (' + ofElFld + ' - ' + minElFld + ')*0.01 / ' + minFrDistFld + ' >= 0.05'
-            selFull = frDepthFld + ' > ' + str(2.0 * RMSE) + ' AND ' + frMaxSlopeFld + ' > 5.0'
+            selFull = frDepthFld + ' > ' + str(2.0 * float(match_depth)) + ' AND ' + frMaxSlopeFld + ' > 5.0'
             ## instead of frPctDrop could analyze by water 'piling' up near edge
 
     ####        df.condDelete(verbose, wsPolys)
-            dfs2cut4step = arcpy.Select_analysis(dfsFC, 'in_memory\\dfs2cut' + sfx, selFull)
+            dfs2cut4step = arcpy.Select_analysis(dfsFC, opj(inm, 'dfs2cut' + sfx), selFull)
             frs2cut = df.getFrsAsList(dfs2cut4step, frFld, '')
             if len(frs2cut) > 0:
 
                 ws2cut4step = df.selectByList(frs2cut, gridfield, wsPolys, 'ws_2_cut', sfx, inm)
 
                 if int(arcpy.GetCount_management(ws2cut4step).getOutput(0)) > 0:
-                    df.copyfc(verbose, ws2cut4step, gdb)
-                    df.copyfc(verbose, dfs2cut4step, gdb)
+                    df.copyfc(verbose, ws2cut4step, sgdb)
+                    df.copyfc(verbose, dfs2cut4step, sgdb)
                 ## Create list of fill regions to select upstream points for appropriate fill regions
 
-                fr0 = df.conByList(frs2cut, 'VALUE', 'fr0' + sfx, cp)
+                fr0 = df.conByList(frs2cut, 'VALUE', 'fr0' + sfx, proc_dir)
                 wsLvl = Raster(wsLvlFld + sfx)
     ####            fdPrev = Raster('fd_lvl0' + sfx)
-                inDEM = Raster('nwdm' + sfx)
-                snkUnique = Raster('snkunq' + sfx)
+                # inDEM = Raster('nwdm' + sfx)
+                # snkUnique = Raster('snkunq' + sfx)
                 fillPrevLvl = Raster(fillLvlFld.lower() + sfx)
 
             ## Calculate maximum thickness in each fill region (i.e. how far off can the flowpath be?) for later processing
@@ -643,7 +548,7 @@ def doMatcher():
                 ## Create cost distance raster of thickness
                     thknsCostDistance = CostDistance(ExtractByAttributes(fillRgnThickCost, 'VALUE = 0'), fillRgnThickCost)
                 else:
-                    fillRgnThick = Con(IsNull(fr0), 0, 1)
+                    # fillRgnThick = Con(IsNull(fr0), 0, 1)
                     fillRgnThickCost = Con(IsNull(fr0), 0.001, 1)
                     thknsCostDistance = CostDistance(ExtractByAttributes(fillRgnThickCost, 'VALUE = 0'), fillRgnThickCost)
                 ##            thknsCostDistance.save(gdb + "thkns_cd" + sfx)
@@ -657,29 +562,29 @@ def doMatcher():
             ## Calculate the overflow flowpath and calculate distance from edge of fill region0 to path
                 ## We can use this distance to quantitatively evaluate if overflow compomises accuracy
 
-                zstFrOfEl = ZonalStatisticsAsTable(fr0, 'value', fillPrevLvl, inm + 'zst_' + ofElFld + sfx, '', 'MINIMUM')
+                zstFrOfEl = ZonalStatisticsAsTable(fr0, 'value', fillPrevLvl, opj(inm, 'zst_' + ofElFld + sfx), '', 'MINIMUM')
                 df.addCalcJoin(dfs2cut4step, frFld, zstFrOfEl, 'value', [ofElFld, 'LONG'], '!MIN!')
-                zstMaxFilEl = ZonalStatisticsAsTable(fr0, 'value', cp + 'fill_lvl_0', inm + 'zst_' + maxFillFld + sfx, '', 'MINIMUM')
+                zstMaxFilEl = ZonalStatisticsAsTable(fr0, 'value', opj(proc_dir, 'fill_lvl_0'), opj(inm, 'zst_' + maxFillFld + sfx), '', 'MINIMUM')
                 df.addCalcJoin(dfs2cut4step, frFld, zstMaxFilEl, 'value', [maxFillFld, 'LONG'], '!MIN!')
 
                 wsOfEl = ZonalStatistics(wsLvl, 'value', fillPrevLvl, 'MINIMUM')
-                wsOfEl.save(cp + ofElFld)
+                wsOfEl.save(opj(proc_dir, ofElFld))
                 log.debug('done with ofElFld at ' + time.asctime())
 
             ## Define the quartermost deepest parts of the watershed (deeper or equal to 1/4 fr depth)
-                wsMinEl = ZonalStatistics(wsLvl, 'value', bestestDEM, 'MINIMUM')#pitFilledDEM, 'MINIMUM')
+                wsMinEl = ZonalStatistics(wsLvl, 'value', fill_or_void_tif, 'MINIMUM')#pitFilledDEM, 'MINIMUM')
                 qrtrDeepEl = wsMinEl + 0.25*(wsOfEl-wsMinEl)
-                quarterDeepFr0 = Con(bestestDEM <= qrtrDeepEl, fr0)
+                quarterDeepFr0 = Con(fill_or_void_tif <= qrtrDeepEl, fr0)
                 quarterDeepFr1 = Con(quarterDeepFr0, 1)
 
             ## Define the deepest parts of the watershed (deeper or equal to fr median minimum elevation)
                 minMdnEl = ZonalStatistics(fr0, 'value', fsPfdMdn, 'MINIMUM')
                 cutEl = Con(minMdnEl < qrtrDeepEl, minMdnEl, qrtrDeepEl)
-                cutElFr0 = Con(bestestDEM <= cutEl, fr0)
+                cutElFr0 = Con(fill_or_void_tif <= cutEl, fr0)
                 cutElFr1 = Con(cutElFr0, 1)
 
-                zstCutElAlt = ZonalStatisticsAsTable(fr0, 'value', cutEl, inm + 'zst_alt_' + minFrDistFld + sfx, '', 'MINIMUM')
-        ####                df.copyTbl(verbose, zstCutElAlt, gdb)
+                zstCutElAlt = ZonalStatisticsAsTable(fr0, 'value', cutEl, opj(inm, 'zst_alt_' + minFrDistFld + sfx), '', 'MINIMUM')
+        ####                df.copyTbl(verbose, zstCutElAlt, sgdb)
                 df.addCalcJoin(dfs2cut4step, frFld, zstCutElAlt, 'value', [cutElFld, 'LONG'], '!MIN!')# + cutElFld + '!')'ALT_CUT_EL'
 
             ## Calculate maximum thickness in each watershed (i.e. distance to ws boundary) for later processing
@@ -698,7 +603,7 @@ def doMatcher():
             ## Set null values to maximum
             ## Add 1.5 to all distances to remove 0 values
                 wsCostDistance = Con(IsNull(wsCostDistance100), maxWsBndThick, wsCostDistance100) + 1.5
-                wsCostDistance.save(cp + "ws_thkns_cd" + sfx)
+                wsCostDistance.save(opj(proc_dir, "ws_thkns_cd" + sfx))
 
             ## For cut el
             ## Preliminary calculations to determiine how many low points near each other
@@ -728,8 +633,8 @@ def doMatcher():
                 cutQrtrDistRatio = wsCDinQrtrEl/wsCDinCutEl
 
                 deepEnoughFr0 = Con(cutQrtrDistRatio < 0.75, quarterDeepFr0, cutElFr0)
-                deepEnoughFr0.save(cp + 'dp_fr' + sfx)
-                zstFrMinDist = ZonalStatisticsAsTable(fr0, 'value', Con(cutQrtrDistRatio < 0.75, wsCDinQrtrEl, wsCDinCutEl), inm + 'zst_' + minFrDistFld + sfx, '', 'MINIMUM')
+                deepEnoughFr0.save(opj(proc_dir, 'dp_fr' + sfx))
+                zstFrMinDist = ZonalStatisticsAsTable(fr0, 'value', Con(cutQrtrDistRatio < 0.75, wsCDinQrtrEl, wsCDinCutEl), opj(inm, 'zst_' + minFrDistFld + sfx), '', 'MINIMUM')
                 df.addCalcJoin(dfs2cut4step, frFld, zstFrMinDist, 'value', [minFrDistFld, 'LONG'], '!MIN!')
 
                 zsFrMinDist = ZonalStatistics(fr0, 'value', Con(cutQrtrDistRatio < 0.75, wsCDinQrtrEl, wsCDinCutEl), 'MINIMUM')
@@ -754,18 +659,18 @@ def doMatcher():
                     ProcSize2 = ProcSize *2.0
                     test1 = LessThan(deepFrCostDistance, ProcSize2)
                     outerDeepEnoughFr0Pre = Con(test1, nearDeepEnoughFr0)
-        ##            outerDeepEnoughFr0.save(cp + 'dp_fr' + sfx)
+        ##            outerDeepEnoughFr0.save(opj(proc_dir, 'dp_fr' + sfx))
                     ProcSize3 = ProcSize *3.0
                     test2 = GreaterThan(deepFrCDMax, ProcSize3)
                     outerDeepEnoughFr0 = Con(test2, outerDeepEnoughFr0Pre, nearDeepEnoughFr0)
-        ##            outerDeepEnoughFr0.save(cp + 'dp_fr' + sfx)
+        ##            outerDeepEnoughFr0.save(opj(proc_dir, 'dp_fr' + sfx))
 
         ######------------------------------------------------------------------------------
 
 
         ## Create upstream points by selective filtering
             ## Just get those FRs to be cut
-                deepEnoughFr0ToCut = df.conByList(frs2cut, 'VALUE', outerDeepEnoughFr0, cp)
+                deepEnoughFr0ToCut = df.conByList(frs2cut, 'VALUE', outerDeepEnoughFr0, proc_dir)
     ##            deepEnoughFr0ToCut.save('dp_fr2cut' + sfx)
 
     ####            in_list, in_field, in_rast = frs2cut, 'VALUE', outerDeepEnoughFr0
@@ -776,33 +681,37 @@ def doMatcher():
             ## Just get those at the minimum block elevation
                 upPtsDEM = Raster(fill_or_void_tif)#ndAllFixedDEM)#bigNdFixed
                 bsMinUpEl = BlockStatistics(Con(deepEnoughFr0ToCut, upPtsDEM), bsNbr, 'MINIMUM')
-                bsMinUpElName = str(bsMinUpEl).split('\\')[-1]
 
-                rgBsMinUpEl = RegionGroup(bsMinUpEl)
+                # rgBsMinUpEl = RegionGroup(bsMinUpEl)
 
                 deepEnoughFr0Bs = Con(upPtsDEM == bsMinUpEl, deepEnoughFr0ToCut)
+                deepEnoughFr0Bs.save(opj(proc_dir, 'up_bs' + sfx))
+                deepBsMinUpElName = os.path.basename(str(deepEnoughFr0Bs))
 
                 upstreamCombine = Combine([deepEnoughFr0Bs, upPtsDEM, wsCostDistance])#bestestDEM, wsCostDistance])
-                upstreamCombine.save(cp + 'up_cmb' + sfx)
+                upstreamCombine.save(opj(proc_dir, 'up_cmb' + sfx))
+                log.debug(f"upPtsCombine count is: " + str(arcpy.GetCount_management(upstreamCombine)))
                 deepEnoughFr0Name = df.getfields(upstreamCombine)[3]
+                upPtsDemName = df.getfields(upstreamCombine)[4]
                 wsCostDistName = df.getfields(upstreamCombine)[5]
 
-                upPtsCmb = arcpy.RasterToPoint_conversion(upstreamCombine, inm + "cb_up" + sfx)
+                upPtsCmb = arcpy.RasterToPoint_conversion(upstreamCombine, opj(inm, 'cb_up' + sfx))
+                log.debug(f"upPtsCmb count is: " + str(arcpy.GetCount_management(upPtsCmb).getOutput(0)))
 
                 try:
-                    arcpy.JoinField_management(upPtsCmb, gridfield2, upstreamCombine, 'value', [deepEnoughFr0Name, df.getfields(upstreamCombine)[4], wsCostDistName])
+                    arcpy.JoinField_management(upPtsCmb, gridfield2, upstreamCombine, 'value', [deepEnoughFr0Name, upPtsDemName, wsCostDistName])
                 except:
                     copiedRows = arcpy.CopyRows_management(upstreamCombine, opj(inm, 'upstream_table'))
-                    df.joinDict(upPtsCmb, gridfield2, copiedRows, 'value', [deepEnoughFr0Name, df.getfields(upstreamCombine)[4], wsCostDistName])
+                    df.joinDict(upPtsCmb, gridfield2, copiedRows, 'value', [deepEnoughFr0Name, upPtsDemName, wsCostDistName])
                 ## create consistent field names for all levels by altering name
                 arcpy.AlterField_management(upPtsCmb, deepEnoughFr0Name, frFld)
-                if version.find('10.5') > -1 or version.find('10.6') > -1:
-                    arcpy.AlterField_management(upPtsCmb, df.getfields(upPtsCmb)[-1], 'WS_THKNS_CD')#frFld)
-                else:
-                    arcpy.AlterField_management(upPtsCmb, wsCostDistance.name, 'WS_THKNS_CD')#frFld)
+                # if version.find('10.5') > -1 or version.find('10.6') > -1:
+                #     arcpy.AlterField_management(upPtsCmb, df.getfields(upPtsCmb)[-1], 'WS_THKNS_CD')#frFld)
+                # else:
+                arcpy.AlterField_management(upPtsCmb, wsCostDistance.name, 'WS_THKNS_CD')#frFld)
 
-                if arcpy.Exists(mergedMdnsHuc8FC):
-                    mergedMdnsFc = arcpy.Clip_analysis(mergedMdnsHuc8FC, bndBuffer)
+                if arcpy.Exists(merged_medians):
+                    mergedMdnsFc = arcpy.Clip_analysis(merged_medians, buffered_fc)
 
                     if df.testForZero(mergedMdnsFc):
         ####                if mergedMdns is not None:
@@ -816,7 +725,7 @@ def doMatcher():
                         ## use the minimum of this value to possibly increase search distance in these areas, if greater than minFrDistFld
         ####                df.conByList(
                         mergedMdnsCostMax = max([r[0] for r in arcpy.da.SearchCursor(mergedMdnsFc, ['bfr_dist'])])/2.0
-                        upPtsMergedMdnsGnt = arcpy.GenerateNearTable_analysis(upPtsCmb, mergedMdnsFc, gdb + 'up_pts_mrg_mdn' + sfx, search_radius = mergedMdnsCostMax, closest = 'ALL')
+                        upPtsMergedMdnsGnt = arcpy.GenerateNearTable_analysis(upPtsCmb, mergedMdnsFc, opj(sgdb, 'up_pts_mrg_mdn' + sfx), search_radius = mergedMdnsCostMax, closest = 'ALL')
                         arcpy.JoinField_management(upPtsMergedMdnsGnt, 'NEAR_FID', mergedMdnsFc, arcpy.Describe(mergedMdnsFc).OIDFieldName, 'bfr_dist')
                         arcpy.JoinField_management(upPtsMergedMdnsGnt, 'IN_FID', upPtsCmb, arcpy.Describe(upPtsCmb).OIDFieldName, frFld)
                         maxWsMedian = arcpy.Statistics_analysis(upPtsMergedMdnsGnt, opj(sgdb, 'ws_max_median_gnt' + sfx), [["bfr_dist", "MAX"], [frFld, "COUNT"]], frFld)
@@ -845,117 +754,117 @@ def doMatcher():
                 arcpy.JoinField_management(upPtsCmb, frFld, dfs2cut4step, frFld, pntMdnSearchDistFld)
                 maxSearchDistList.append(pntMdnMaxSearchDist)
 
-                df.copyfc(verbose, upPtsCmb, gdb)
+                df.copyfc(verbose, upPtsCmb, sgdb)
 
                 arcpy.env.workspace = sgdb
                 if df.testForZero(upPtsCmb):
                     log.debug('matching for ' + sfx)
 
                 ## Create upstream point search radius
-                    upPtsMbg = arcpy.MinimumBoundingGeometry_management(upPtsCmb, inm + 'up_pts_mbg' + sfx, 'CONVEX_HULL', 'LIST', frFld)
+                    upPtsMbg = arcpy.MinimumBoundingGeometry_management(upPtsCmb, opj(inm, 'up_pts_mbg' + sfx), 'CONVEX_HULL', 'LIST', frFld)
                     arcpy.JoinField_management(upPtsMbg, frFld, dfs2cut4step, frFld, [wsSearchDistFld, pntMdnSearchDistFld, ofElFld, minElFld])#searchX2Fld)
-                    df.copyfc(verbose, upPtsMbg, gdb)
+                    df.copyfc(verbose, upPtsMbg, sgdb)
 
                     log.debug('matching Buffer for ' + sfx)
                 ## Buffer by wsSearchDistFld (1/2 of point search distance) to find areas where points reach ws boundary
-                    upMbgBfr = arcpy.Buffer_analysis(upPtsMbg, inm + 'up_mbg_bfr' + sfx, wsSearchDistFld)#searchX2Fld)
-                    df.copyfc(verbose, upMbgBfr, gdb)
+                    upMbgBfr = arcpy.Buffer_analysis(upPtsMbg, opj(inm, 'up_mbg_bfr' + sfx), wsSearchDistFld)#searchX2Fld)
+                    df.copyfc(verbose, upMbgBfr, sgdb)
 
                     wsfcLine = arcpy.FeatureToLine_management(ws2cut4step, 'ws_2_line' + sfx)
 
-                    intWsLines = arcpy.Intersect_analysis([wsfcLine, upMbgBfr], inm + 'up_int' + sfx)#, output_type = 'LINE')
-                    df.copyfc(verbose, intWsLines, gdb)
+                    intWsLines = arcpy.Intersect_analysis([wsfcLine, upMbgBfr], opj(inm, 'up_int' + sfx))#, output_type = 'LINE')
+                    df.copyfc(verbose, intWsLines, sgdb)
 
-                    selWsLines = arcpy.Select_analysis(intWsLines, inm + 'sel_up' + sfx, frFld + ' = ' + frFld + '_1')
-                    df.copyfc(verbose, selWsLines, gdb)
+                    selWsLines = arcpy.Select_analysis(intWsLines, opj(inm, 'sel_up' + sfx), frFld + ' = ' + frFld + '_1')
+                    df.copyfc(verbose, selWsLines, sgdb)
 
                     log.debug('matching Dissolve for ' + sfx)
-                    dslvWsLines = arcpy.Dissolve_management(selWsLines, inm + 'dslv_ws_lines' + sfx, frFld)
+                    dslvWsLines = arcpy.Dissolve_management(selWsLines, opj(inm, 'dslv_ws_lines' + sfx), frFld)
                     arcpy.JoinField_management(dslvWsLines, frFld, dfs2cut4step, frFld, [wsSearchDistFld, wsMdnSearchDistFld])
-                    df.copyfc(verbose, dslvWsLines, gdb)
+                    df.copyfc(verbose, dslvWsLines, sgdb)
 
-                    wsLineBfr = arcpy.Buffer_analysis(dslvWsLines, inm + 'ws_line_bfr' + sfx, wsMdnSearchDistFld)#wsSearchDistFld)
-                    df.copyfc(verbose, wsLineBfr, gdb)
+                    wsLineBfr = arcpy.Buffer_analysis(dslvWsLines, opj(inm, 'ws_line_bfr' + sfx), wsMdnSearchDistFld)#wsSearchDistFld)
+                    df.copyfc(verbose, wsLineBfr, sgdb)
 
                     try:
-                        wsLineBfrUnion = arcpy.Union_analysis([wsLineBfr, ws2cut4step], inm + 'ws_line_bfr_unn' + sfx)
-                        df.copyfc(verbose, wsLineBfrUnion, gdb)
+                        wsLineBfrUnion = arcpy.Union_analysis([wsLineBfr, ws2cut4step], opj(inm, 'ws_line_bfr_unn' + sfx))
+                        df.copyfc(verbose, wsLineBfrUnion, sgdb)
                     except:
                         log.warning("Invalid Topology, can't create wsLineBfrUnion, attempting repair")
                         arcpy.RepairGeometry_management(wsLineBfr)
                         arcpy.RepairGeometry_management(ws2cut4step)
-                        wsLineBfrUnion = arcpy.Union_analysis([wsLineBfr, ws2cut4step], inm + 'ws_line_bfr_unn' + sfx)
-                        df.copyfc(verbose, wsLineBfrUnion, gdb)
+                        wsLineBfrUnion = arcpy.Union_analysis([wsLineBfr, ws2cut4step], opj(inm, 'ws_line_bfr_unn' + sfx))
+                        df.copyfc(verbose, wsLineBfrUnion, sgdb)
                         
 
-                    if arcpy.Exists(mergedMdnsHuc8FC):
+                    if arcpy.Exists(merged_medians):
                         if df.testForZero(mergedMdnsFc):# is not None:#len(mergedMdnList) > 0:
-                            wsLineBfrUnionErase = arcpy.Erase_analysis(wsLineBfrUnion, mergedMdnsFc, inm + 'ws_line_bfr_union_no_mdns' + sfx)
+                            wsLineBfrUnionErase = arcpy.Erase_analysis(wsLineBfrUnion, mergedMdnsFc, opj(inm, 'ws_line_bfr_union_no_mdns' + sfx))
                             if arcpy.Exists(wsLineBfrUnionErase):
-                                df.copyfc(verbose, wsLineBfrUnionErase, gdb)
+                                df.copyfc(verbose, wsLineBfrUnionErase, sgdb)
                             else:
                                 arcpy.RepairGeometry_management(wsLineBfrUnion)
-                                wsLineBfrUnionErase = arcpy.Erase_analysis(wsLineBfrUnion, mergedMdnsFc, inm + 'ws_line_bfr_union_no_mdns' + sfx)
-                                df.copyfc(verbose, wsLineBfrUnionErase, gdb)
+                                wsLineBfrUnionErase = arcpy.Erase_analysis(wsLineBfrUnion, mergedMdnsFc, opj(inm, 'ws_line_bfr_union_no_mdns' + sfx))
+                                df.copyfc(verbose, wsLineBfrUnionErase, sgdb)
 
-                            area2search = arcpy.Select_analysis(wsLineBfrUnionErase, inm + 'good_ds5' + sfx, frFld + ' <> ' + frFld + '_1 and FID_' + wsLineBfr[0].split('\\')[-1] + ' <> -1')
-                            df.copyfc(verbose, area2search, gdb)
+                            area2search = arcpy.Select_analysis(wsLineBfrUnionErase, opj(inm, 'good_ds5' + sfx), frFld + ' <> ' + frFld + '_1 and FID_' + wsLineBfr[0].split('\\')[-1] + ' <> -1')
+                            df.copyfc(verbose, area2search, sgdb)
 
-                            area2searchWithMedians = arcpy.Select_analysis(wsLineBfrUnion, inm + 'good_ds6' + sfx, frFld + ' <> ' + frFld + '_1 and FID_' + wsLineBfr[0].split('\\')[-1] + ' <> -1')
-                            df.copyfc(verbose, area2searchWithMedians, gdb)
+                            area2searchWithMedians = arcpy.Select_analysis(wsLineBfrUnion, opj(inm, 'good_ds6' + sfx), frFld + ' <> ' + frFld + '_1 and FID_' + wsLineBfr[0].split('\\')[-1] + ' <> -1')
+                            df.copyfc(verbose, area2searchWithMedians, sgdb)
                         else:
-                            area2search = arcpy.Select_analysis(wsLineBfrUnion, inm + 'good_ds5' + sfx, frFld + ' <> ' + frFld + '_1 and FID_' + wsLineBfr[0].split('\\')[-1] + ' <> -1')
-                            df.copyfc(verbose, area2search, gdb)
+                            area2search = arcpy.Select_analysis(wsLineBfrUnion, opj(inm, 'good_ds5' + sfx), frFld + ' <> ' + frFld + '_1 and FID_' + wsLineBfr[0].split('\\')[-1] + ' <> -1')
+                            df.copyfc(verbose, area2search, sgdb)
 
                             area2searchWithMedians = area2search
                     else:
-                        area2search = arcpy.Select_analysis(wsLineBfrUnion, inm + 'good_ds5' + sfx, frFld + ' <> ' + frFld + '_1 and FID_' + wsLineBfr[0].split('\\')[-1] + ' <> -1')
-                        df.copyfc(verbose, area2search, gdb)
+                        area2search = arcpy.Select_analysis(wsLineBfrUnion, opj(inm, 'good_ds5' + sfx), frFld + ' <> ' + frFld + '_1 and FID_' + wsLineBfr[0].split('\\')[-1] + ' <> -1')
+                        df.copyfc(verbose, area2search, sgdb)
 
                         area2searchWithMedians = area2search
 
             ## Convert the area2search to non-overlapping polygons that are 'rasterized'
-                    area2searchCopy = arcpy.CopyFeatures_management(area2search, inm + 'good_ds5_copy' + sfx)
-                    df.copyfc(verbose, area2searchCopy, gdb)
+                    area2searchCopy = arcpy.CopyFeatures_management(area2search, opj(inm, 'good_ds5_copy' + sfx))
+                    df.copyfc(verbose, area2searchCopy, sgdb)
                     try:
                         area2searchSingles = arcpy.DeleteIdentical_management(area2searchCopy, 'SHAPE')
-                        df.copyfc(verbose, area2searchSingles, gdb)
+                        df.copyfc(verbose, area2searchSingles, sgdb)
                     except:
                         log.warning('Likely error in DeleteIdentical for sfx ' + sfx)
-                        chckGeom = arcpy.CheckGeometry_management(area2searchCopy, inm + 'chck_geom' + sfx)
-    ####                                df.copyTbl(verbose, chckGeom, gdb)
+                        chckGeom = arcpy.CheckGeometry_management(area2searchCopy, opj(inm, 'chck_geom' + sfx))
+    ####                                df.copyTbl(verbose, chckGeom, sgdb)
                         arcpy.JoinField_management(area2searchCopy, 'OBJECTID', chckGeom, 'FEATURE_ID', 'PROBLEM')
 
-                        noProb = arcpy.Select_analysis(area2searchCopy, inm + 'no_prob' + sfx, 'PROBLEM IS NULL')
-                        df.copyfc(verbose, noProb, gdb)
-                        toFix = arcpy.Select_analysis(area2searchCopy, inm + 'geom_prob' + sfx, 'PROBLEM IS NOT NULL')
-                        df.copyfc(verbose, toFix, gdb)
+                        noProb = arcpy.Select_analysis(area2searchCopy, opj(inm, 'no_prob' + sfx), 'PROBLEM IS NULL')
+                        df.copyfc(verbose, noProb, sgdb)
+                        toFix = arcpy.Select_analysis(area2searchCopy, opj(inm, 'geom_prob' + sfx), 'PROBLEM IS NOT NULL')
+                        df.copyfc(verbose, toFix, sgdb)
                         fixed = arcpy.RepairGeometry_management(toFix)
-                        chckGeom2 = arcpy.CheckGeometry_management(fixed, inm + 'chck_geom2' + sfx)
-    ####                                df.copyTbl(verbose, chckGeom2, gdb)
-                        area2searchSingles = arcpy.Merge_management([noProb, fixed], inm + 'good_ds5_fixed' + sfx)
-                        df.copyfc(verbose, area2searchSingles, gdb)
+                        chckGeom2 = arcpy.CheckGeometry_management(fixed, opj(inm, 'chck_geom2' + sfx))
+    ####                                df.copyTbl(verbose, chckGeom2, sgdb)
+                        area2searchSingles = arcpy.Merge_management([noProb, fixed], opj(inm, 'good_ds5_fixed' + sfx))
+                        df.copyfc(verbose, area2searchSingles, sgdb)
 
 
                     if df.testForZero(area2searchSingles):#int(arcpy.GetCount_management(area2searchSingles).getOutput(0)) > 0:
                 ## Define linkages between overlapping and non-overlapping polygons (FID_area2searchSingles -> FID_area2search (this has multiple, overlapping polygons))
-                        area2searchSinglesIntBack = arcpy.Intersect_analysis([area2search, area2searchSingles], inm + 'a2s_singles_int_back' + sfx)#, 'ONLY_FID')
+                        area2searchSinglesIntBack = arcpy.Intersect_analysis([area2search, area2searchSingles], opj(inm, 'a2s_singles_int_back' + sfx))
                         # fix 'Invalid Topology [Incomplete void poly.]' error
                         if not arcpy.Exists(area2searchSinglesIntBack):
                             log.warning('area2searchSinglesIntBack not completed successfully; attempting repair')
                             arcpy.RepairGeometry_management(area2search)
                             arcpy.RepairGeometry_management(area2searchSingles)
-                            area2searchSinglesIntBack = arcpy.Intersect_analysis([area2search, area2searchSingles], inm + 'a2s_singles_int_back' + sfx)#, 'ONLY_FID')
-                        df.copyfc(verbose, area2searchSinglesIntBack, gdb)
+                            area2searchSinglesIntBack = arcpy.Intersect_analysis([area2search, area2searchSingles], opj(inm, 'a2s_singles_int_back' + sfx))
+                        df.copyfc(verbose, area2searchSinglesIntBack, sgdb)
 
                 ## Convert non-overlapping polygon to raster (FID_area2searchSingles -> VALUE (unique))
-                        area2searchRasterResult = arcpy.PolygonToRaster_conversion(area2searchSingles, arcpy.Describe(area2searchSingles).OIDFieldName, cp + 'gd_ds5_rst'+ sfx, cellsize = ProcSize)
+                        area2searchRasterResult = arcpy.PolygonToRaster_conversion(area2searchSingles, arcpy.Describe(area2searchSingles).OIDFieldName, opj(proc_dir, 'gd_ds5_rst'+ sfx), cellsize = ProcSize)
                 ## Convert back to polygons (VALUE -> gridfield)
     ##                    zsBackToArea2Search = ZonalStatistics(wsLvl, 'value', fsPfdMdn, 'MINIMUM')
-                        zstBackToArea2Search = ZonalStatisticsAsTable(area2searchRasterResult, 'value', fsPfdMdn, inm + 'zst_el_srch_area_rast' + sfx)#pitFilledDEM, inm + 'zst_el_srch_area_rast' + sfx)
+                        zstBackToArea2Search = ZonalStatisticsAsTable(area2searchRasterResult, 'value', fsPfdMdn, opj(inm, 'zst_el_srch_area_rast' + sfx))
                         arcpy.JoinField_management(area2searchSinglesIntBack, 'FID_' + area2searchSingles[0].split('\\')[-1], zstBackToArea2Search, 'value', 'MIN')
-                        backToAreaSummaryStats = arcpy.Statistics_analysis(area2searchSinglesIntBack, inm + 'bk2area_smry' + sfx, [['MIN', 'MIN']], frFld)
-    ####                                df.copyTbl(verbose, backToAreaSummaryStats, gdb)
+                        backToAreaSummaryStats = arcpy.Statistics_analysis(area2searchSinglesIntBack, opj(inm, 'bk2area_smry' + sfx), [['MIN', 'MIN']], frFld)
+    ####                                df.copyTbl(verbose, backToAreaSummaryStats, sgdb)
 
                 ## Define the minimum elevation in the search area
                         arcpy.JoinField_management(dfs2cut4step, frFld, backToAreaSummaryStats, frFld, minSummaryFld)
@@ -971,27 +880,29 @@ def doMatcher():
                                 else:
                                     urow[1] = urow[0]
                                 ucur.updateRow(urow)
-                        df.copyfc(verbose, dfs2cut4step, gdb)
+                        df.copyfc(verbose, dfs2cut4step, sgdb)
 
+                        area2searchDescribe = arcpy.da.Describe(area2searchWithMedians)
                         startDelIndex = df.getfields(area2searchWithMedians).index(frFld + '_1')
                         for fld in df.getfields(area2searchWithMedians)[startDelIndex:]:
-                            arcpy.DeleteField_management(area2searchWithMedians, fld)
+                            if fld != area2searchDescribe['areaFieldName'] and fld != area2searchDescribe['lengthFieldName']:
+                                arcpy.DeleteField_management(area2searchWithMedians, fld)
 
                         arcpy.JoinField_management(area2searchWithMedians, frFld, dfs2cut4step, frFld, [ofElFld, minElFld, revCutElFld, minSummaryFld])
 
                 ## Select only parts of those FRs that are deeper than 50 cm or  revCutElFld < cutOneMinCrit * FR depth
-                        area2search2 = arcpy.Select_analysis(area2searchWithMedians, inm + 'good_ds8' + sfx, minSummaryFld + ' < (' + ofElFld + ' - 50) OR ' + minSummaryFld + ' < (' + minElFld + ' + ' + str(cutOneMinCrit) + '*(' + ofElFld + ' - ' + minElFld + '))')
+                        area2search2 = arcpy.Select_analysis(area2searchWithMedians, opj(inm, 'good_ds8' + sfx), minSummaryFld + ' < (' + ofElFld + ' - 50) OR ' + minSummaryFld + ' < (' + minElFld + ' + ' + str(cutOneMinCrit) + '*(' + ofElFld + ' - ' + minElFld + '))')
                         if df.testForZero(area2search2):
-                            df.copyfc(verbose, area2search2, gdb)
-                            maxEl4Dn = Raster(arcpy.PolygonToRaster_conversion(area2search2, revCutElFld, cp + "cut_el_dn" + sfx, "",revCutElFld, ProcSize))
+                            df.copyfc(verbose, area2search2, sgdb)
+                            maxEl4Dn = Raster(arcpy.PolygonToRaster_conversion(area2search2, revCutElFld, opj(proc_dir, "cut_el_dn" + sfx), "",revCutElFld, ProcSize))
 
-                            areas2SearchEl = Raster(arcpy.PolygonToRaster_conversion(area2search2, minSummaryFld, cp + "srch_el_dn" + sfx, "",minSummaryFld, ProcSize))
+                            areas2SearchEl = Raster(arcpy.PolygonToRaster_conversion(area2search2, minSummaryFld, opj(proc_dir, "srch_el_dn" + sfx), "",minSummaryFld, ProcSize))
                             log.debug("areas2SearchEl at " + time.asctime())
 
 
                         ## Thin potential downstream points by restricting to edges of large flats
-                            allDnCells = Con(noInteriorFlatsDEM <= (maxEl4Dn), noInteriorFlatsDEM)#inDEM)
-        ##                                allDnCells.save(cp + "all_dn")# + sfx)
+                            allDnCells = Con(noInteriorFlatsDEM <= (maxEl4Dn), noInteriorFlatsDEM)
+        ##                                allDnCells.save(opj(proc_dir, "all_dn"))# + sfx)
                             ## handle errors when the extent of allDnCells is less than blockstatistics height or width, results in 'Out of Memory' error?
                             if allDnCells.height < bsNbr.height or allDnCells.width < bsNbr.width:
                                 arcpy.env.extent = noInteriorFlatsDEM
@@ -1011,16 +922,16 @@ def doMatcher():
                         ## or work with points and dissolve resulting buffers
 
                             if allDnCells.maximum != None:
-                                arcpy.env.workspace = cp
+                                arcpy.env.workspace = proc_dir
     # ------------------------------------------------------------------------------
     ##                            try:
     ##
     ##                                dnstreamCombine = Combine([allDnCells, bsMinDnEl, wsLvl])
-    ##                                dnstreamCombine.save(cp + 'dn_cmb' + sfx)
+    ##                                dnstreamCombine.save(opj(proc_dir, 'dn_cmb' + sfx))
     ##                                if df.testForZero(dnstreamCombine):
     ##                                    dnPtsCmb = arcpy.RasterToPoint_conversion(dnstreamCombine, opj(inm, "cb_dn" + sfx))
     ##
-    ##                                if arcpy.Exists(mergedMdnsHuc8FC):
+    ##                                if arcpy.Exists(merged_median):
     ##                                    if df.testForZero(mergedMdnsFc):# is not None:
     ##                                        idMedianPtsDn(dnPtsCmb, medianFrFld, mergedMdnsFc)
     ##                                    else:
@@ -1030,7 +941,7 @@ def doMatcher():
     ##                                    arcpy.AddField_management(dnPtsCmb, medianFrFld, 'LONG')
     ##                                    arcpy.CalculateField_management(dnPtsCmb, medianFrFld, '0', 'PYTHON')
     ##
-    ##                                df.copyfc(verbose, dnPtsCmb, gdb)
+    ##                                df.copyfc(verbose, dnPtsCmb, sgdb)
     ##                            ## Get the upstream region it might be a match for
     ##                                dnPts4step = arcpy.SpatialJoin_analysis(dnPtsCmb, area2search2, opj(inm, 'dn_pts_jn_bfr' + sfx), 'JOIN_ONE_TO_MANY', 'KEEP_ALL', gridfield2 + ' "' + gridfield2 + '" true true false 4 Long 0 0 , First, #, ' + dnPtsCmb[0] + ',' + gridfield2 + ',-1,-1; ' + frFld + ' "' + frFld + '" true true false 4 Long 0 0 , First, #, ' + area2search[0] + ',' + frFld + ',-1,-1')
     ##                                df.condDelete(verbose, dnPtsCmb)
@@ -1081,7 +992,7 @@ def doMatcher():
     ##
     ######                                dnPtsCmb = arcpy.RasterToPoint_conversion(dnstreamCombine, "in_memory/cb_dn" + sfx)
     ##        ##                                    if len(mergedMdnList) > 0:
-    ######                                if arcpy.Exists(mergedMdnsHuc8FC):
+    ######                                if arcpy.Exists(merged_median):
     ######                                    if df.testForZero(mergedMdnsFc):# is not None:
     ######                                        idMedianPtsDn(dnPtsCmb, medianFrFld, mergedMdnsFc)
     ######                                    else:
@@ -1091,7 +1002,7 @@ def doMatcher():
     ######                                    arcpy.AddField_management(dnPtsCmb, medianFrFld, 'LONG')
     ######                                    arcpy.CalculateField_management(dnPtsCmb, medianFrFld, '0', 'PYTHON')
     ######
-    ######                                df.copyfc(verbose, dnPtsCmb, gdb)
+    ######                                df.copyfc(verbose, dnPtsCmb, sgdb)
     ######                            ## Get the upstream region it might be a match for
     ######                                dnPts4step = arcpy.SpatialJoin_analysis(dnPtsCmb, area2search2, inm + 'dn_pts_jn_bfr' + sfx, 'JOIN_ONE_TO_MANY', 'KEEP_ALL', gridfield2 + ' "' + gridfield2 + '" true true false 4 Long 0 0 , First, #, ' + dnPtsCmb[0] + ',' + gridfield2 + ',-1,-1; ' + frFld + ' "' + frFld + '" true true false 4 Long 0 0 , First, #, ' + area2search[0] + ',' + frFld + ',-1,-1')
     ######                                df.condDelete(verbose, dnPtsCmb)
@@ -1106,17 +1017,17 @@ def doMatcher():
     ##                                dnPts4step2 = arcpy.Select_analysis(dnPts4step, inm + 'dn_pts_blk' + sfx, allDnCellsFld + ' = ' + bsMinDnElFld + ' OR ' + allDnCellsFld + ' = ' + minSummaryFld)
     ##                                df.condDelete(verbose, dnPts4step)
     ##                                dnPtsDeepEnough = arcpy.Select_analysis(dnPts4step2, inm + 'dn_dp_enuf' + sfx, allDnCellsFld + ' <= ' + revCutElFld)# ' + minElFld)
-    ##                                df.copyfc(verbose, dnPts4step, gdb)
-    ##                                dnPtsDeepEnoughGdb = df.copyfc(verbose, dnPtsDeepEnough, gdb)
+    ##                                df.copyfc(verbose, dnPts4step, sgdb)
+    ##                                dnPtsDeepEnoughGdb = df.copyfc(verbose, dnPtsDeepEnough, sgdb)
     ##                                df.condDelete(verbose, dnPts4step2)
     ##
     ##                                dnPtsBst = dnPtsDeepEnough#Clip
     ##                                ptsMbg = arcpy.MinimumBoundingGeometry_management(dnPtsBst, inm + 'dp_pts_mbg' + sfx, 'CONVEX_HULL', 'LIST', frFld)
     ##                                arcpy.JoinField_management(ptsMbg, frFld, dfs2cut4step, frFld, pntMdnSearchDistFld)
-    ##                                df.copyfc(verbose, ptsMbg, gdb)
+    ##                                df.copyfc(verbose, ptsMbg, sgdb)
     ##
     ##                                dnMbgBfrOld = arcpy.Buffer_analysis(ptsMbg, inm + 'dn_mbg_bfr_old' + sfx, pntMdnSearchDistFld)
-    ##                                df.copyfc(verbose, dnMbgBfrOld, gdb)
+    ##                                df.copyfc(verbose, dnMbgBfrOld, sgdb)
     ##                                log.debug("dnMbgBfrOld at " + time.asctime())
     ##
 
@@ -1152,11 +1063,11 @@ def doMatcher():
         ##                                dnPtsDeepEnough = arcpy.RasterToPoint_conversion(passedSecondTestEl, opj('in_memory', 'dn_pts_cnvrt' + sfx))
 
                                         dnstreamCombine = Combine([secondDnCellsCopy, bsMinDnEl, wsLvl])
-                                        dnstreamCombine.save(cp + 'dn_cmb' + sfx)
+                                        dnstreamCombine.save(opj(proc_dir, 'dn_cmb' + sfx))
                                         if df.testForZero(dnstreamCombine):
                                             dnPtsConversion = arcpy.RasterToPoint_conversion(dnstreamCombine, opj(inm, "cb_dn" + sfx))
 
-                                        if arcpy.Exists(mergedMdnsHuc8FC):
+                                        if arcpy.Exists(merged_medians):
                                             if df.testForZero(mergedMdnsFc):# is not None:
                                                 idMedianPtsDn(dnPtsConversion, medianFrFld, mergedMdnsFc)
                                             else:
@@ -1170,7 +1081,7 @@ def doMatcher():
         ##arcpy.analysis.SpatialJoin("dn_pts_cnvrt_0", "good_ds8_0", r"O:\DEP\temp\Matcher_070801050901\Matcher_070801050901.gdb\dn_pts_cnvrt_0_SpatialJoin", "JOIN_ONE_TO_MANY", "KEEP_ALL", 'pointid "pointid" true true false 4 Long 0 0,First,#,dn_pts_cnvrt_0,pointid,-1,-1;grid_code "grid_code" true true false 4 Long 0 0,First,#,dn_pts_cnvrt_0,grid_code,-1,-1;FID_ws_line_bfr_0 "FID_ws_line_bfr_0" true true false 4 Long 0 0,First,#,good_ds8_0,FID_ws_line_bfr_0,-1,-1;FILL_RGN "FILL_RGN" true true false 4 Long 0 0,First,#,good_ds8_0,FILL_RGN,-1,-1;WS_SRCH_DST "WS_SRCH_DST" true true false 8 Double 0 0,First,#,good_ds8_0,WS_SRCH_DST,-1,-1;WS_MDN_DIST "WS_MDN_DIST" true true false 8 Double 0 0,First,#,good_ds8_0,WS_MDN_DIST,-1,-1;BUFF_DIST "BUFF_DIST" true true false 8 Double 0 0,First,#,good_ds8_0,BUFF_DIST,-1,-1;ORIG_FID "ORIG_FID" true true false 4 Long 0 0,First,#,good_ds8_0,ORIG_FID,-1,-1;FID_ws_2_cut_0 "FID_ws_2_cut_0" true true false 4 Long 0 0,First,#,good_ds8_0,FID_ws_2_cut_0,-1,-1;Id "Id" true true false 4 Long 0 0,First,#,good_ds8_0,Id,-1,-1;gridcode "gridcode" true true false 4 Long 0 0,First,#,good_ds8_0,gridcode,-1,-1;FR_MIN_EL "FR_MIN_EL" true true false 4 Long 0 0,First,#,good_ds8_0,FR_MIN_EL,-1,-1;FR_OF_EL "FR_OF_EL" true true false 4 Long 0 0,First,#,good_ds8_0,FR_OF_EL,-1,-1;MIN_MIN "MIN_MIN" true true false 8 Double 0 0,First,#,good_ds8_0,MIN_MIN,-1,-1;REV_CUT_EL "REV_CUT_EL" true true false 4 Long 0 0,First,#,good_ds8_0,REV_CUT_EL,-1,-1;Shape_Length "Shape_Length" false true true 8 Double 0 0,First,#,good_ds8_0,Shape_Length,-1,-1;Shape_Area "Shape_Area" false true true 8 Double 0 0,First,#,good_ds8_0,Shape_Area,-1,-1', "INTERSECT", None, '')
         ##arcpy.SpatialJoin_analysis(target_features="D:/DEP_Proc/DEMProc/Cut_dem2013_070801050901/scratch.gdb/dn_pts_cnvrt_0", join_features="D:/DEP_Proc/DEMProc/Cut_dem2013_070801050901/scratch.gdb/good_ds8_0", out_feature_class="D:/DEP_Proc/DEMProc/Cut_dem2013_070801050901/scratch.gdb/dn_pts_cnvrt_0_SpatialJoin2", join_operation="JOIN_ONE_TO_MANY", join_type="KEEP_ALL", field_mapping="""pointid "pointid" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\dn_pts_cnvrt_0,pointid,-1,-1;grid_code "grid_code" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\dn_pts_cnvrt_0,grid_code,-1,-1;FID_ws_line_bfr_0 "FID_ws_line_bfr_0" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,FID_ws_line_bfr_0,-1,-1;FILL_RGN "FILL_RGN" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,FILL_RGN,-1,-1;WS_SRCH_DST "WS_SRCH_DST" true true false 8 Double 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,WS_SRCH_DST,-1,-1;WS_MDN_DIST "WS_MDN_DIST" true true false 8 Double 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,WS_MDN_DIST,-1,-1;BUFF_DIST "BUFF_DIST" true true false 8 Double 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,BUFF_DIST,-1,-1;ORIG_FID "ORIG_FID" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,ORIG_FID,-1,-1;FID_ws_2_cut_0 "FID_ws_2_cut_0" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,FID_ws_2_cut_0,-1,-1;Id "Id" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,Id,-1,-1;gridcode "gridcode" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,gridcode,-1,-1;FR_MIN_EL "FR_MIN_EL" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,FR_MIN_EL,-1,-1;FR_OF_EL "FR_OF_EL" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,FR_OF_EL,-1,-1;MIN_MIN "MIN_MIN" true true false 8 Double 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,MIN_MIN,-1,-1;REV_CUT_EL "REV_CUT_EL" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,REV_CUT_EL,-1,-1;Shape_Length "Shape_Length" false true true 8 Double 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,Shape_Length,-1,-1;Shape_Area "Shape_Area" false true true 8 Double 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,Shape_Area,-1,-1""", match_option="INTERSECT", search_radius="", distance_field_name="")
                                         dnPtsDeepEnough = arcpy.SpatialJoin_analysis(dnPtsConversion, area2search2, opj(inm, 'dn_pts_sj_rstr' + sfx), 'JOIN_ONE_TO_MANY', 'KEEP_ALL', gridfield2 + ' "' + gridfield2 + '" true true false 4 Long 0 0 , First, #, ' + dnPtsConversion[0] + ',' + gridfield2 + ',-1,-1; ' + frFld + ' "' + frFld + '" true true false 4 Long 0 0 , First, #, ' + area2search[0] + ',' + frFld + ',-1,-1')
-                                        df.copyfc(verbose, dnPtsDeepEnough, gdb)
+                                        df.copyfc(verbose, dnPtsDeepEnough, sgdb)
 
                                         try:
                                             arcpy.JoinField_management(dnPtsDeepEnough, gridfield2, dnstreamCombine, 'value', [secondDnCellsCopyName, bsMinDnElName, wsLvl.name])
@@ -1187,18 +1098,18 @@ def doMatcher():
                                         ptsMbgRstr = arcpy.MinimumBoundingGeometry_management(dnPtsDeepEnough, opj(inm, 'dp_pts_mbg_rstr' + sfx), 'CONVEX_HULL', 'LIST', frFld)
 
                                         arcpy.JoinField_management(ptsMbgRstr, frFld, dfs2cut4step, frFld, pntMdnSearchDistFld)
-                                        df.copyfc(verbose, ptsMbgRstr, gdb)
+                                        df.copyfc(verbose, ptsMbgRstr, sgdb)
 
-                                        dnMbgBfr = arcpy.Buffer_analysis(ptsMbgRstr, inm + 'dn_mbg_bfr' + sfx, pntMdnSearchDistFld)
-                                        df.copyfc(verbose, dnMbgBfr, gdb)
+                                        dnMbgBfr = arcpy.Buffer_analysis(ptsMbgRstr, opj(inm, 'dn_mbg_bfr' + sfx), pntMdnSearchDistFld)
+                                        df.copyfc(verbose, dnMbgBfr, sgdb)
                                         log.debug("dnMbgBfr at " + time.asctime())
 
         #-----------------------------------------------------------------------------------------------------
 
 
                                     ## Reduce the upstream points to just those in search area
-                                        upPtsClip2 = arcpy.Clip_analysis(upPtsCmb.getOutput(0)[:-2] + sfx, dnMbgBfr, inm + 'up_pts_clip2' + sfx)
-                                        df.copyfc(verbose, upPtsClip2, gdb)
+                                        upPtsClip2 = arcpy.Clip_analysis(upPtsCmb.getOutput(0)[:-2] + sfx, dnMbgBfr, opj(inm, 'up_pts_clip2' + sfx))
+                                        df.copyfc(verbose, upPtsClip2, sgdb)
                                         df.condDelete(verbose, upPtsCmb)
 
                                     ## Must use the DEM we built the up points with
@@ -1210,10 +1121,10 @@ def doMatcher():
                 ##                                    gnt = arcpy.GenerateNearTable_analysis(upPts, dnPts, 'in_memory\\' + gnt1Name, maxSearchDist, "LOCATION", "NO_ANGLE", "ALL")
                 ##                                    log.debug("started gnt at " + time.asctime())
                                         gnt = "gnt_1" + sfx
-                                        inmgnt = arcpy.GenerateNearTable_analysis(upPtsClip2, dnPtsDeepEnough, inm + gnt, maxSearchDistList[i], "LOCATION", "NO_ANGLE", "ALL")#, method = 'GEODESIC')
+                                        inmgnt = arcpy.GenerateNearTable_analysis(upPtsClip2, dnPtsDeepEnough, opj(inm, gnt), maxSearchDistList[i], "LOCATION", "NO_ANGLE", "ALL")#, method = 'GEODESIC')
             ##                            SSgnt = arcpy.GenerateNearTable_analysis(upPtsClip2, dnPtsDeepEnough, SS + gnt, maxSearchDistList[i], "LOCATION", "NO_ANGLE", "ALL")#, method = 'GEODESIC')
                 ##                                    log.debug("finished gnt at " + time.asctime())
-                ####                                    df.copyTbl(verbose, SSgnt, gdb)
+                ####                                    df.copyTbl(verbose, SSgnt, sgdb)
 
             ##                            upPts = copyfc2(upPtsClip2, SS)#Bst, SS)
             ##                            upPtsCount = float(arcpy.GetCount_management(upPts).getOutput(0))
@@ -1258,7 +1169,9 @@ def doMatcher():
 
     ##                                    print(time.clock())
                                         log.debug('starting upPtsFlds at ' + time.asctime())
-                                        upPtsFlds = [df.getfields(upPtsCmb)[5], frFld, medianFrFld]#upPtsDEM.name
+                                        # upPtsFlds = [deepBsMinUpElName, frFld, medianFrFld]
+                                        # upPtsFlds = [df.getfields(upPtsCmb)[5], frFld, medianFrFld]#upPtsDEM.name
+                                        upPtsFlds = [upPtsDemName, frFld, medianFrFld]
                                         dfsFlds = [minElFld, ofElFld, revCutElFld, pntMdnSearchDistFld, wsSearchDistFld, mdnFracFld, maxWsMdnFld]
                                         dnPtsFlds = [wsLvlFld, dn_demName]
                                         allFlds = upPtsFlds + dnPtsFlds + dfsFlds
@@ -1302,15 +1215,15 @@ def doMatcher():
 
                                         inmgnt2 = arcpy.TableSelect_analysis(inmgnt, inm + gnt2, where4)
                                                     
-                                        if arcpy.Exists(mergedMdnsHuc8FC):
+                                        if arcpy.Exists(merged_medians):
                                             if df.testForZero(mergedMdnsFc):# is not None:#len(mergedMdnList) > 0:
                                                 log.debug('processing in merged medians at ' + time.asctime())
 
                                             ## Figure out which point matches need to cross an extra buffer feature and select those that do and beyond base search distance
                                             ## Then create a polyline fc of unique crossings
                 ##                                gntFrs2Test4X = arcpy.TableSelect_analysis(SS + gnt2, inm + 'gnt_3' + sfx, 'NEAR_DIST > (' + pntMdnSearchDistFld + ' - ' + maxWsMdnFld + ')')
-                                                gntFrs2Test4X = arcpy.TableSelect_analysis(inmgnt2, inm + 'gnt_3' + sfx, 'NEAR_DIST > (' + pntMdnSearchDistFld + ' - ' + maxWsMdnFld + ')')
-                                                gdbGntFrs2Test4X = arcpy.CopyRows_management(gntFrs2Test4X, gdb + gntFrs2Test4X[0].split('\\')[1])
+                                                gntFrs2Test4X = arcpy.TableSelect_analysis(inmgnt2, opj(inm, 'gnt_3' + sfx), 'NEAR_DIST > (' + pntMdnSearchDistFld + ' - ' + maxWsMdnFld + ')')
+                                                gdbGntFrs2Test4X = arcpy.CopyRows_management(gntFrs2Test4X, opj(sgdb, gntFrs2Test4X[0].split('\\')[1]))
 
                 ##                                gntFields = df.getfields(SS + gnt2)[1:]
                                                 gntFields = df.getfields(inmgnt2)[1:]
@@ -1337,16 +1250,16 @@ def doMatcher():
                                                     del srow, scur
                                                 del icur
 
-                    ####                                        df.copyTbl(verbose, gntXLines, gdb)
+                    ####                                        df.copyTbl(verbose, gntXLines, sgdb)
                                                 sr = arcpy.Describe(fill_or_void_tif).spatialReference
-                                                trXLines = arcpy.XYToLine_management(gntXLines, inm + 'tr_x_lines' + sfx, 'FROM_X', 'FROM_Y', 'NEAR_X', "NEAR_Y", id_field = frWsId, spatial_reference = sr)
-                                                df.copyfc(verbose, trXLines, gdb)
+                                                trXLines = arcpy.XYToLine_management(gntXLines, opj(inm, 'tr_x_lines' + sfx), 'FROM_X', 'FROM_Y', 'NEAR_X', "NEAR_Y", id_field = frWsId, spatial_reference = sr)
+                                                df.copyfc(verbose, trXLines, sgdb)
 
-                                                trXInt = arcpy.Intersect_analysis([trXLines, mergedMdnsFc], inm + 'tr_x_lines_int' + sfx, output_type = 'POINT')
-                                                df.copyfc(verbose, trXInt, gdb)
+                                                trXInt = arcpy.Intersect_analysis([trXLines, mergedMdnsFc], opj(inm, 'tr_x_lines_int' + sfx), output_type = 'POINT')
+                                                df.copyfc(verbose, trXInt, sgdb)
 
-                                                trXIntSummary = arcpy.Statistics_analysis(trXInt, inm + 'tr_x_int_smry' + sfx, [[frWsId, 'COUNT']], frWsId)
-                                                df.copytbl(verbose, trXIntSummary, gdb)
+                                                trXIntSummary = arcpy.Statistics_analysis(trXInt, opj(inm, 'tr_x_int_smry' + sfx), [[frWsId, 'COUNT']], frWsId)
+                                                df.copytbl(verbose, trXIntSummary, sgdb)
 
                                                 arcpy.JoinField_management(trXIntSummary, frWsId, gntXLines, frWsId, [frFld, 'ws_lvl'])
 
@@ -1355,41 +1268,41 @@ def doMatcher():
                                                     for srow in scur:
                                                         selStr += frFld + ' = ' +str(srow[0]) + ' AND ws_lvl = ' + str(srow[1]) + ' OR '
 
-                                                gntFrsX = arcpy.TableSelect_analysis(gntFrs2Test4X, inm + 'gnt_4a_fr_x' + sfx, selStr[:-4])#'COUNT_' + frWsId + ' >= 1')
-                                                df.copytbl(verbose, gntFrsX, gdb)
+                                                gntFrsX = arcpy.TableSelect_analysis(gntFrs2Test4X, opj(inm, 'gnt_4a_fr_x' + sfx), selStr[:-4])#'COUNT_' + frWsId + ' >= 1')
+                                                df.copytbl(verbose, gntFrsX, sgdb)
 
                 ##                                gntFrsNoX = arcpy.TableSelect_analysis(SS + gnt2, inm + 'gnt_4b_fr_no_x' + sfx, 'NEAR_DIST <= (' + pntMdnSearchDistFld + ' - ' + maxWsMdnFld + ') OR ' + maxWsMdnFld + ' IS NULL')
-                                                gntFrsNoX = arcpy.TableSelect_analysis(inmgnt2, inm + 'gnt_4b_fr_no_x' + sfx, 'NEAR_DIST <= (' + pntMdnSearchDistFld + ' - ' + maxWsMdnFld + ') OR ' + maxWsMdnFld + ' IS NULL')
-                                                df.copytbl(verbose, gntFrsNoX, gdb)
+                                                gntFrsNoX = arcpy.TableSelect_analysis(inmgnt2, opj(inm, 'gnt_4b_fr_no_x' + sfx), 'NEAR_DIST <= (' + pntMdnSearchDistFld + ' - ' + maxWsMdnFld + ') OR ' + maxWsMdnFld + ' IS NULL')
+                                                df.copytbl(verbose, gntFrsNoX, sgdb)
 
-                                                gntXNoX = arcpy.Merge_management([gntFrsNoX, gntFrsX], inm + 'gnt_5_x_no_x' + sfx)
-                    ####                                        gdbGntXNoX = df.copyTbl(verbose, gntXNoX, gdb)
+                                                gntXNoX = arcpy.Merge_management([gntFrsNoX, gntFrsX], opj(inm, 'gnt_5_x_no_x' + sfx))
+                    ####                                        gdbGntXNoX = df.copyTbl(verbose, gntXNoX, sgdb)
 
                                             ## prefer those points not in median for downstream matches, if there are any
-                                                frXSummary = arcpy.Statistics_analysis(gntXNoX, inm + 'mdn_x_smry' + sfx, [[medianFrFld, 'MEAN']], frFld)
-                                                df.copytbl(verbose, frXSummary, gdb)
+                                                frXSummary = arcpy.Statistics_analysis(gntXNoX, opj(inm, 'mdn_x_smry' + sfx), [[medianFrFld, 'MEAN']], frFld)
+                                                df.copytbl(verbose, frXSummary, sgdb)
                     ##                                                    arcpy.JoinField_management(gntXNoX, frFld, frXSummary, frFld, 'MEAN_' + medianFrFld)
                     ##                                                    gntRemovedMedianMatches = arcpy.TableSelect_analysis(gntXNoX, inm + 'gnt_no_mdn_match' + sfx, 'MEAN_' + medianFrFld + ' = 1.0 AND ' + medianFrFld + ' = 1 OR MEAN_' + medianFrFld
 
                                             else:
                                             ## copy stuff over from pre-median testing
                 ##                                gntXNoX = arcpy.CopyRows_management(SS + gnt2, inm + 'gnt_5_x_no_x' + sfx)
-                                                gntXNoX = arcpy.CopyRows_management(inmgnt2, inm + 'gnt_5_x_no_x' + sfx)
-                    ####                                        gdbGntXNoX = df.copyTbl(verbose, gntXNoX, gdb)
+                                                gntXNoX = arcpy.CopyRows_management(inmgnt2, opj(inm, 'gnt_5_x_no_x' + sfx))
+                    ####                                        gdbGntXNoX = df.copyTbl(verbose, gntXNoX, sgdb)
                                         else:
                                         ## copy stuff over from pre-median testing
             ##                                gntXNoX = arcpy.CopyRows_management(SS + gnt2, inm + 'gnt_5_x_no_x' + sfx)
-                                            gntXNoX = arcpy.CopyRows_management(inmgnt2, inm + 'gnt_5_x_no_x' + sfx)
-                ####                                        gdbGntXNoX = df.copyTbl(verbose, gntXNoX, gdb)
+                                            gntXNoX = arcpy.CopyRows_management(inmgnt2, opj(inm, 'gnt_5_x_no_x' + sfx))
+                ####                                        gdbGntXNoX = df.copyTbl(verbose, gntXNoX, sgdb)
 
                                         log.debug('done with medians at ' + time.asctime())
 
                                     ## further winnow upstream points for lowest elevation
-                                        statsUpCells = arcpy.Statistics_analysis(gntXNoX, inm + 'stat_up_pts_dem' + sfx, [[df.getfields(upPtsCmb)[5], 'MIN'], [df.getfields(upPtsCmb)[5], 'MEAN']], frFld)#, [bestestDEM.name, 'STD']#str(upPtsDEM.name)
-                                        arcpy.JoinField_management(gntXNoX, frFld, statsUpCells, frFld, ['MEAN_' + df.getfields(upPtsCmb)[5], 'MIN_' + df.getfields(upPtsCmb)[5]])#str(upPtsDEM.name)
-                                        minShort = str('MIN_' + df.getfields(upPtsCmb)[5])#str(upPtsDEM.name))#[:16]
-                                        meanShort = str('MEAN_' + df.getfields(upPtsCmb)[5])#str(upPtsDEM.name))#[:16]
-                                        gntXNoXUpBstDeep = arcpy.TableSelect_analysis(gntXNoX, inm + 'gnt_7_up_bst_dp' + sfx, df.getfields(upPtsCmb)[5] + ' <= ' + revCutElFld + ' OR (' + df.getfields(upPtsCmb)[5] + ' <= ' + meanShort + ' AND ' + minShort + ' > ' + revCutElFld + ')')
+                                        statsUpCells = arcpy.Statistics_analysis(gntXNoX, opj(inm, 'stat_up_pts_dem' + sfx), [[upPtsDemName, 'MIN'], [upPtsDemName, 'MEAN']], frFld)#, [bestestDEM.name, 'STD']#str(upPtsDEM.name)
+                                        arcpy.JoinField_management(gntXNoX, frFld, statsUpCells, frFld, ['MEAN_' + upPtsDemName, 'MIN_' + upPtsDemName])#str(upPtsDEM.name)
+                                        minShort = str('MIN_' + upPtsDemName)#str(upPtsDEM.name))#[:16]
+                                        meanShort = str('MEAN_' + upPtsDemName)#str(upPtsDEM.name))#[:16]
+                                        gntXNoXUpBstDeep = arcpy.TableSelect_analysis(gntXNoX, opj(inm, 'gnt_7_up_bst_dp' + sfx), upPtsDemName + ' <= ' + revCutElFld + ' OR (' + upPtsDemName + ' <= ' + meanShort + ' AND ' + minShort + ' > ' + revCutElFld + ')')
 
                                         log.debug('done with gntXNoXUpBstDeep at ' + time.asctime())
 
@@ -1426,115 +1339,121 @@ def doMatcher():
                                                     urow[0] = (urow[2] - urow[3]) / urow[1]
                                                 ucur.updateRow(urow)
 
-                                        ptsSlpSummary = arcpy.Statistics_analysis(gntXNoXUpBstDeep, 'in_memory\\pts_slp_sum_' + sfx, [['up_dn_slp_pct', 'MAX']], deepFrName)#'NEAR_FID')
+                                        ptsSlpSummary = arcpy.Statistics_analysis(gntXNoXUpBstDeep, opj(inm, 'pts_slp_sum_' + sfx), [['up_dn_slp_pct', 'MAX']], deepFrName)#'NEAR_FID')
 
                                         arcpy.JoinField_management(gntXNoXUpBstDeep, deepFrName, ptsSlpSummary, deepFrName, ['MAX_' + udSlpFld])
-                                        df.copytbl(verbose, gntXNoXUpBstDeep, gdb)
+                                        df.copytbl(verbose, gntXNoXUpBstDeep, sgdb)
 
                                         dpSelection = '(' + udSlpFld + ' >= MAX_' + udSlpFld + '/2.0 AND MAX_' + udSlpFld + ' > 2.0) OR ((' + udSlpFld + ' + 1.0) >= MAX_' + udSlpFld + ' AND MAX_' + udSlpFld + ' <= 2.0)'
-                                        gntAfterDsBearing2 = arcpy.TableSelect_analysis(gntXNoXUpBstDeep, inm + 'gnt_8_up_bst_dp2' + sfx, dpSelection)
-                                        df.copytbl(verbose, gntAfterDsBearing2, gdb)
+                                        gntAfterDsBearing2 = arcpy.TableSelect_analysis(gntXNoXUpBstDeep, opj(inm, 'gnt_8_up_bst_dp2' + sfx), dpSelection)
+                                        df.copytbl(verbose, gntAfterDsBearing2, sgdb)
 
-                                        gdbgntAfterDsBearing2 = arcpy.CopyRows_management(gntAfterDsBearing2, gdb + gntAfterDsBearing2[0].split('\\')[1])
+                                        gdbgntAfterDsBearing2 = arcpy.CopyRows_management(gntAfterDsBearing2, opj(sgdb, gntAfterDsBearing2[0].split('\\')[1]))
                                         log.debug('done with gdbgntAfterDsBearing2 at ' + time.asctime())
 
                                         if df.testForZero(gdbgntAfterDsBearing2):#int(arcpy.GetCount_management(gdbgntAfterDsBearing2).getOutput(0)) > 0:
 
                                         ## Get just those downstream point matches that remain (still not suitable for matching with all fill regions as a ds match may work for some FRs and not others)
-                                            dnPtsBstDeepSummary = arcpy.Statistics_analysis(gntAfterDsBearing2, inm + 'dn_pts_cnt_smry' + sfx, [['NEAR_FID', 'COUNT']], 'NEAR_FID')
-                                            df.copytbl(verbose, dnPtsBstDeepSummary, gdb)
+                                            dnPtsBstDeepSummary = arcpy.Statistics_analysis(gntAfterDsBearing2, opj(inm, 'dn_pts_cnt_smry' + sfx), [['NEAR_FID', 'COUNT']], 'NEAR_FID')
+                                            df.copytbl(verbose, dnPtsBstDeepSummary, sgdb)
 
             ##                                df.addCalcJoin(dnPts, 'OBJECTID', dnPtsBstDeepSummary, 'NEAR_FID', ['CNT_NR_FID_1', 'LONG'], '!COUNT_NEAR_FID!')
             ##                                dnPtsBst1pt5 = arcpy.Select_analysis(dnPts, inm + 'dn_pts_bst1pt5' + sfx, 'CNT_NR_FID_1 >= 1')
                                             dnPtsDeepEnoughDesc = arcpy.Describe(dnPtsDeepEnough)
                                             df.addCalcJoin(dnPtsDeepEnough, dnPtsDeepEnoughDesc.OIDFieldName, dnPtsBstDeepSummary, 'NEAR_FID', ['CNT_NR_FID_1', 'LONG'], '!COUNT_NEAR_FID!')
-                                            dnPtsBst1pt5 = arcpy.Select_analysis(dnPtsDeepEnough, inm + 'dn_pts_bst1pt5' + sfx, 'CNT_NR_FID_1 >= 1')
-                                            df.copyfc(verbose, dnPtsBst1pt5, gdb)
+                                            dnPtsBst1pt5 = arcpy.Select_analysis(dnPtsDeepEnough, opj(inm, 'dn_pts_bst1pt5' + sfx), 'CNT_NR_FID_1 >= 1')
+                                            df.copyfc(verbose, dnPtsBst1pt5, sgdb)
 
                                         ## Select unique FR and WS pairs for downstream points 
-                                            gdbgntAfterDsBearing2 = arcpy.CopyRows_management(gntAfterDsBearing2, gdb + gntAfterDsBearing2[0].split('\\')[1])
+                                            gdbgntAfterDsBearing2 = arcpy.CopyRows_management(gntAfterDsBearing2, opj(sgdb, gntAfterDsBearing2[0].split('\\')[1]))
                                             dnPtsBst2 = selectFrAndWsDpPts(gdbgntAfterDsBearing2, dnPtsBst1pt5, frFld, sfx, log)
-                                            dnPtsBst2Gdb = df.copyfc(verbose, dnPtsBst2, gdb)
+                                            dnPtsBst2Gdb = df.copyfc(verbose, dnPtsBst2, sgdb)
 
                                         ## Get just those upstream point matches that remain
-                                            upPtsBstDeepSummary = arcpy.Statistics_analysis(gntAfterDsBearing2, inm + 'up_pts_cnt_smry' + sfx, [['IN_FID', 'COUNT']], 'IN_FID')
-                                            df.copytbl(verbose, upPtsBstDeepSummary, gdb)
+                                            upPtsBstDeepSummary = arcpy.Statistics_analysis(gntAfterDsBearing2, opj(inm, 'up_pts_cnt_smry' + sfx), [['IN_FID', 'COUNT']], 'IN_FID')
+                                            df.copytbl(verbose, upPtsBstDeepSummary, sgdb)
             ##                                arcpy.JoinField_management(upPts, 'OBJECTID', upPtsBstDeepSummary, 'IN_FID', 'COUNT_IN_FID')
             ##                                upPtsBst = arcpy.Select_analysis(upPts, inm + 'up_pts_bst' + sfx, 'COUNT_IN_FID >= 1')
                                             arcpy.JoinField_management(upPtsClip2, 'OBJECTID', upPtsBstDeepSummary, 'IN_FID', 'COUNT_IN_FID')
-                                            upPtsBst = arcpy.Select_analysis(upPtsClip2, inm + 'up_pts_bst' + sfx, 'COUNT_IN_FID >= 1')
-                                            upPtsBstGdb = df.copyfc(verbose, upPtsBst, gdb)
+                                            upPtsBst = arcpy.Select_analysis(upPtsClip2, opj(inm, 'up_pts_bst' + sfx), 'COUNT_IN_FID >= 1')
+                                            upPtsBstGdb = df.copyfc(verbose, upPtsBst, sgdb)
 
                                             # upPtsBstDistSummary = arcpy.Statistics_analysis(gntAfterDsBearing2, inm + 'pts_dist_smry' + sfx, [['NEAR_DIST', 'MIN'],['NEAR_DIST', 'MEAN']], frFld)
                                             # log.debug('done with upPtsBstDistSummary at ' + time.asctime())
 
-                                            upPtsMbg2 = arcpy.MinimumBoundingGeometry_management(upPtsBst, inm + 'up_pts_mbg2' + sfx, 'CONVEX_HULL', 'LIST', frFld)
+                                            upPtsMbg2 = arcpy.MinimumBoundingGeometry_management(upPtsBst, opj(inm, 'up_pts_mbg2' + sfx), 'CONVEX_HULL', 'LIST', frFld)
                                             arcpy.JoinField_management(upPtsMbg2, frFld, dfs2cut4step, frFld, pntMdnSearchDistFld)
-                                            df.copyfc(verbose, upPtsMbg2, gdb)                                            
+                                            df.copyfc(verbose, upPtsMbg2, sgdb)                                            
 
-                                            upMbgBfr2 = arcpy.Buffer_analysis(upPtsMbg2, inm + 'up_mbg_bfr2' + sfx, pntMdnSearchDistFld)
-                                            df.copyfc(verbose, upMbgBfr2, gdb)
+                                            upMbgBfr2 = arcpy.Buffer_analysis(upPtsMbg2, opj(inm, 'up_mbg_bfr2' + sfx), pntMdnSearchDistFld)
+                                            df.copyfc(verbose, upMbgBfr2, sgdb)
 
                                         ## Create a connection search area by drawing buffers around upstream and downstrea points
-                                            ptsMbg2 = arcpy.MinimumBoundingGeometry_management(dnPtsBst2, inm + 'dp_pts_mbg2' + sfx, 'CONVEX_HULL', 'LIST', frFld)
+                                            ptsMbg2 = arcpy.MinimumBoundingGeometry_management(dnPtsBst2, opj(inm, 'dp_pts_mbg2' + sfx), 'CONVEX_HULL', 'LIST', frFld)
                                             arcpy.JoinField_management(ptsMbg2, frFld, dfs2cut4step, frFld, pntMdnSearchDistFld)
-                                            df.copyfc(verbose, ptsMbg2, gdb)
+                                            df.copyfc(verbose, ptsMbg2, sgdb)
 
-                                            dnMbgBfr2 = arcpy.Buffer_analysis(ptsMbg2, inm + 'dn_mbg_bfr2' + sfx, pntMdnSearchDistFld)
-                                            df.copyfc(verbose, dnMbgBfr2, gdb)
+                                            dnMbgBfr2 = arcpy.Buffer_analysis(ptsMbg2, opj(inm, 'dn_mbg_bfr2' + sfx), pntMdnSearchDistFld)
+                                            df.copyfc(verbose, dnMbgBfr2, sgdb)
                                             log.debug('done with dnMbgBfr2 at ' + time.asctime())
 
                                         ## Distill the connection search area...
-                                            allSearchIntPrelim = arcpy.Intersect_analysis([dnMbgBfr2, upMbgBfr2], inm + 'all_srch_int_prlm' + sfx)
-                                            allSearchInt = arcpy.Select_analysis(allSearchIntPrelim, inm + 'all_srch_int' + sfx, frFld + ' = ' + frFld + '_1')
-                                            allSearchIntDslv = arcpy.Dissolve_management(allSearchInt, inm + 'all_srch_int_dslv' + sfx, frFld, multi_part = 'SINGLE_PART')
-                                            df.copyfc(verbose, allSearchIntPrelim, gdb)
-                                            df.copyfc(verbose, allSearchInt, gdb)
-                                            df.copyfc(verbose, allSearchIntDslv, gdb)
+                                            try:
+                                                allSearchIntPrelim = arcpy.Intersect_analysis([dnMbgBfr2, upMbgBfr2], opj(inm, 'all_srch_int_prlm' + sfx))
+                                            except:
+                                                arcpy.RepairGeometry_management(upMbgBfr2)
+                                                sgdbDnMbgBfr2 = df.copyfc(True, dnMbgBfr2, sgdb)
+                                                arcpy.RepairGeometry_management(sgdbDnMbgBfr2)
+                                                allSearchIntPrelim = arcpy.Intersect_analysis([sgdbDnMbgBfr2, upMbgBfr2], opj(inm, 'all_srch_int_prlm' + sfx))
+                                            allSearchInt = arcpy.Select_analysis(allSearchIntPrelim, opj(inm, 'all_srch_int' + sfx), frFld + ' = ' + frFld + '_1')
+                                            allSearchIntDslv = arcpy.Dissolve_management(allSearchInt, opj(inm, 'all_srch_int_dslv' + sfx), frFld, multi_part = 'SINGLE_PART')
+                                            df.copyfc(verbose, allSearchIntPrelim, sgdb)
+                                            df.copyfc(verbose, allSearchInt, sgdb)
+                                            df.copyfc(verbose, allSearchIntDslv, sgdb)
 
                                             goodSrchLayer = arcpy.MakeFeatureLayer_management(allSearchIntDslv, "srch_Lyr" + sfx)
                                             goodDslvSrchLayerInDn = arcpy.SelectLayerByLocation_management(goodSrchLayer, 'INTERSECT', dnPtsBst2)
-                                            goodDslvSrchInDn = arcpy.CopyFeatures_management(goodDslvSrchLayerInDn, inm + 'gd_dslv_in_dn' + sfx)
-                                            df.copyfc(verbose, goodDslvSrchInDn, gdb)
+                                            goodDslvSrchInDn = arcpy.CopyFeatures_management(goodDslvSrchLayerInDn, opj(inm, 'gd_dslv_in_dn' + sfx))
+                                            df.copyfc(verbose, goodDslvSrchInDn, sgdb)
 
-                                            upPtsBst2Prelim = arcpy.Intersect_analysis([upPtsBst, goodDslvSrchInDn], inm + 'up_pts_bst_int_srch' + sfx, output_type = "POINT")
+                                            upPtsBst2Prelim = arcpy.Intersect_analysis([upPtsBst, goodDslvSrchInDn], opj(inm, 'up_pts_bst_int_srch' + sfx), output_type = "POINT")
                                             upPtsBst2PrelimFields = df.getfields(upPtsBst2Prelim)
                                             for fld in upPtsBst2PrelimFields:
                                                 if fld.startswith('FID_'):
                                                     arcpy.DeleteField_management(upPtsBst2Prelim, fld)
-                                            df.copyfc(verbose, upPtsBst2Prelim, gdb)
-                                            upPtsBst2 = arcpy.Select_analysis(upPtsBst2Prelim, inm + 'up_pts_bst2' + sfx, frFld + ' = ' + frFld + '_1')# ' + minElFld)
-                                            df.copyfc(verbose, upPtsBst2, gdb)
+                                            df.copyfc(verbose, upPtsBst2Prelim, sgdb)
+                                            upPtsBst2 = arcpy.Select_analysis(upPtsBst2Prelim, opj(inm, 'up_pts_bst2' + sfx), frFld + ' = ' + frFld + '_1')# ' + minElFld)
+                                            df.copyfc(verbose, upPtsBst2, sgdb)
                                             upPtsList.append(upPtsBst2)
                                             dnPtsList.append(dnPtsBst2)
                                             srchList.append(goodDslvSrchInDn)
 
                     df.tryAddField(dfs2cut4step, minSummaryFld, 'DOUBLE')
                     df.tryAddField(dfs2cut4step, revCutElFld, 'LONG')
-                    df.copyfc(verbose, dfs2cut4step, gdb)
+                    df.copyfc(verbose, dfs2cut4step, sgdb)
 
     
-        inmDfs = df.condenseDataLvls(dfsList, inm + 'dfs_' + huc12)
+        inmDfs = df.condenseDataLvls(dfsList, opj(inm, 'dfs_' + huc12))
         arcpy.DeleteField_management(inmDfs, gridfield)
-        gdbDfs = df.copyfc2(inmDfs, gdb)
+        gdbDfs = df.copyfc2(inmDfs, sgdb)
 
-        inmDfs2Cut = df.condenseDataLvls(dfs2CutList, inm + 'dfs2cut_' + huc12)
+        inmDfs2Cut = df.condenseDataLvls(dfs2CutList, opj(inm, 'dfs2cut_' + huc12))
         arcpy.DeleteField_management(inmDfs2Cut, gridfield)
-        gdbDfs2Cut = df.copyfc2(inmDfs2Cut, gdb)
+        gdbDfs2Cut = df.copyfc2(inmDfs2Cut, sgdb)
     ####        SSdfs = copyfc2(inmDfs, SSF)
     ####        dfs = tno(SSdfs)
 
         log.debug("time check SSDfs completed at " + time.asctime())
-        goodDslvAll = df.condenseDataLvls(srchList, inm + 'good_int_dslv_all')
-        df.copyfc(verbose, goodDslvAll, gdb)
-        goodDnDslvAll = df.condenseDataLvls(dnPtsList, inm + 'good_dn_pts_all')
-        df.copyfc(verbose, goodDnDslvAll, gdb)
-        goodUpDslvAll = df.condenseDataLvls(upPtsList, inm + 'good_up_pts_all')
-        df.copyfc(verbose, goodUpDslvAll, gdb)
+        goodDslvAll = df.condenseDataLvls(srchList, opj(inm, 'good_int_dslv_all'))
+        df.copyfc(verbose, goodDslvAll, sgdb)
+        goodDnDslvAll = df.condenseDataLvls(dnPtsList, opj(inm, 'good_dn_pts_all'))
+        df.copyfc(verbose, goodDnDslvAll, sgdb)
+        goodUpDslvAll = df.condenseDataLvls(upPtsList, opj(inm, 'good_up_pts_all'))
+        df.copyfc(verbose, goodUpDslvAll, sgdb)
 
-        arcpy.env.workspace = cp
+        arcpy.env.workspace = proc_dir
 
-        searchPickleFileObject = open(searchPickleFile, 'w+b')
+        searchPickleFileObject = open(search_distance_file, 'w+b')
         pickle.dump(maxSearchDistList, searchPickleFileObject, protocol=2)
         searchPickleFileObject.close()
 
@@ -1565,7 +1484,13 @@ def doMatcher():
             log.warning("Script execution lasted " + str(time.time()-startTime) + " seconds or " + str((time.time()-startTime)/60) + " minutes\n")
 
 
-
+class msgStub:
+    def addMessage(self,text):
+        arcpy.AddMessage(text)
+    def addErrorMessage(self,text):
+        arcpy.AddErrorMessage(text)
+    def addWarningMessage(self,text):
+        arcpy.AddWarningMessage(text)
 
 if __name__ == "__main__":
     import sys
@@ -1575,17 +1500,17 @@ if __name__ == "__main__":
         cleanup = False
 
         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-	"C:/DEP/Scripts/basics/cmd_tillage_assign.pyt",
-	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/09030009/idepACPF090300090306.gdb/FB090300090306",
-	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/09030009/idepACPF090300090306.gdb/LU6_090300090306",
-	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/09030009/idepACPF090300090306.gdb/huc090300090306_mn_rc2022",
-	"Management_CY_2022",
-	"Till_code_CY_2022",
-	"Adj_RC_CY_2022",
-	"D:/DEP_Proc/DEMProc/Manage_dem2013_3m_090300090306",
-	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/09030009/idepACPF090300090306.gdb/huc090300090306_till2022",
-	"2017",
-	"2022"]
+	"C:/DEP/Scripts/basics/cmd_matcher_DEM.pyt",
+	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
+	"C:/DEP/LiDAR_Current/elev_PLib_mean18/07080105/ep3m070801050901.tif",
+	"C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/buf_070801050901",
+	"C:/DEP/LiDAR_Current/huc8_26915/huc_07080105.gdb/rd_rr_rd_rw_mrg_07080105",
+	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/fr0_0",
+	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/ws_polys_0",
+	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/dfs_frToPoly_0",
+	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901",
+	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/search_070801050901_mean18.pkl",
+	"9.0"]
 
         for i in parameters[2:]:
             sys.argv.append(i)
@@ -1594,8 +1519,8 @@ if __name__ == "__main__":
         # clean up the folder after done processing
         cleanup = True
 
-    input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, search_distance_file = [i for i in sys.argv[1:]]
+    fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth = [i for i in sys.argv[1:]]
     messages = msgStub()
 
-    doMatcher(input_tif, punch_tif, buffered_fc, merged_medians, proc_dir, search_distance_file, cleanup, messages)
+    doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth, cleanup, messages)
     arcpy.AddMessage("Back from doMatcher!")

@@ -89,31 +89,25 @@ def doEPT(ept_wesm_file, cleanup, messages):
     import traceback
     import time
     import urllib.request
-    if sys.version_info.major == 2:
-        import getpass
-        login = getpass.getuser()
-    else:
-        login = os.getlogin()
-        
-    if login == 'bkgelder':
-        boxes = ['C:\\Users\\bkgelder\\Box\\Data_Sharing\\Scripts\\basics', 'O:\\DEP\\Scripts\\basics']
-    else:
-        boxes = ['C:\\Users\\idep2\\Box\\Scripts\\basics', 'O:\\DEP\\Scripts\\basics']
 
-    for box in boxes:
-        if os.path.isdir(box):
-            sys.path.append(box)
-
-    import dem_functions2 as df
+    import dem_functions as df
     from os.path import join as opj
-
-    messages.addMessage("Tool: Executing with parameter '{:s}'".format(ept_wesm_file))
-
-    arcpy.env.overwriteOutput = True
 
     # if True:
     try:
-            
+        arguments = [ept_wesm_file, cleanup]
+
+        for a in arguments:
+            if a == arguments[0]:
+                arg_str = str(a) + '\n'
+            else:
+                arg_str += str(a) + '\n'
+
+        messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
+
+        arcpy.env.overwriteOutput = True
+
+
         huc12 = 'XXXXXXXXXXXX'
         if cleanup:
             # log to file only
@@ -126,36 +120,48 @@ def doEPT(ept_wesm_file, cleanup, messages):
         log.info("Log file at " + logName)
         messages.addMessage("Log file at " + logName)
 
-        # inputs then outputs
-##        ept_wesm_file = sys.argv[1]
+        log.info("Tool: Executing with parameters:\n" + arg_str)
+
+        #create names of outputs so we can see test if it's been run recently
+        assert ept_wesm_file.find('.gdb') != -1, "Output must be located in '.gdb' (File Geodatabase)"
 
         eptDir = os.path.dirname(os.path.dirname(ept_wesm_file))
+        log.debug(f"checking for dir: {eptDir}")
 
+        if not os.path.isdir(eptDir):
+            log.debug(f"making dir: {eptDir}")
+            os.makedirs(eptDir)
 
         #get geoJSON from https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson
-        first_of_month_string = ept_wesm_file[-10:]#datetime.datetime.today().replace(day=1)
-        ept_first_of_month_name = "ept_resources_" + first_of_month_string
-        ept_4269_first_of_month_name = "ept_resources_epsg4269_" + first_of_month_string
-        wesm_first_of_month_name = "main_wesm_" + first_of_month_string
-        ept_gdb_path = opj(eptDir, 'ept.gdb')
+        now_ymd_string = nowYmd[:10]#ept_wesm_file[-10:]#datetime.datetime.today().replace(day=1)
+        ept_first_of_month_name = "ept_resources_" + now_ymd_string
+        ept_4269_first_of_month_name = "ept_resources_epsg4269_" + now_ymd_string
+        wesm_first_of_month_name = "main_wesm_" + now_ymd_string
+        requested_gdb = os.path.basename(os.path.dirname(ept_wesm_file))
+        ept_gdb_path = opj(eptDir, requested_gdb)#'ept.gdb')
+
+        if not arcpy.Exists(ept_gdb_path):
+            log.debug(f"making ept gdb: {ept_gdb_path}")
+            ept_gdb = arcpy.CreateFileGDB_management(os.path.dirname(ept_gdb_path), os.path.basename(ept_gdb_path))
+
         arcpy.env.workspace = ept_gdb_path#'in_memory'
         ept_features_path = opj(ept_gdb_path, ept_first_of_month_name)
         ept_4269_features_path = opj(ept_gdb_path, ept_4269_first_of_month_name)
-        if not arcpy.Exists(ept_features_path):
+        if not arcpy.Exists(ept_features_path) or not arcpy.Exists(ept_wesm_file):
             # pass # get the ept file
             ept_download_location = opj(eptDir, ept_first_of_month_name + '.geojson')
             if not os.path.exists(ept_download_location):
+                log.info(f'downloading from: https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson')
                 log.info('requesting ept to ' + ept_download_location)
                 ept_response = urllib.request.urlretrieve('https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson', ept_download_location)
+                # download_file('https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson', ept_download_location, log)
             # requests.request()
             wesm_download_location = opj(eptDir, wesm_first_of_month_name + '.gpkg')
             if not os.path.exists(wesm_download_location):
                 log.info('requesting wesm to ' + wesm_download_location)
                 download_file('https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/metadata/WESM.gpkg', wesm_download_location, log)
 ##                wesm_response = urllib.request.urlretrieve('https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/metadata/WESM.gpkg', wesm_download_location)
-
-            if not arcpy.Exists(ept_gdb_path):
-                ept_gdb = arcpy.CreateFileGDB_management(os.path.dirname(ept_gdb_path), os.path.basename(ept_gdb_path))
+                assert os.path.getsize(wesm_download_location) > 1000000000, "Check WESM download address, should be larger than 1 GB"
 
             log.info('projecting WESM to EPSG 4269 (NAD83)')
             # do WESM first so map will be in epsg 4269 (NAD83)
@@ -217,7 +223,7 @@ def doEPT(ept_wesm_file, cleanup, messages):
             log.info(rslt2.getMessages())
             arcpy.management.JoinField(main_wesm_copy, workunit_lower_field, ept_features, alt2_name_field, "id;count;url;opr_year")
 
-            select_not_null4 = arcpy.analysis.Select(main_wesm_copy, 'wesm_ept_valid_' + first_of_month_string, where_clause = "id_12 IS NOT NULL OR id_1 IS NOT NULL OR id IS NOT NULL")
+            select_not_null4 = arcpy.analysis.Select(main_wesm_copy, 'wesm_ept_valid_' + now_ymd_string, where_clause = "id_12 IS NOT NULL OR id_1 IS NOT NULL OR id IS NOT NULL")
             select_is_null4 = arcpy.analysis.Select(main_wesm_copy, where_clause = "id_12 IS NULL AND id_1 IS NULL AND id IS NULL")
             mn_ept_features = arcpy.analysis.Select(ept_features, 'mn_fullstate', "name = 'MN_FullState'")
 
@@ -231,7 +237,7 @@ def doEPT(ept_wesm_file, cleanup, messages):
             arcpy.management.DeleteField(mn_sj_data, 'Shape_Length_1; Shape_Area_1')
             arcpy.management.AddFields(select_not_null4, [['id_12_13', 'DOUBLE'], ['count_12_13', 'DOUBLE'], ['url_12_13', 'TEXT'], ['opr_year_12_13', 'TEXT'], ['name_lower', 'TEXT'], ['alt_name', 'TEXT'], ['alt2_name', 'TEXT'], ['name', 'TEXT']])
 
-            select_not_null4_copy = arcpy.management.CopyFeatures(select_not_null4, ept_features_path)#'wesm_copy')
+            select_not_null4_copy = arcpy.management.CopyFeatures(select_not_null4, ept_wesm_file)#ept_features_path)#'wesm_copy')
 
             log.info('figure out Minnesota statewide data vagaries')
             # srow_copy = arcpy.management.CopyFeatures(srow[1], 'srow_copy')
@@ -298,8 +304,8 @@ if __name__ == "__main__":
         # clean up the folder after done processing
         cleanup = True
 
-    # ept_fc = "C:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_05_20"
-    ept_fc = sys.argv[1]
-    doEPT(ept_fc, cleanup, msgStub())
+    # ept_wesm_file = "C:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_05_20"
+    ept_wesm_file = sys.argv[1]
+    doEPT(ept_wesm_file, cleanup, msgStub())
 
     # arcpy.AddMessage("Back from doEPT!")

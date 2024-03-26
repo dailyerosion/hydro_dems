@@ -1,13 +1,105 @@
-import arcpy, os, sys, traceback, math, datetime, logging
+import arcpy
+import os
+import sys
+import traceback
+import math
+import datetime
+import logging
 from arcpy.sa import *
-import subprocess
+import arcpy.metadata as md
 import time
 from os.path import join as opj
+import requests
 
 # a compendium of functions to enable DEM processing
 # written by Brian Gelder, bkgelder@iastate.edu
 # 2019.03.23
 # Python 2.7, with an eye towards Python 3
+
+
+def addMetadata(outDEM, paraDict, template_file_path, log = None):
+    # Set the standard-format metadata XML file's path
+    # need to load metadata editor via 'import arcpy.metadata as md'
+    # outDEM = raster to receive updated metadata
+    # paraDict = dictionary of key/value pairs to be stored in metadata
+    #   values stored include things like analyst, lidar acquisition date, etc.
+    # template_file_path = a template to load a basic summary from
+    # log = otional logging of error messages to a log file
+    # scriptPath = sys.path[0]
+    try:
+        src_file_path = template_file_path
+
+        # Get the target item's Metadata object
+        tgt_item_md = md.Metadata(outDEM)    
+
+        # Import the ACPF metadata content to the target item
+        if not tgt_item_md.isReadOnly:
+            tgt_item_md.importMetadata(src_file_path)
+            tgt_item_md.title = os.path.split(outDEM)[1]
+            tgt_item_md.credits = 'Analyst: %s' % os.getlogin()#getpass.getuser()
+
+            src_desc = tgt_item_md.summary
+            if src_desc == None:
+                src_desc = ''
+            for key, value in paraDict.items():  
+                src_desc = src_desc + ('%s %s' % (key, value))
+            tgt_item_md.summary = src_desc
+            
+            tgt_item_md.save()
+
+    except TypeError as e:
+        print('handling as exception')
+##        log.debug(e.message)
+        if sys.version_info.major == 2:
+            arcpy.AddError(e.message)
+            print(e.message)
+            log.warning(e.message)
+        elif sys.version_info.major == 3:
+            arcpy.AddError(e)
+            print(e)
+            if log is not None:
+                log.warning(e)
+
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+
+        # Concatenate information together concerning the error into a message string
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        # Return python error messages for use in script tool or Python Window
+        arcpy.AddError(pymsg)
+        # Print Python error messages for use in Python / Python Window
+        print(pymsg + "\n")
+        if log is not None:
+            log.warning(pymsg)
+
+        if arcpy.GetMessages(2) not in pymsg:
+            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+            arcpy.AddError(msgs)
+            print(msgs)
+            if log is not None:
+                log.warning(msgs)
+
+    except:
+        print('handling as except')
+        # Get the traceback object
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+
+        # Concatenate information together concerning the error into a message string
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        # Return python error messages for use in script tool or Python Window
+        arcpy.AddError(pymsg)
+        # Print Python error messages for use in Python / Python Window
+        print(pymsg + "\n")
+        if log is not None:
+            log.warning(pymsg)
+
+        if arcpy.GetMessages(2) not in pymsg:
+            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+            arcpy.AddError(msgs)
+            print(msgs)
+            if log is not None:
+                log.warning(msgs)
 
 
 def channelized_areas(meter_dem, proc_dir, pro_crv):
@@ -348,7 +440,7 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
 
         depDocumentation = opj(basedataDir, 'Documentation')
 
-        depMetadata = opj(depBase, 'toolMetadata')
+        depMetadata = opj(depBase.replace(uversion, ""), 'toolMetadata')
 
         gullyOutputs = opj(depBase, 'Gully_Outputs')
 
@@ -438,7 +530,10 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         "docFolder" : depDocumentation,
 
         # metadata documents
+        "clib_metadata" : opj(depMetadata, 'CLib_DEMs2022_mTemplate.xml'),
         "flib_metadata" : opj(depMetadata, 'FLib_DEMs2022_mTemplate.xml'),
+        "plib_metadata" : opj(depMetadata, 'PLib_DEMs2022_mTemplate.xml'),
+        "vlib_metadata" : opj(depMetadata, 'VLib_DEMs2022_mTemplate.xml'),
         "derivative_metadata" : opj(depMetadata, 'FLib_Derivatives2022_mTemplate.xml'),
 
         # no data areas (big voids) to fix first (likely rivers/lakes/lagoons)
@@ -472,16 +567,16 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         "watershedBoundaries" : opj(ACPFDir, "bnd" + huc12),
         "bufferedBoundaries" : opj(ACPFDir, "buf_" + huc12),
         "wesm_project_boundaries" : opj(ACPFDir, "_".join(["wesm", ept_first_of_month_name, huc12])),
-        "snapraster" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/Snap1m'),
-        "roadsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/roads_merge'),
-        "rrsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/railways_merge'),
-        "rwsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/runways'),
-        "waterwaysfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/waterways'),
-        "waterfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/water'),
+        "snapraster" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'Snap1m'),
+        "roadsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'roads_merge'),
+        "rrsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'railways_merge'),
+        "rwsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'runways'),
+        "waterwaysfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'waterways'),
+        "waterfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'water'),
 
-        "mn_dnr_forest_roads" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/mn_dnr_roads'),
-        "us_fs_forest_roads" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/us_fs_roads'),
-        "us_fs_forest_trails" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb/us_fs_trails'),
+        "mn_dnr_forest_roads" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'mn_dnr_roads'),
+        "us_fs_forest_roads" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'us_fs_roads'),
+        "us_fs_forest_trails" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'us_fs_trails'),
 
         # other datasets where feature, thus name, is based on DEM year vintage
         "goodcutsfc" : opj(ACPFDir, "cuts_prelim" + uinterpType + dem_year + ucellSize + uhuc12),
@@ -544,18 +639,18 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
 ##        "snaps" : opj(ACPFDir, 'snaps' + str(cellSize) + 'm_' + interpType + '_' + huc12),
 ##        "tillages" : opj(ACPFDir, 'tillage' + str(cellSize) + 'm' + '_' + huc12),
 ##
-        "blFile" : opj(lidarOutputDir, 'bl_Lib\\' + huc8 + '\\breaklines_' + huc12 + '.shp'),
+        "blFile" : opj(lidarOutputDir, 'bl_Lib', huc8, 'breaklines_' + huc12 + '.shp'),
         "breaklines" : opj(lidarOutputDir, 'bl_Lib', huc8, "breaks_" + huc8 + ".gdb", 'break_lines_' + huc12),
         "breakpolys" : opj(lidarOutputDir, 'bl_Lib', huc8, "breaks_" + huc8 + ".gdb", 'break_polys_' + huc12),
         "lasTilesDrive" : opj(basedataDir, 'Basedata_5070.gdb','IA_MN_NE_Tiles_Merge'),
         "kansasTilesPath" : opj(basedataDir, 'Basedata_5070.gdb','Kansas_tiles_available_actual_extents'),
 
-        "stripsFlumes_old" : opj(depBase, 'temp\\STRIPS2_flume_points\\STRIPS2_flume_points.gdb\\flume_points'),
-        "ephemeralGullies_old" : opj(depBase, 'temp\\Gord_cmwang\\ruraldata\\data' + huc12 + '.gdb\\Gullyhead'),
+        "stripsFlumes_old" : opj(depBase, 'temp', 'STRIPS2_flume_points', 'STRIPS2_flume_points.gdb', 'flume_points'),
+        "ephemeralGullies_old" : opj(depBase, 'temp', 'Gord_cmwang', 'ruraldata', 'data' + huc12 + '.gdb', 'Gullyhead'),
 
-        "stripsFlumes" : opj(otherBaseNoVersion, 'Gully_data\\STRIPS2_flume_points\\STRIPS2_flume_points.gdb\\flume_points'),
-        "ephemeralGullies" : opj(otherBaseNoVersion, 'Gully_data\\cmwang\\data' + huc12 + '.gdb\\Gullyhead'),
-        "nrcs_gullies" : opj(otherBaseNoVersion, 'Gully_data\\NRCS\\NRCS_Gulley_' + huc12 + '.gdb\\GullyHeads_' + huc12),
+        "stripsFlumes" : opj(otherBaseNoVersion, 'Gully_data', 'STRIPS2_flume_points', 'STRIPS2_flume_points.gdb', 'flume_points'),
+        "ephemeralGullies" : opj(otherBaseNoVersion, 'Gully_data', 'cmwang', 'data' + huc12 + '.gdb', 'Gullyhead'),
+        "nrcs_gullies" : opj(otherBaseNoVersion, 'Gully_data', 'NRCS', 'NRCS_Gulley_' + huc12 + '.gdb', 'GullyHeads_' + huc12),
 
         # processing directories
         "peukProcDir" : opj(localProc, 'DEMProc', 'Catch' + dem_year + '_' + str(cellSize) + 'm_' + huc12),
@@ -578,7 +673,7 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         "NEKernelFile" : opj(depBase, 'kernels', 'FlowNE_Kernel.txt'),
 
         # residue cover directory
-        "rescoverDir" : opj(os.path.dirname(basedataDir), 'Man_Data_Other\\GEE_residue_cover'),
+        "rescoverDir" : opj(os.path.dirname(basedataDir), 'Man_Data_Other', 'GEE_residue_cover'),
 
         # DEP SSURGO soils directory
         # altered SOL file to remove SOL = ACPF + 1 year assumption, on consultation with David James, 2021.10.28 bkgelder
@@ -593,17 +688,17 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
 
 
         if int(ACPFyear) <= 2015:
-            geeResidueMap = opj(otherBaseNoVersion, 'Iowa_RC.gdb\\huc' + huc8 + '_ACPF2017')
+            geeResidueMap = opj(otherBaseNoVersion, 'Iowa_RC.gdb', 'huc' + huc8 + '_ACPF2017')
         elif int(ACPFyear) <= 2025:
             geeResidueMap = opj(otherBaseNoVersion, 'GEE_residue_cover', 'residue_cover_' + ACPFyear + '.tif')
         if int(ACPFyear) <= 2017:
-            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota\\2017_combo_agonly_recount_combo_residue_times2.img')
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', '2017_combo_agonly_recount_combo_residue_times2.img')
         elif int(ACPFyear) <= 2020:
-            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota\\minnesota_2020_boax_rowcrop_noforage_residue_times2_rc200_new_combo2019_2020_model.img')
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_2020_boax_rowcrop_noforage_residue_times2_rc200_new_combo2019_2020_model.img')
         elif int(ACPFyear) == 2021:
-            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota\\minnesota_2021_boax_rowcrop_noforage_residue_times2_rc200_new_combo2019_2020_model.img')
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_2021_boax_rowcrop_noforage_residue_times2_rc200_new_combo2019_2020_model.img')
         elif int(ACPFyear) == 2022:
-            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota\\minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage_final_w_flood_mask_out.tif')
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage_final_w_flood_mask_out.tif')
         
         locationsDict.update({
         "irrigationMap" : opj(otherBaseNoVersion, 'lanid2011-2017', 'lanid2017.tif'),
@@ -839,6 +934,32 @@ def setupLoggingNoCh(node, scriptName, huc12 = '000000000000', version = ''):
     log.info("Logging output to: " + logName)
 
     return log, nowYmd, logName, startTime
+
+
+def setupLoggingSimple(node, scriptName, nowYmd, huc12 = '000000000000', version = ''):
+    # create logger with name 'example'
+    log = logging.getLogger('example')
+    log.setLevel(logging.DEBUG)
+
+    # create formatter and add it to the handlers
+    formatter = logging.Formatter('%(levelname)s - %(message)s')
+
+    logsDir = defineLocalProc(node)
+    logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0] + '_' + huc12 + '_' + nowYmd + '.txt')
+    if not os.path.isdir(os.path.dirname(logName)):
+        os.makedirs(os.path.dirname(logName))
+
+    # create file handler to log debug messages, new log file each time
+    fh = logging.FileHandler(logName, mode = 'w')
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    log.addHandler(fh)
+
+    startTime = time.time()
+    log.info("Beginning logging for script at " + str(time.asctime()))
+    log.info("Logging output to: " + logName)
+
+    return log, logName, startTime
 
 def setupLoggingNew(node, scriptName, huc12 = '000000000000', version = ''):
     # create logger with name 'example'
@@ -2209,89 +2330,6 @@ def printParameters(parameters):
         else:
             print('\t"' + i.replace('\\', '/') + '",')
 
-def runAndPrint(runList, timeout, env):
-    subp = subprocess.Popen(runList, env=env, stdout = subprocess.PIPE, stderr=subprocess.PIPE)#, shell = True)
-    print('\tRunning process pid ' + str(subp.pid) + ' at ' + str(time.asctime()))
-    try:
-        wait_for_timeout(subp, timeout)
-    except RuntimeError:
-        print('\tRuntime Error - killing process pid ' + str(subp.pid) + ' after ' + str(timeout/60.0) + ' minutes')
-        #will take a bit for child's child processes to die (las2las, arcpy functions)
-        subp.terminate()
-
-    except:
-        print('\tsubprocess exception returned ' + str(subp.returncode))
-        # Get the traceback object
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-
-        # Concatenate information together concerning the error into a message string
-        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-        # Return python error messages for use in script tool or Python Window
-        arcpy.AddError(pymsg)
-        # Print Python error messages for use in Python / Python Window
-        print(pymsg + "\n")
-
-        if arcpy.GetMessages(2) not in pymsg:
-            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-            arcpy.AddError(msgs)
-            print(msgs)
-
-    if subp.returncode != 0:
-        print('\tsubprocess failure returned exit code: ' + str(subp.returncode))
-        comms = subp.communicate()
-        for comm in comms:#stdout, stderr
-            lines = comm.splitlines()
-            if comm == comms[0]:
-                print('\t' + 'STD OUT')
-            elif comm == comms[1]:
-                print('\n\t' + 'STD ERR')
-            for line in lines:
-                print('\t' + line)
-        
-    return subp
-
-def runAndPrintAlways(runList, timeout, env):
-    subp = subprocess.Popen(runList, env=env, stdout = subprocess.PIPE, stderr=subprocess.PIPE)#, shell = True)
-    print('\tRunning process pid ' + str(subp.pid) + ' at ' + str(time.asctime()))
-    try:
-        wait_for_timeout(subp, timeout)
-    except RuntimeError:
-        print('\tRuntime Error - killing process pid ' + str(subp.pid) + ' after ' + str(timeout/60.0) + ' minutes')
-        #will take a bit for child's child processes to die (las2las, arcpy functions)
-        subp.terminate()
-
-    except:
-        print('\tsubprocess exception returned ' + str(subp.returncode))
-        # Get the traceback object
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-
-        # Concatenate information together concerning the error into a message string
-        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-        # Return python error messages for use in script tool or Python Window
-        arcpy.AddError(pymsg)
-        # Print Python error messages for use in Python / Python Window
-        print(pymsg + "\n")
-
-        if arcpy.GetMessages(2) not in pymsg:
-            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-            arcpy.AddError(msgs)
-            print(msgs)
-
-##    if subp.returncode != 0:
-    print('\tsubprocess failure returned exit code: ' + str(subp.returncode))
-    comms = subp.communicate()
-    for comm in comms:#stdout, stderr
-        lines = comm.splitlines()
-        if comm == comms[0]:
-            print('\t' + 'STD OUT')
-        elif comm == comms[1]:
-            print('\n\t' + 'STD ERR')
-        for line in lines:
-            print('\t' + line)
-    
-    return subp
 
 
 def joinDict(in_data, in_field, join_data, join_field, fields_to_join, in_fields_to_add = []):
@@ -2412,3 +2450,44 @@ def cleanupOther(procDir, log = None, sgdb = None, inm = None):
         del tbls
 
     del root, listDirs, listFiles
+
+def getMetadata(md_list, procdir):
+    dem_url = 'https://raw.githubusercontent.com/bkgelder/hydro_dems/dev'
+    web_md_dict = {
+    "clib_metadata" : opj(dem_url, 'CLib_DEMs2022_mTemplate.xml'),
+    "flib_metadata" : opj(dem_url, 'FLib_DEMs2022_mTemplate.xml'),
+    "plib_metadata" : opj(dem_url, 'PLib_DEMs2022_mTemplate.xml'),
+    "vlib_metadata" : opj(dem_url, 'VLib_DEMs2022_mTemplate.xml'),
+    "derivative_metadata" : opj(dem_url, 'FLib_Derivatives2022_mTemplate.xml')}
+
+    local_md_dict = {
+    "clib_metadata" : opj(procdir, 'CLib_DEMs2022_mTemplate.xml'),
+    "flib_metadata" : opj(procdir, 'FLib_DEMs2022_mTemplate.xml'),
+    "plib_metadata" : opj(procdir, 'PLib_DEMs2022_mTemplate.xml'),
+    "vlib_metadata" : opj(procdir, 'VLib_DEMs2022_mTemplate.xml'),
+    "derivative_metadata" : opj(procdir, 'FLib_Derivatives2022_mTemplate.xml')}
+
+    return_metadata = []
+
+    for m in md_list:
+        if m == 'clib':
+            request_details = web_md_dict['clib_metadata'], local_md_dict['clib_metadata']
+        elif m == 'flib':
+            request_details = web_md_dict['flib_metadata'], local_md_dict['flib_metadata']
+        elif m == 'plib':
+            request_details = web_md_dict['plib_metadata'], local_md_dict['plib_metadata']
+        elif m == 'vlib':
+            request_details = web_md_dict['vlib_metadata'], local_md_dict['vlib_metadata']
+        elif m == 'deriv':
+            request_details = web_md_dict['derivative_metadata'], local_md_dict['derivative_metadata']
+
+        r = requests.get(request_details[0])
+        if r.status_code == 404:
+            print(f"bad request: {request_details[0]}")
+        filename = request_details[1]
+        f = open(filename,'wb')
+        f.write(r.content)
+
+        return_metadata.append(request_details[1])
+
+    return return_metadata
