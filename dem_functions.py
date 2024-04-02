@@ -773,7 +773,14 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
             arcpy.AddError(msgs)
             print(msgs)
 
-    
+def loadFieldNames(ACPFyear):
+    fieldNames = {
+    "manField" : 'Management_CY_' + ACPFyear,
+    "rotField" : 'CropRotatn_CY_' + ACPFyear,
+    "tillField": 'Till_code_CY_' + ACPFyear,
+    "resCoverField": 'Adj_RC_CY_' + ACPFyear}
+    return fieldNames
+
     
 
 def nukedir(dir):

@@ -322,10 +322,11 @@ def doPuncher(input_dem, output_dem, depressions_fc, plib_metadata, depth_thresh
             # wsLvl.save(opj(cp, wsLvlFld + sfx))
             log.debug("After wsLvl for " + str(sfx) + ' at ' + str(time.asctime()))
 
-    ##            wsPolys = arcpy.RasterToPolygon_conversion(wsLvl, opj(inm, 'ws_polys' + sfx), 'SIMPLIFY')
-    ##            df.tryAddField(wsPolys, frFld, 'LONG')
-    ##            arcpy.CalculateField_management(wsPolys, frFld, '!' + gridfield + '!', 'python')
-    ##            df.copyfc(verbose, wsPolys, sgdb)
+            wsPolys = arcpy.RasterToPolygon_conversion(wsLvl, opj(inm, 'ws_polys' + sfx), 'SIMPLIFY')
+            df.tryAddField(wsPolys, frFld, 'LONG')
+            arcpy.CalculateField_management(wsPolys, frFld, '!' + gridfield + '!', 'PYTHON')
+            # always copy to sgdb for matcher
+            df.copyfc(True, wsPolys, sgdb)
 
             wsMinFilledEl = ZonalStatistics(wsLvl, 'VALUE', fillLvl, 'MINIMUM')
             # wsMinFilledEl = ZonalStatistics(wsLvl, 'VALUE', fillLvlPrev, 'MINIMUM')
@@ -373,7 +374,8 @@ def doPuncher(input_dem, output_dem, depressions_fc, plib_metadata, depth_thresh
             df.joinDict(dfsFC, frFld, zstFrSlope, 'value', ['MAX', 'MEAN'], [frMaxSlopeFld, frMeanSlopeFld])
             log.debug('done with adding stats to dfs at ' + time.asctime())
 
-            df.copyfc(verbose, dfsFC, sgdb)
+            # always copy to sgdb for matcher
+            df.copyfc(True, dfsFC, sgdb)
 
 
 
