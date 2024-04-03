@@ -1123,6 +1123,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
                                         dnstreamCombine.save(opj(proc_dir, 'dn_cmb' + sfx))
                                         if df.testForZero(dnstreamCombine):
                                             dnPtsConversion = arcpy.RasterToPoint_conversion(dnstreamCombine, opj(inm, "cb_dn" + sfx))
+                                            log.debug(f"dnPtsConversion count is: " + str(arcpy.GetCount_management(dnPtsConversion).getOutput(0)))
 
                                         if arcpy.Exists(merged_medians):
                                             if df.testForZero(mergedMdnsFc):# is not None:
@@ -1182,6 +1183,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
             ##                            SSgnt = arcpy.GenerateNearTable_analysis(upPtsClip2, dnPtsDeepEnough, SS + gnt, maxSearchDistList[i], "LOCATION", "NO_ANGLE", "ALL")#, method = 'GEODESIC')
                 ##                                    log.debug("finished gnt at " + time.asctime())
                 ####                                    df.copyTbl(verbose, SSgnt, sgdb)
+                                        log.debug(f"inmgnt count is: " + str(arcpy.GetCount_management(inmgnt).getOutput(0)))
 
             ##                            upPts = copyfc2(upPtsClip2, SS)#Bst, SS)
             ##                            upPtsCount = float(arcpy.GetCount_management(upPts).getOutput(0))
@@ -1282,18 +1284,21 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
                                                     
                                         if arcpy.Exists(merged_medians):
                                             if df.testForZero(mergedMdnsFc):# is not None:#len(mergedMdnList) > 0:
+
+                ##                                gntFields = df.getfields(SS + gnt2)[1:]
+                                                gntFields = df.getfields(inmgnt2)[1:]
+                                                log.debug(f"inmgnt2[1:] fields are: {gntFields}")
+                                                # inFidIndx = gntFields.index('IN_FID')
                                                 log.debug('processing in merged medians at ' + time.asctime())
 
                                             ## Figure out which point matches need to cross an extra buffer feature and select those that do and beyond base search distance
                                             ## Then create a polyline fc of unique crossings
                 ##                                gntFrs2Test4X = arcpy.TableSelect_analysis(SS + gnt2, inm + 'gnt_3' + sfx, 'NEAR_DIST > (' + pntMdnSearchDistFld + ' - ' + maxWsMdnFld + ')')
                                                 gntFrs2Test4X = arcpy.TableSelect_analysis(inmgnt2, opj(inm, 'gnt_3' + sfx), 'NEAR_DIST > (' + pntMdnSearchDistFld + ' - ' + maxWsMdnFld + ')')
+                                                log.debug(f"gntFrs2Test4X fields are: " + str(df.getfields(gntFrs2Test4X)))
+
+                                                # need data in a File GDB to use sql_clause...
                                                 gdbGntFrs2Test4X = arcpy.CopyRows_management(gntFrs2Test4X, opj(sgdb, gntFrs2Test4X[0].split('\\')[1]))
-
-                ##                                gntFields = df.getfields(SS + gnt2)[1:]
-                                                gntFields = df.getfields(inmgnt2)[1:]
-                                                inFidIndx = gntFields.index('IN_FID')
-
                                                 frWsList = []
                                                 with arcpy.da.SearchCursor(gdbGntFrs2Test4X, ['FILL_RGN', 'ws_lvl'], sql_clause = (None, 'GROUP BY ' + frFld + ', ' + wsLvlFld + ' ORDER BY ' + frFld + ', ' + wsLvlFld)) as scur:
                                                     for srow in scur:
@@ -1315,7 +1320,6 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
                                                     del srow, scur
                                                 del icur
 
-                    ####                                        df.copyTbl(verbose, gntXLines, sgdb)
                                                 sr = arcpy.Describe(fill_or_void_tif).spatialReference
                                                 trXLines = arcpy.XYToLine_management(gntXLines, opj(inm, 'tr_x_lines' + sfx), 'FROM_X', 'FROM_Y', 'NEAR_X', "NEAR_Y", id_field = frWsId, spatial_reference = sr)
                                                 df.copyfc(verbose, trXLines, sgdb)
