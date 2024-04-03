@@ -247,14 +247,20 @@ def setAllSearchDistances(inFC, wsSearchDistFld, minFrDistFld, frFld, minElFld, 
                         wsTotalDist = baseDist + 0.5*row[ucur.fields.index(maxWsMdnFld)]
                     elif row[ucur.fields.index(maxWsMdnFld)] > 0:
                         wsTotalDist = baseDist + row[ucur.fields.index(maxWsMdnFld)]
+                        # AG Pro 3.2 addition - set mdnFracFld to zero
+                        row[ucur.fields.index(mdnFracFld)] = 0.0
                     else:
                         wsTotalDist = baseDist
                         ## set nulls to zero
                         row[ucur.fields.index(maxWsMdnFld)] = 0.0
+                        # AG Pro 3.2 addition - set mdnFracFld to zero
+                        row[ucur.fields.index(mdnFracFld)] = 0.0
                 else:
                     wsTotalDist = baseDist
                     ## set nulls to zero
                     row[ucur.fields.index(maxWsMdnFld)] = 0.0
+                    # AG Pro 3.2 addition - set mdnFracFld to zero
+                    row[ucur.fields.index(mdnFracFld)] = 0.0
 
                 row[ucur.fields.index(wsMdnSearchDistFld)] = wsTotalDist
 
