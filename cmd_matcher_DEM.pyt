@@ -563,7 +563,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         frRasters = arcpy.ListRasters(fr0_name[:4] + '*')#'fr0_*')
         frRasters.sort()
         for i, item in enumerate(frRasters[:]):
-            log.warning('working on frRaster: ' + str(item))
+            log.info('working on frRaster: ' + str(item))
             arcpy.env.workspace = proc_dir
             sfx = '_' + item.split('_')[-1]
             dfsFC = dfs_polys[:-2] + sfx
@@ -1506,7 +1506,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
     
         inmDfs = df.condenseDataLvls(dfsList, opj(inm, 'dfs_' + huc12))
         arcpy.DeleteField_management(inmDfs, gridfield)
-        gdbDfs = df.copyfc2(True, inmDfs, sgdb)
+        gdbDfs = df.copyfc(True, inmDfs, sgdb)
 
         inmDfs2Cut = df.condenseDataLvls(dfs2CutList, opj(inm, 'dfs2cut_' + huc12))
         arcpy.DeleteField_management(inmDfs2Cut, gridfield)
