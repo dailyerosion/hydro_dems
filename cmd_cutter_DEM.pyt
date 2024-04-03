@@ -125,10 +125,10 @@ class Tool(object):
 
 
 
-def doCutter(input_dem, huc_roads, search_distance_file, output_dem, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup, messages):
+def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, good_dn_dslv_fc, search_distance_file, output_dem, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup, messages):
 
     try:
-        arguments = [input_dem, huc_roads, search_distance_file, output_dem, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup]
+        arguments = [input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, good_dn_dslv_fc, search_distance_file, output_dem, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup]
 
         for a in arguments:
             if a == arguments[0]:
@@ -230,7 +230,7 @@ def doCutter(input_dem, huc_roads, search_distance_file, output_dem, good_cuts_f
 
         hucRoadsRaster = arcpy.PolylineToRaster_conversion(huc_roads, 'oneway', opj(proc_dir, 'roads_rast'), cellsize = ProcSize)
 
-        meterDEM = 0.01 * input_dem
+        meterDEM = 0.01 * Raster(input_dem)
         # slopePct = Slope(meterDEM, 'PERCENT_RISE')
         slopePct = Raster(opj(proc_dir, 'slope_pct'))
 
@@ -238,11 +238,16 @@ def doCutter(input_dem, huc_roads, search_distance_file, output_dem, good_cuts_f
         crv = Curvature(meterDEM, '', opj(proc_dir, "pro_crv"), opj(proc_dir, "pln_crv"))
         proCrv = Raster(opj(proc_dir, 'pro_crv'))
 
-        inmDfs2Cut = arcpy.CopyFeatures_management(opj(sgdb, 'dfs2cut_' + huc12), opj(inm, 'dfs_2_cut_' + huc12))
+    #     inmDfs2Cut = arcpy.CopyFeatures_management(opj(sgdb, 'dfs2cut_' + huc12), opj(inm, 'dfs_2_cut_' + huc12))
+    # ##    inmDfs2Cut = arcpy.CopyFeatures_management(opj(sgdb, 'dfs2cut_' + huc12), opj(inm, 'dfs_2_cut_' + huc12))
+    #     goodDslvAll = arcpy.CopyFeatures_management(opj(sgdb, 'good_int_dslv_all'), opj(inm, 'good_int_dslv_all'))
+    #     goodDnDslvAll = arcpy.CopyFeatures_management(opj(sgdb, 'good_dn_pts_all'), opj(inm, 'good_dn_pts_all'))
+    #     goodUpDslvAll = arcpy.CopyFeatures_management(opj(sgdb, 'good_up_pts_all'), opj(inm, 'good_up_pts_all'))
+        inmDfs2Cut = arcpy.CopyFeatures_management(dfs_2_cut_fc, opj(inm, 'dfs_2_cut_' + huc12))
     ##    inmDfs2Cut = arcpy.CopyFeatures_management(opj(sgdb, 'dfs2cut_' + huc12), opj(inm, 'dfs_2_cut_' + huc12))
-        goodDslvAll = arcpy.CopyFeatures_management(opj(sgdb, 'good_int_dslv_all'), opj(inm, 'good_int_dslv_all'))
-        goodDnDslvAll = arcpy.CopyFeatures_management(opj(sgdb, 'good_dn_pts_all'), opj(inm, 'good_dn_pts_all'))
-        goodUpDslvAll = arcpy.CopyFeatures_management(opj(sgdb, 'good_up_pts_all'), opj(inm, 'good_up_pts_all'))
+        goodDslvAll = arcpy.CopyFeatures_management(good_dslv_fc, opj(inm, 'good_int_dslv_all'))
+        goodDnDslvAll = arcpy.CopyFeatures_management(good_dn_dslv_fc, opj(inm, 'good_dn_pts_all'))
+        goodUpDslvAll = arcpy.CopyFeatures_management(good_up_dslv_fc, opj(inm, 'good_up_pts_all'))
 
         sfx = ''
         ofSfx = ''
@@ -414,7 +419,7 @@ def doCutter(input_dem, huc_roads, search_distance_file, output_dem, good_cuts_f
                                 # Return python error messages for use in script tool or Python Window
                                 arcpy.AddError(pymsg)
                                 # Print Python error messages for use in Python / Python Window
-                                log.warn(pymsg + "\n")
+                                log.warning(pymsg + "\n")
 
                                 sys.exit(1)
                                 
@@ -430,12 +435,12 @@ def doCutter(input_dem, huc_roads, search_distance_file, output_dem, good_cuts_f
                             # Return python error messages for use in script tool or Python Window
                             arcpy.AddError(pymsg)
                             # Print Python error messages for use in Python / Python Window
-                            log.warn(pymsg + "\n")
+                            log.warning(pymsg + "\n")
 
                             if arcpy.GetMessages(2) not in pymsg:
                                 msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
                                 arcpy.AddError(msgs)
-                                log.warn(msgs)
+                                log.warning(msgs)
 
                             sys.exit(1)
                             
@@ -469,12 +474,12 @@ def doCutter(input_dem, huc_roads, search_distance_file, output_dem, good_cuts_f
     ####                    # Return python error messages for use in script tool or Python Window
     ####                    arcpy.AddError(pymsg)
     ####                    # Print Python error messages for use in Python / Python Window
-    ####                    log.warn(pymsg + "\n")
+    ####                    log.warning(pymsg + "\n")
     ####
     ####                    if arcpy.GetMessages(2) not in pymsg:
     ####                        msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
     ####                        arcpy.AddError(msgs)
-    ####                        log.warn(msgs)
+    ####                        log.warning(msgs)
     ####
     ########                    sys.exit(1)
 
@@ -567,19 +572,19 @@ def doCutter(input_dem, huc_roads, search_distance_file, output_dem, good_cuts_f
         # Return python error messages for use in script tool or Python Window
         arcpy.AddError(pymsg)
         # Print Python error messages for use in Python / Python Window
-        log.warn(pymsg + "\n")
+        log.warning(pymsg + "\n")
 
         if arcpy.GetMessages(2) not in pymsg:
             msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
             arcpy.AddError(msgs)
-            log.warn(msgs)
+            log.warning(msgs)
         sys.exit(1)
 
     finally:
         
         if 'logName' in locals():
-            log.warn("Ending script execution at " + time.asctime())
-            log.warn("Script execution lasted " + str(time.time()-startTime) + " seconds or " + str((time.time()-startTime)/60) + " minutes\n")
+            log.warning("Ending script execution at " + time.asctime())
+            log.warning("Script execution lasted " + str(time.time()-startTime) + " seconds or " + str((time.time()-startTime)/60) + " minutes\n")
 
 
 
@@ -599,15 +604,20 @@ if __name__ == "__main__":
         cleanup = False
 
         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-	"C:/DEP/Scripts/basics/cmd_searchAreas_DEM.pyt",
-	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
-	"D:/DEP/Basedata_Summaries/elev_PLib_mean18/07080105/ep3m070801050901.tif",
-	"D:/DEP/Basedata_Summaries/elev_PLib_mean18/07080105/ep3m070801050901.tif",
-	"D:/DEP/Basedata_Summaries/elev_PLib_mean18/07080105/ep3m070801050901.tif",
-	"C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/dprsns_mean18_dem2013_3m_070801050901",
-	"5.0",
-	"500",
-	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901"]
+	"C:/DEP/Scripts/basics/cmd_cutter_DEM.pyt",
+	"//EL3354-02/M$/DEP_bkg_search_newtest/LiDAR_Current/elev_PLib_mean18/07080105/ep3m070801050901.tif",
+	"//EL3354-02/D$/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
+	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/search_070801050901_mean18.pkl",
+	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/dfs2cut_070801050901",
+	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/good_int_dslv_all",
+	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/good_up_pts_all",
+	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/good_dn_pts_all",
+	"//EL3354-02/M$/DEP_bkg_search_newtest/LiDAR_Current/elev_CLib_mean18/07080105/ec3m070801050901.tif",
+	"//EL3354-02/D$/DEP_bkg_search_newtest/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/cuts_prelim_mean18_dem2013_3m_070801050901",
+	"//EL3354-02/D$/DEP_bkg_search_newtest/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/cuts_final_mean18_dem2013_3m_070801050901",
+	"//EL3354-02/D$/DEP_bkg_search_newtest/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/dprsns2cut_mean18_dem2013_3m_070801050901",
+	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901",
+	"18.0"]
 
         for i in parameters[2:]:
             sys.argv.append(i)
@@ -616,8 +626,8 @@ if __name__ == "__main__":
         # clean up the folder after done processing
         cleanup = True
 
-    input_dem, huc_roads, search_distance_file, output_dem, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth = [i for i in sys.argv[1:]]
+    input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, good_dn_dslv_fc, search_distance_file, output_dem, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth = [i for i in sys.argv[1:]]
     messages = msgStub()
 
-    doCutter(input_dem, huc_roads, search_distance_file, output_dem, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup, messages)
+    doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, good_dn_dslv_fc, search_distance_file, output_dem, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup, messages)
     arcpy.AddMessage("Back from doing!")

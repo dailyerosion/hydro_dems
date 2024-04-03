@@ -1516,11 +1516,11 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
 
         log.debug("time check SSDfs completed at " + time.asctime())
         goodDslvAll = df.condenseDataLvls(srchList, opj(inm, 'good_int_dslv_all'))
-        df.copyfc(verbose, goodDslvAll, sgdb)
+        df.copyfc(True, goodDslvAll, sgdb)
         goodDnDslvAll = df.condenseDataLvls(dnPtsList, opj(inm, 'good_dn_pts_all'))
-        df.copyfc(verbose, goodDnDslvAll, sgdb)
+        df.copyfc(True, goodDnDslvAll, sgdb)
         goodUpDslvAll = df.condenseDataLvls(upPtsList, opj(inm, 'good_up_pts_all'))
-        df.copyfc(verbose, goodUpDslvAll, sgdb)
+        df.copyfc(True, goodUpDslvAll, sgdb)
 
         arcpy.env.workspace = proc_dir
 
