@@ -11,6 +11,7 @@ import time
 import platform
 from arcpy.sa import *
 ##from dem_functions import *
+sys.path.append("C:\\DEP\\Scripts\\basics")
 import dem_functions as df
 import winsound
 
@@ -124,10 +125,10 @@ class Tool(object):
 
 
 
-def doCutter(input_dem, huc_roads, search_distance_file, output_dem, clib_metadata, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup, messages):
+def doCutter(input_dem, huc_roads, search_distance_file, output_dem, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup, messages):
 
     try:
-        arguments = [input_dem, huc_roads, search_distance_file, output_dem, clib_metadata, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup]
+        arguments = [input_dem, huc_roads, search_distance_file, output_dem, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup]
 
         for a in arguments:
             if a == arguments[0]:
@@ -541,6 +542,15 @@ def doCutter(input_dem, huc_roads, search_distance_file, output_dem, clib_metada
             assert(areaRatio >= 0.9),'VoidFixed DEM failed area data check'
             DEMwBestCuts.save(output_dem)
             log.info("COMPLETION! Succesful save of cut DEM at " + time.asctime())
+            # paraDict = {
+            #     '\n\nACPF: DEM Generation and Pit Fill Tool     ' : '\nRun Date: %s' % nowYmd,
+            #     # '\nUnknown Vintage Lidar Data: ' : False,#tiles_t_or_f,
+            #     '\nEarliest 3DEP Lidar Data: ' : collect_starts_min,
+            #     '\nLatest 3DEP Lidar Data: ' : collect_ends_max,
+            #     '\nLatest 3DEP Lidar Data: ' : collect_majority
+            #     }
+           # clib_metadata_template = df.getMetadata(['clib', 'deriv'], proc_dir)
+            # addMetadata(output_dem, paraDict, clib_metadata_template, log)
         except AssertionError:
             log.error('VoidFixed DEM failed area data check', exc_info = True)
 
@@ -606,22 +616,8 @@ if __name__ == "__main__":
         # clean up the folder after done processing
         cleanup = True
 
+    input_dem, huc_roads, search_distance_file, output_dem, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth = [i for i in sys.argv[1:]]
     messages = msgStub()
 
-    # inputs
-    input_dem = sys.argv[1]
-    huc_roads = sys.argv[2]
-    search_distance_file = sys.argv[3]
-    # outputs
-    output_dem = sys.argv[4]
-    clib_metadata = sys.argv[5]
-    good_cuts_fc = sys.argv[6]
-    best_cuts_fc = sys.argv[7]
-    depressions2cut_fc = sys.argv[8]
-
-    # local processing directory
-    proc_dir = sys.argv[9]
-    match_depth = sys.argv[10]
-
-    doCutter(input_dem, huc_roads, search_distance_file, output_dem, clib_metadata, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup, messages)
+    doCutter(input_dem, huc_roads, search_distance_file, output_dem, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup, messages)
     arcpy.AddMessage("Back from doing!")
