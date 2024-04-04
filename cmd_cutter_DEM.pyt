@@ -5,8 +5,10 @@ import arcpy
 import pickle
 import sys
 import os
+import string
 from os.path import join as opj
 import traceback
+import time
 from arcpy.sa import *
 ##from dem_functions import *
 sys.path.append("C:\\DEP\\Scripts\\basics")
