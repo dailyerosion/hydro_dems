@@ -173,7 +173,7 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
 
         arcpy.env.cellSize = input_dem
 
-        arcpy.env.extent = input_dem.extent
+        arcpy.env.extent = input_dem
 
         inm = 'in_memory'
 
