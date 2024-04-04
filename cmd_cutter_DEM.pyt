@@ -125,11 +125,11 @@ class Tool(object):
         return
 
 
-def createCLDEM(DEM2Mod, gdb, cutFC, outDEMname, sfx, cutElFld, ProcSize):
+def createCLDEM(DEM2Mod, gdb, cutFC, outDEMname, sfx, cutElFld, ProcSize, log):
     try:
 
 ##        cutFcGDB = arcpy.CopyFeatures_management(cutFC, opj(gdb, os.path.basename(cutFC)))# + cutFC.getOutput(0).split('\\')[-1])
-        cutFcGDB = arcpy.CopyFeatures_management(cutFC, opj(gdb, os.path.basename(cutFC.getOutput(0)))
+        cutFcGDB = arcpy.CopyFeatures_management(cutFC, opj(gdb, os.path.basename(cutFC.getOutput(0))))
         arcpy.AddField_management(cutFcGDB, "Inv_Line_Ord", "LONG")
         arcpy.CalculateField_management(cutFcGDB, "Inv_Line_Ord", str(int(DEM2Mod.maximum))+'-1*!' + cutElFld + '!', "PYTHON")
         cutRaster = arcpy.PolylineToRaster_conversion(cutFcGDB, cutElFld, opj(gdb, "CL_All" + sfx), "", "Inv_Line_Ord", str(ProcSize))
@@ -148,7 +148,15 @@ def createCLDEM(DEM2Mod, gdb, cutFC, outDEMname, sfx, cutElFld, ProcSize):
 
     except Exception as e:
 ##        log.debug(e.message)
-        arcpy.AddError(e.message)
+        if sys.version_info.major == 2:
+            arcpy.AddError(e.message)
+            print(e.message)
+            log.warning(e.message)
+        elif sys.version_info.major == 3:
+            arcpy.AddError(e)
+            print(e)
+            if log is not None:
+                log.warning(e)
 
         # Get the traceback object
         tb = sys.exc_info()[2]
@@ -266,7 +274,9 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
 
         hucRoadsRaster = arcpy.PolylineToRaster_conversion(huc_roads, 'oneway', opj(proc_dir, 'roads_rast'), cellsize = ProcSize)
 
-        meterDEM = 0.01 * Raster(input_dem)
+        raster_input = Raster(input_dem)
+
+        meterDEM = 0.01 * raster_input
         # slopePct = Slope(meterDEM, 'PERCENT_RISE')
         slopePct = Raster(opj(proc_dir, 'slope_pct'))
 
@@ -289,7 +299,7 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
         ofSfx = ''
 
     ## Initially the cut DEM is the punched DEM
-        DEMpreviousCuts = input_dem
+        DEMpreviousCuts = raster_input
 
         arcpy.JoinField_management(goodDslvAll, frFld, inmDfs2Cut, frFld, [cutElFld, frThknsFld, minElFld, ofElFld, frAllCrvFracFld])#, compactFld
 
@@ -308,22 +318,22 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
             log.debug('beginning sfx ' + sfx + ' and ofPass ' + ofSfx + ' at ' + time.asctime())
             goodDslvAllLayer = arcpy.MakeFeatureLayer_management(goodDslvAll, "rgn_Lyr" + sfx + ofSfx, '"' + ofPassFld + '" = ' + str(ofPass), sgdb)
             if df.testForZero(goodDslvAllLayer):#int(arcpy.GetCount_management(goodDslvAllLayer).getOutput(0)) > 0:
-                goodDslvAllLyrFc = arcpy.CopyFeatures_management(goodDslvAllLayer, inm + "dp_cls_bfr2_lyr" + sfx + ofSfx)
+                goodDslvAllLyrFc = arcpy.CopyFeatures_management(goodDslvAllLayer, opj(inm + "dp_cls_bfr2_lyr" + sfx + ofSfx))
                 df.copyfc(verbose, goodDslvAllLyrFc, sgdb)
 
                 goodDnLayer = arcpy.MakeFeatureLayer_management(goodDnDslvAll, "dn_Lyr" + sfx + ofSfx, '"' + ofPassFld + '" = ' + str(ofPass), sgdb)
-                goodDnLyrFc = arcpy.CopyFeatures_management(goodDnLayer, inm + "dn_lyr" + sfx + ofSfx)
+                goodDnLyrFc = arcpy.CopyFeatures_management(goodDnLayer, opj(inm, "dn_lyr" + sfx + ofSfx))
                 df.copyfc(verbose, goodDnLyrFc, sgdb)
 
                 goodUpLayer = arcpy.MakeFeatureLayer_management(goodUpDslvAll, "up_Lyr_prlm" + sfx + ofSfx, '"' + ofPassFld + '" = ' + str(ofPass), sgdb)
-                goodUpLyrFc = arcpy.CopyFeatures_management(goodUpLayer, inm + "up_lyr" + sfx + ofSfx)
+                goodUpLyrFc = arcpy.CopyFeatures_management(goodUpLayer, opj(inm, "up_lyr" + sfx + ofSfx))
                 df.copyfc(verbose, goodUpLyrFc, sgdb)
                 log.debug('set up layers for sfx ' + sfx + ' at ' + time.asctime())
 
                 upCellsIter = arcpy.PointToRaster_conversion(goodUpLayer, frFld, 'up_prlm' + sfx)
 
                 # maxCostDist = max(maxSearchDistList) * 100
-                # distToUp = CostDistance(upCellsIter, Con(input_dem, 1))#, maxCostDist)
+                # distToUp = CostDistance(upCellsIter, Con(raster_input, 1))#, maxCostDist)
 
                 deepCloseBfr2Fr = arcpy.PolygonToRaster_conversion(goodDslvAllLayer, frFld, opj(proc_dir, 'cut_fr' + sfx + ofSfx), '', '', ProcSize)
 
@@ -336,7 +346,7 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
                     goodSlope.save('gd_slp' + sfx)
 
     ##                try:
-                    minElOutside = ZonalStatistics(cells2CutTo, 'value', input_dem, 'minimum')
+                    minElOutside = ZonalStatistics(cells2CutTo, 'value', raster_input, 'minimum')
                     minElOverall = ZonalStatistics(deepCloseBfr2Fr, 'value', minElOutside, 'minimum')
                     if minElOverall.maximum is not None:
                         meanCutDif = DEMpreviousCuts - (psblNewEl3 + minElOverall)/2.0
@@ -368,7 +378,7 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
                         zstSrchLcpFrCrv = ZonalStatisticsAsTable(lcpFr, 'value', proCrv, opj(inm, 'zst_srch_lcp_fr_crv1' + sfx))
                         df.addCalcJoin(lcpFrPoly, gridfield2, zstSrchLcpFrCrv, 'value', ['LCP_FR_MEAN_CRV', 'DOUBLE'], '!MEAN!')
                         log.debug('did lcp3 stats 2 for sfx ' + sfx + ' at ' + time.asctime())
-                        zstSrchLcpFrEl = ZonalStatisticsAsTable(lcpFr, 'value', input_dem, opj(inm, 'zst_srch_lcp_fr_el1' + sfx))
+                        zstSrchLcpFrEl = ZonalStatisticsAsTable(lcpFr, 'value', raster_input, opj(inm, 'zst_srch_lcp_fr_el1' + sfx))
                         df.addCalcJoin(lcpFrPoly, gridfield2, zstSrchLcpFrEl, 'value', [lcpMaxElFld, 'DOUBLE'], '!MAX!')
                         df.copyfc(verbose, lcpFrPoly, sgdb)
                         log.debug('did lcp3 stats 3 for sfx ' + sfx + ' at ' + time.asctime())
@@ -390,7 +400,7 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
                             zstSrchLcpNrFrCrv = ZonalStatisticsAsTable(lcpNrFr, 'value', proCrv, opj(inm, 'zst_srch_lcp_fr_crv3' + sfx))
                             df.addCalcJoin(lcpNrFrPoly, gridfield2, zstSrchLcpNrFrCrv, 'value', ['LCP_FR_MEAN_CRV', 'DOUBLE'], '!MEAN!')
                             log.debug('did lcpNr stats 2 for sfx ' + sfx + ' at ' + time.asctime())
-                            zstSrchLcpNrFrEl = ZonalStatisticsAsTable(lcpNrFr, 'value', input_dem, opj(inm, 'zst_srch_lcp_fr_el3' + sfx))
+                            zstSrchLcpNrFrEl = ZonalStatisticsAsTable(lcpNrFr, 'value', raster_input, opj(inm, 'zst_srch_lcp_fr_el3' + sfx))
                             df.addCalcJoin(lcpNrFrPoly, gridfield2, zstSrchLcpNrFrEl, 'value', [lcpMaxElFld, 'DOUBLE'], '!MAX!')
                             log.debug('did lcpNr stats 3 for sfx ' + sfx + ' at ' + time.asctime())
 
@@ -524,7 +534,7 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
                     goodCutsList.append(goodCuts4Lvl)
 
                     arcpy.JoinField_management(goodCuts4Lvl, gridfield2, inmDfs2Cut, frFld, cutElFld)
-                    DEMwGoodCutsLvl, cutRaster = df.createCLDEM(DEMpreviousCuts, sgdb, goodCuts4Lvl, 'cl_lvl_dem', sfx, cutElFld, ProcSize)
+                    DEMwGoodCutsLvl, cutRaster = createCLDEM(DEMpreviousCuts, sgdb, goodCuts4Lvl, 'cl_lvl_dem', sfx, cutElFld, ProcSize, log)
 
                     DEMpreviousCuts = DEMwGoodCutsLvl
 
@@ -533,7 +543,7 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
 
         arcpy.JoinField_management(goodCutsAll, gridfield2, inmDfs2Cut, frFld, cutElFld)
 
-        DEMwGoodCutsAll, cutRaster = df.createCLDEM(input_dem, sgdb, goodCutsAll, 'cl_dem', sfx, cutElFld, ProcSize)
+        DEMwGoodCutsAll, cutRaster = createCLDEM(raster_input, sgdb, goodCutsAll, 'cl_dem', sfx, cutElFld, ProcSize, log)
 
         fillAfterGoodCuts = Fill(DEMwGoodCutsAll)
 
@@ -573,10 +583,10 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
         depressions2cutCopy = arcpy.CopyFeatures_management(inmDfs2Cut, depressions2cut_fc)#inm + 'best_cuts_all')
 
         sfx = '_0'
-        DEMwBestCuts, bestCutRaster = df.createCLDEM(input_dem, sgdb, bestCutsAll, 'cl_dem_fnl', sfx, cutElFld, ProcSize)
+        DEMwBestCuts, bestCutRaster = createCLDEM(raster_input, sgdb, bestCutsAll, 'cl_dem_fnl', sfx, cutElFld, ProcSize, log)
 
         ## check to see if 'right' size compared to pitfill before save, use 0.95 instead of 0.97 due to voids at holes
-        pfArea = ZonalGeometry(Con(IsNull(input_dem) == 0, 1), 'VALUE', 'AREA')
+        pfArea = ZonalGeometry(Con(IsNull(raster_input) == 0, 1), 'VALUE', 'AREA')
         cutArea = ZonalGeometry(Con(IsNull(DEMwBestCuts) == 0, 1), 'VALUE', 'AREA')
         areaRatio = cutArea.maximum / pfArea.maximum
         try:
@@ -643,11 +653,11 @@ if __name__ == "__main__":
 	"C:/DEP/Scripts/basics/cmd_cutter_DEM.pyt",
 	"//EL3354-02/M$/DEP_bkg_search_newtest/LiDAR_Current/elev_PLib_mean18/07080105/ep3m070801050901.tif",
 	"//EL3354-02/D$/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
-	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/search_070801050901_mean18.pkl",
 	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/dfs2cut_070801050901",
 	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/good_int_dslv_all",
 	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/good_up_pts_all",
 	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/good_dn_pts_all",
+	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/search_070801050901_mean18.pkl",
 	"//EL3354-02/M$/DEP_bkg_search_newtest/LiDAR_Current/elev_CLib_mean18/07080105/ec3m070801050901.tif",
 	"//EL3354-02/D$/DEP_bkg_search_newtest/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/cuts_prelim_mean18_dem2013_3m_070801050901",
 	"//EL3354-02/D$/DEP_bkg_search_newtest/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/cuts_final_mean18_dem2013_3m_070801050901",
