@@ -9,6 +9,7 @@ import string
 from os.path import join as opj
 import traceback
 import time
+import platform
 from arcpy.sa import *
 ##from dem_functions import *
 sys.path.append("C:\\DEP\\Scripts\\basics")
