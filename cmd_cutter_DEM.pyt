@@ -4,11 +4,9 @@
 import arcpy
 import pickle
 import sys
-import string
+import os
 from os.path import join as opj
 import traceback
-import time
-import platform
 from arcpy.sa import *
 ##from dem_functions import *
 sys.path.append("C:\\DEP\\Scripts\\basics")
@@ -122,6 +120,41 @@ class Tool(object):
         """This method takes place after outputs are processed and
         added to the display."""
         return
+
+
+def createCLDEM(DEM2Mod, gdb, cutFC, outDEMname, sfx, cutElFld, ProcSize):
+    try:
+
+##        cutFcGDB = arcpy.CopyFeatures_management(cutFC, opj(gdb, os.path.basename(cutFC)))# + cutFC.getOutput(0).split('\\')[-1])
+        cutFcGDB = arcpy.CopyFeatures_management(cutFC, opj(gdb, os.path.basename(cutFC.getOutput(0)))
+        arcpy.AddField_management(cutFcGDB, "Inv_Line_Ord", "LONG")
+        arcpy.CalculateField_management(cutFcGDB, "Inv_Line_Ord", str(int(DEM2Mod.maximum))+'-1*!' + cutElFld + '!', "PYTHON")
+        cutRaster = arcpy.PolylineToRaster_conversion(cutFcGDB, cutElFld, opj(gdb, "CL_All" + sfx), "", "Inv_Line_Ord", str(ProcSize))
+
+## If the cut line elevation is higher than the original elevation, don't modify the elevation value
+        cutLineDif = Minus(cutRaster, DEM2Mod)
+
+        cutLineDifAllCells = Con(IsNull(cutLineDif) == 1, 0, cutLineDif)
+
+        cutLineDEM = Con(cutLineDifAllCells >= 0, DEM2Mod, cutRaster)
+        cutLineDEM.save(outDEMname + sfx)
+
+##        log.debug("Finished createCLDEM at " + time.asctime())
+
+        return cutLineDEM, cutRaster
+
+    except Exception as e:
+##        log.debug(e.message)
+        arcpy.AddError(e.message)
+
+        # Get the traceback object
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+
+        # Concatenate information together concerning the error into a message string
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        print(pymsg)
+##        log.warn(pymsg)
 
 
 
