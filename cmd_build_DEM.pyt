@@ -165,17 +165,17 @@ class Tool(object):
         
         param14 = arcpy.Parameter(
             name = "breakpolys",
-            displayName="Output HUC12 Merged Breakline Polygon Features",
+            displayName="Input HUC12 Merged Breakline Polygon Features",
             datatype="DEFeatureClass",
             parameterType='Optional',
-            direction="Output")
+            direction="Input")
         
         param15 = arcpy.Parameter(
             name = "breaklines",
-            displayName="Output HUC12 Merged Breakline Polyline Features",
+            displayName="Input HUC12 Merged Breakline Polyline Features",
             datatype="DEFeatureClass",
             parameterType='Optional',
-            direction="Output")
+            direction="Input")
         
         param16 = arcpy.Parameter(
             name = "ept_wesm_project_file",
@@ -210,7 +210,10 @@ class Tool(object):
     def execute(self, parameters, messages):
         """The source code of the tool."""
         cleanup = False
-        doLidarDEMs(parameters[0].valueAsText, cleanup, messages)
+        doLidarDEMs(parameters[0].valueAsText, parameters[1].valueAsText, parameters[2].valueAsText, parameters[3].valueAsText, parameters[4].valueAsText, 
+                    parameters[5].valueAsText, parameters[6].valueAsText, parameters[7].valueAsText, parameters[8].valueAsText, parameters[9].valueAsText, 
+                    parameters[10].valueAsText, parameters[11].valueAsText, parameters[12].valueAsText, parameters[13].valueAsText, 
+                    parameters[14].valueAsText, parameters[15].valueAsText, parameters[16].valueAsText, cleanup, messages)
         return
 
     def postExecute(self, parameters):
@@ -1640,7 +1643,7 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log):#maskFc_3857, mas
     return parts, square_area
 
 
-def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eptDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList):
+def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eptDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir):
     
     if df.testForZero(prev_merged):
         # requests to EPT must be in 3857
@@ -1798,6 +1801,8 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         log.debug('sys.argv is: ' + str(sys.argv) + '\n')
         log.info("Processing HUC: " + huc12)
 
+        flib_metadata_template, derivative_metadata = df.getMetadata(['flib', 'deriv'], procDir)
+
         fElevDesc = arcpy.da.Describe(dem_polygon)
         srOut = fElevDesc['spatialReference']
         srOutCode = srOut.PCSCode
@@ -1911,7 +1916,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         if df.testForZero(wesm_huc12):
             prev_merged, merged_area, addOrderField = organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log)
 
-            cl2Las, geom_srOut_copy = getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eptDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList)
+            cl2Las, geom_srOut_copy = getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eptDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir)
 
             arcpy.env.outputCoordinateSystem = srOut
 
@@ -2043,8 +2048,6 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                 # arcpy.env.snapRaster
                 cntFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntFile)#paths)
                 terrainList = createRastersFromTerrains(log, demList, procDir, terrains, huc12)
-
-                flib_metadata_template, derivative_metadata = df.getMetadata(['flib', 'deriv'], procDir)
 
                 buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, internal_regions, lidar_metadata_info, derivative_metadata)
 
