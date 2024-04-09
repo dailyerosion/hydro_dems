@@ -1879,14 +1879,14 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
             # if not os.path.isdir(os.path.dirname(filename)):
             #     os.makedirs(os.path.dirname(filename))
             # create directories for alternate interpolation types/windowsize methods
-            if interpType in filename:
-                for window in windowsizeMethods:
-                    abbrev = interpDict[window]
-                    if abbrev != interpType:
-                        altfilename = filename.replace(interpType, abbrev)
-                        df.create_dirs_and_gdbs(altfilename, log)
-                        # if not os.path.isdir(os.path.dirname(altfilename)):
-                        #     os.makedirs(os.path.dirname(altfilename))
+                if interpType in filename:
+                    for window in windowsizeMethods:
+                        abbrev = interpDict[window]
+                        if abbrev != interpType:
+                            altfilename = filename.replace(interpType, abbrev)
+                            df.create_dirs_and_gdbs(altfilename, log)
+                            # if not os.path.isdir(os.path.dirname(altfilename)):
+                            #     os.makedirs(os.path.dirname(altfilename))
 
     ## If you set a scratch workspace first you can control where the scratchGDB or scratchFolder are created
     ## otherwise it defaults to a user's temp folder
