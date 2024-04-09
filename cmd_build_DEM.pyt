@@ -1873,7 +1873,8 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
         # create output directories
         for filename in [fElevFile, cntFile, int1rMaxFile, firstReturnMaxFile]:
-            df.create_dirs_and_gdbs(filename, log)
+            if filename is not None:
+                df.create_dirs_and_gdbs(filename, log)
 
             # if not os.path.isdir(os.path.dirname(filename)):
             #     os.makedirs(os.path.dirname(filename))
@@ -1946,15 +1947,16 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
             internal_regions = Con(fs1 == 0, int_ptr)
             internal_regions.save(opj(sgdb, 'intrnl_rgns'))
             
-            #assume not in a feature dataset...
-            df.create_dirs_and_gdbs(ept_wesm_project_file, log)
-            # ept_wesm_project_gdb = os.path.dirname(ept_wesm_project_file)
-            # if not arcpy.Exists(ept_wesm_project_gdb):
-            #     if not os.path.isdir(os.path.dirname(ept_wesm_project_gdb)):
-            #         os.makedirs(os.path.dirname(ept_wesm_project_gdb))
-            #     log.debug(f"making gdb: {ept_wesm_project_gdb}")
-            #     ept_gdb = arcpy.CreateFileGDB_management(os.path.dirname(ept_wesm_project_gdb), os.path.basename(ept_wesm_project_gdb))
-            merged_copy = arcpy.CopyFeatures_management(prev_merged, ept_wesm_project_file)
+            if ept_wesm_project_file is not None:
+                #assume not in a feature dataset...
+                df.create_dirs_and_gdbs(ept_wesm_project_file, log)
+                # ept_wesm_project_gdb = os.path.dirname(ept_wesm_project_file)
+                # if not arcpy.Exists(ept_wesm_project_gdb):
+                #     if not os.path.isdir(os.path.dirname(ept_wesm_project_gdb)):
+                #         os.makedirs(os.path.dirname(ept_wesm_project_gdb))
+                #     log.debug(f"making gdb: {ept_wesm_project_gdb}")
+                #     ept_gdb = arcpy.CreateFileGDB_management(os.path.dirname(ept_wesm_project_gdb), os.path.basename(ept_wesm_project_gdb))
+                merged_copy = arcpy.CopyFeatures_management(prev_merged, ept_wesm_project_file)
 
             ept_lidar_fcs = arcpy.ListFeatureClasses(os.path.basename(geom_srOut_copy.getOutput(0))[:10] + '*')
             tcdFdSet_ept = arcpy.Union_analysis(ept_lidar_fcs)
