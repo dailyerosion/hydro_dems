@@ -1512,6 +1512,35 @@ def getFrsAsList(fc, idFld, sel):
             selList.add(srow[0])
     return list(selList)
 
+from pathlib import Path
+
+def create_dirs_and_gdbs(requested_location, log):
+    requested_path = Path(requested_location)
+    #create names of outputs so we can see test if it's been run recently
+    if requested_location.find('.gdb') == -1 and requested_location.find('sde') == -1:
+        # output into a folder based file structure, create directores
+        if not os.path.isdir(requested_path.parent):
+            requested_path.parent.mkdir(parents=True, exist_ok=True)
+    elif requested_location.find('.gdb') > -1:
+        if requested_path.parent.stem.find('.gdb') > -1:
+            gdb_path = requested_path.parent.stem
+            gdb_name = requested_path.stem
+        elif requested_path.parent.parent.stem.find('.gdb') > -1:
+            gdb_path = requested_path.parent.parent.stem
+            gdb_name = requested_path.parent.stem
+        if not arcpy.Exists(gdb_path):
+            log.debug(f"making gdb: {gdb_path} with name: {gdb_name}")
+            gdb_result = arcpy.CreateFileGDB_management(gdb_path, gdb_name)
+        else:
+            log.warning('Unanticipated GDB location, unable to proceed')
+            sys.exit(1000)
+    elif requested_location.find('.sde') > -1:
+        log.warning('Unanticipated SDE location, unable to proceed')
+        sys.exit(1000)
+    else:
+        log.warning(f"we don't do storage in {requested_location} yet!")
+        sys.exit(1000)
+
 
 def CreateInitialWs(inDEM):
         fd_tmp = FlowDirection(inDEM)

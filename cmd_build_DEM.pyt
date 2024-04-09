@@ -929,11 +929,12 @@ def setupPointsAndBreaklines(finalMP, inm, FDSet, breakpolys, breaklines, log):
             finalNoZHb = None
 
         # merge the breakline feature classes together
-        breakGdb = os.path.dirname(breaklines)
-        if not arcpy.Exists(breakGdb):
-            if not os.path.isdir(os.path.basename(breakGdb)):
-                os.makedirs(os.path.dirname(breakGdb))
-            breakGdbResult = arcpy.CreateFileGDB_management(os.path.dirname(breakGdb), os.path.basename(breakGdb))
+        df.create_dirs_and_gdbs(breaklines, log)
+        # breakGdb = os.path.dirname(breaklines)
+        # if not arcpy.Exists(breakGdb):
+        #     if not os.path.isdir(os.path.basename(breakGdb)):
+        #         os.makedirs(os.path.dirname(breakGdb))
+        #     breakGdbResult = arcpy.CreateFileGDB_management(os.path.dirname(breakGdb), os.path.basename(breakGdb))
 
         log.warning(f'breakpolyList: {breakpolyList}')
         if len(breakpolyList) > 0:
@@ -1757,6 +1758,16 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 
     return cl2Las, geom_srOut_copy
 
+
+def try_to_delete(rasRes, log):
+    if arcpy.Exists(rasRes):
+        try:
+            arcpy.Delete_management(rasRes)
+        except arcpy.ExecuteError:
+            log.warning('could not remove using arcpy.Delete, trying os.remove')
+            os.remove(rasRes)
+
+
 def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon, 
          pdal_exe, gsds, fElevFile, 
          procDir, snap, bareEarthReturnMinFile, firstReturnMaxFile, cntFile, cnt1rFile,
@@ -1851,33 +1862,36 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
         # delete any pre-existing inputs
         for ras in [fElevFile, cntFile, int1rMaxFile, int1rMinFile, cnt1rFile, firstReturnMaxFile]:
-            for demList in demLists:
-                rasRes = ras.replace(str(named_cell_size) + 'm', str(demList[0]) + 'm')
-                if arcpy.Exists(rasRes):
-                    try:
-                        arcpy.Delete_management(rasRes)
-                    except arcpy.ExecuteError:
-                        log.warning('could not remove using arcpy.Delete, trying os.remove')
-                        os.remove(rasRes)
+            if ras is not None:
+                if str(named_cell_size) + 'm' in ras:
+                    if len(demLists) > 0:
+                        for demList in demLists:
+                            rasRes = ras.replace(str(named_cell_size) + 'm', str(demList[0]) + 'm')
+                            try_to_delete(rasRes, log)
+                    else:
+                        try_to_delete(rasRes, log)
 
         # create output directories
         for filename in [fElevFile, cntFile, int1rMaxFile, firstReturnMaxFile]:
-            if not os.path.isdir(os.path.dirname(filename)):
-                os.makedirs(os.path.dirname(filename))
+            df.create_dirs_and_gdbs(filename, log)
+
+            # if not os.path.isdir(os.path.dirname(filename)):
+            #     os.makedirs(os.path.dirname(filename))
             # create directories for alternate interpolation types/windowsize methods
             if interpType in filename:
                 for window in windowsizeMethods:
                     abbrev = interpDict[window]
                     if abbrev != interpType:
                         altfilename = filename.replace(interpType, abbrev)
-                        if not os.path.isdir(os.path.dirname(altfilename)):
-                            os.makedirs(os.path.dirname(altfilename))
+                        df.create_dirs_and_gdbs(altfilename, log)
+                        # if not os.path.isdir(os.path.dirname(altfilename)):
+                        #     os.makedirs(os.path.dirname(altfilename))
 
     ## If you set a scratch workspace first you can control where the scratchGDB or scratchFolder are created
     ## otherwise it defaults to a user's temp folder
     ## if you don't set anything it will go to 'in_memory'
         inm = 'in_memory'
-        if snap != "":
+        if snap is not None:#!= "":
             arcpy.env.snapRaster = snap
 
         # also set output to VCS 5703, NAVD88 Meters
@@ -1933,12 +1947,13 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
             internal_regions.save(opj(sgdb, 'intrnl_rgns'))
             
             #assume not in a feature dataset...
-            ept_wesm_project_gdb = os.path.dirname(ept_wesm_project_file)
-            if not arcpy.Exists(ept_wesm_project_gdb):
-                if not os.path.isdir(os.path.dirname(ept_wesm_project_gdb)):
-                    os.makedirs(os.path.dirname(ept_wesm_project_gdb))
-                log.debug(f"making gdb: {ept_wesm_project_gdb}")
-                ept_gdb = arcpy.CreateFileGDB_management(os.path.dirname(ept_wesm_project_gdb), os.path.basename(ept_wesm_project_gdb))
+            df.create_dirs_and_gdbs(ept_wesm_project_file, log)
+            # ept_wesm_project_gdb = os.path.dirname(ept_wesm_project_file)
+            # if not arcpy.Exists(ept_wesm_project_gdb):
+            #     if not os.path.isdir(os.path.dirname(ept_wesm_project_gdb)):
+            #         os.makedirs(os.path.dirname(ept_wesm_project_gdb))
+            #     log.debug(f"making gdb: {ept_wesm_project_gdb}")
+            #     ept_gdb = arcpy.CreateFileGDB_management(os.path.dirname(ept_wesm_project_gdb), os.path.basename(ept_wesm_project_gdb))
             merged_copy = arcpy.CopyFeatures_management(prev_merged, ept_wesm_project_file)
 
             ept_lidar_fcs = arcpy.ListFeatureClasses(os.path.basename(geom_srOut_copy.getOutput(0))[:10] + '*')
