@@ -392,6 +392,10 @@ def prepPolygonBoundary(dem_polygon, log, sgdb, srOut, srSfx, maskRastBase, demL
 
         # geom_copy = arcpy.management.CopyFeatures(huc12fc, opj(sgdb, 'huc' + huc12))
         geom_copy = arcpy.Buffer_analysis(maskFc, buffer_distance_or_field = '-1000 METERS')
+        if df.testForZero(geom_copy):
+            geom_copy = arcpy.Buffer_analysis(maskFc, buffer_distance_or_field = '-500 METERS')
+            if df.testForZero(geom_copy):
+                geom_copy = arcpy.CopyFeatures_management(dem_polygon)
 
         if 'id' not in df.getfields(maskFc):
             arcpy.AddField_management(maskFc, 'id', 'LONG')
