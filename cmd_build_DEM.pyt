@@ -1818,8 +1818,6 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         log.debug('sys.argv is: ' + str(sys.argv) + '\n')
         log.info("Processing HUC: " + huc12)
 
-        flib_metadata_template, derivative_metadata = df.getMetadata(['flib', 'deriv'], procDir)
-
         fElevDesc = arcpy.da.Describe(dem_polygon)
         srOut = fElevDesc['spatialReference']
         srOutCode = srOut.PCSCode
@@ -1843,6 +1841,8 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         sgdb = arcpy.env.scratchGDB
         arcpy.env.scratchWorkspace = sgdb
         arcpy.env.workspace = sgdb
+
+        flib_metadata_template, derivative_metadata = df.getMetadata(['flib', 'deriv'], procDir)
 
         # for access to 7za.exe and LASTools
         # softwareDir = 'C:\\Software'
