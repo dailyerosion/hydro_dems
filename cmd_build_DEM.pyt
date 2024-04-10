@@ -1047,9 +1047,9 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
             log.warning('---Creating FR Max Intensity at ' + time.asctime())
             recode_tf = False
             log.debug(f'ir.max: {internal_regions.maximum},ir.min: {internal_regions.minimum}')
+            int1rMaxFile_sized = updateResolution(int1rMaxFile, named_cell_size, demList[0], huc12, log)
             if internal_regions.maximum - internal_regions.minimum != 0:
                 log.info('multiple regions')
-                int1rMaxFile_sized = updateResolution(int1rMaxFile, named_cell_size, demList[0], huc12, log)
                 int1rMaxFile_sized_temp = opj(os.path.dirname(int1rMaxFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
                 lasd1rMaxIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMaxFile_sized_temp, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
                 int_zs_max = ZonalStatistics(internal_regions, 'VALUE', int1rMaxFile_sized_temp, 'MAXIMUM')
