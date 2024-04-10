@@ -390,12 +390,12 @@ def prepPolygonBoundary(dem_polygon, log, sgdb, srOut, srSfx, maskRastBase, demL
         maskFc = arcpy.CopyFeatures_management(dem_polygon)
         maskFc_area = [s[0] for s in arcpy.da.SearchCursor(maskFc, ['SHAPE@AREA'])][0]
 
-        # geom_copy = arcpy.management.CopyFeatures(huc12fc, opj(sgdb, 'huc' + huc12))
-        geom_copy = arcpy.Buffer_analysis(maskFc, buffer_distance_or_field = '-1000 METERS')
-        if df.testForZero(geom_copy):
-            geom_copy = arcpy.Buffer_analysis(maskFc, buffer_distance_or_field = '-500 METERS')
-            if df.testForZero(geom_copy):
-                geom_copy = arcpy.CopyFeatures_management(dem_polygon)
+        # # geom_copy = arcpy.management.CopyFeatures(huc12fc, opj(sgdb, 'huc' + huc12))
+        # geom_copy = arcpy.Buffer_analysis(maskFc, buffer_distance_or_field = '-1000 METERS')
+        # if df.testForZero(geom_copy):
+        #     geom_copy = arcpy.Buffer_analysis(maskFc, buffer_distance_or_field = '-500 METERS')
+        #     if df.testForZero(geom_copy):
+        #         geom_copy = arcpy.CopyFeatures_management(dem_polygon)
 
         if 'id' not in df.getfields(maskFc):
             arcpy.AddField_management(maskFc, 'id', 'LONG')
@@ -411,9 +411,10 @@ def prepPolygonBoundary(dem_polygon, log, sgdb, srOut, srSfx, maskRastBase, demL
 
         for demList in demLists:
             maskRastOut = arcpy.PolygonToRaster_conversion(maskFcOut, 'id', opj(sgdb, maskRastBase + str(demList[0])), cellsize = demList[0])
-            huc_rast_out = arcpy.conversion.PolygonToRaster(geom_copy, 'OBJECTID', opj(sgdb, 'huc_rast' + str(demList[0])), cellsize = demList[0])
+            # huc_rast_out = arcpy.conversion.PolygonToRaster(geom_copy, 'OBJECTID', opj(sgdb, 'huc_rast' + str(demList[0])), cellsize = demList[0])
 
-        return maskFc, maskFc_area, maskFcOut, maskRastOut, huc_rast_out, FDSet
+        return maskFc, maskFc_area, maskFcOut, maskRastOut, None, FDSet
+        # return maskFc, maskFc_area, maskFcOut, maskRastOut, huc_rast_out, FDSet
 
     except Exception as e:
         print('handling as exception')
