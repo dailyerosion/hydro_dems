@@ -1524,10 +1524,10 @@ def create_dirs_and_gdbs(requested_location, log):
     elif requested_location.find('.gdb') > -1:
         if requested_path.parent.name.find('.gdb') > -1:
             gdb_path = requested_path.parent.stem
-            gdb_name = requested_path.stem
+            gdb_name = requested_path.name
         elif requested_path.parent.parent.name.find('.gdb') > -1:
             gdb_path = requested_path.parent.parent.stem
-            gdb_name = requested_path.parent.stem
+            gdb_name = requested_path.parent.name
         if not arcpy.Exists(gdb_path):
             log.debug(f"making gdb: {gdb_path} with name: {gdb_name}")
             gdb_result = arcpy.CreateFileGDB_management(gdb_path, gdb_name)
