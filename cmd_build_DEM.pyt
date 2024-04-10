@@ -934,7 +934,8 @@ def setupPointsAndBreaklines(finalMP, inm, FDSet, breakpolys, breaklines, log):
             finalNoZHb = None
 
         # merge the breakline feature classes together
-        df.create_needed_dirs_and_gdbs(breaklines, log)
+        if breaklines is not None:
+            df.create_needed_dirs_and_gdbs(breaklines, log)
         # breakGdb = os.path.dirname(breaklines)
         # if not arcpy.Exists(breakGdb):
         #     if not os.path.isdir(os.path.basename(breakGdb)):
