@@ -1529,6 +1529,9 @@ def create_needed_dirs_and_gdbs(requested_location, log):
             if not arcpy.Exists(gdb_path):
                 create_gdb_flag = True
                 # create_fd_flag = False
+            else:
+                create_gdb_flag = False
+                # create_fd_flag = False
         elif requested_path.parent.parent.name.find('.gdb') > -1:
             gdb_path = str(requested_path.parent.parent.parent)
             gdb_name = str(requested_path.parent.parent.name)
@@ -1537,6 +1540,9 @@ def create_needed_dirs_and_gdbs(requested_location, log):
             if not arcpy.Exists(gdb_path):
                 create_gdb_flag = True
                 # create_fd_flag = True
+            else:
+                create_gdb_flag = False
+                # create_fd_flag = False
         else:
             log.warning('Unanticipated GDB location, unable to proceed')
             sys.exit(1000)
