@@ -1043,7 +1043,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
                 '\nLatest 3DEP Lidar Data: ' : collect_majority
                 }
 
-        if int1rMaxFile != "" and int1rMinFile != "" and bareEarthReturnMinFile != "":
+        if int1rMaxFile is not None and int1rMinFile is not None and bareEarthReturnMinFile is not None:
             log.warning('---Creating FR Max Intensity at ' + time.asctime())
             recode_tf = False
             log.debug(f'ir.max: {internal_regions.maximum},ir.min: {internal_regions.minimum}')
@@ -1095,7 +1095,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
                 lasdBeMaxIntensity = arcpy.LasDatasetToRaster_conversion(beLayer, intBeMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
             addMetadata(intBeMaxFile_sized, paraDict, derivative_metadata, log)
 
-        if surfaceElevFile != "":
+        if surfaceElevFile is not None:
             log.warning('---Creating FR Max surface at ' + time.asctime())
             frMaxFile_sized = updateResolution(surfaceElevFile, named_cell_size, demList[0], huc12, log)
             allReturnsMaxTempFile = os.path.join(procDir, '_'.join(['tmp_frmax', str(demList[0]) + 'm', huc12, 'out.tif']))
@@ -1110,7 +1110,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
         # allReturnsMinCm = Int(Times(allReturnsMin, 100))
         # allReturnsMinCm.save(frMinFile_sized)#locDict['firstReturnMinFile'])#allReturnsMinFile)
 
-        if cnt1rFile != "":
+        if cnt1rFile is not None:
             log.warning('---Counting All Returns at ' + time.asctime())
             cnt1rFile_sized = updateResolution(cnt1rFile, named_cell_size, demList[0], huc12, log)
             cfrFileTemp = 'cnt_fr_' + str(demList[0]) + "m_" + huc12 + srSfx + '.tif'
@@ -1141,7 +1141,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
         # lastReturnsMinCm = Int(Times(lastReturnsMin, 100))
         # lastReturnsMinCm.save(lastReturnMinFile_sized)#locDict['lastReturnMinFile'])#.replace('fr', 'lr'))
 
-        if bareEarthReturnMinFile != "":
+        if bareEarthReturnMinFile is not None:
             log.warning('---Creating LR Min surface at ' + time.asctime())
             bareEarthReturnMinFile_sized = updateResolution(bareEarthReturnMinFile, named_cell_size, demList[0], huc12, log)
             if sys.version_info.minor < 9:
