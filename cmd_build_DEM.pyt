@@ -934,7 +934,7 @@ def setupPointsAndBreaklines(finalMP, inm, FDSet, breakpolys, breaklines, log):
             finalNoZHb = None
 
         # merge the breakline feature classes together
-        df.create_dirs_and_gdbs(breaklines, log)
+        df.create_needed_dirs_and_gdbs(breaklines, log)
         # breakGdb = os.path.dirname(breaklines)
         # if not arcpy.Exists(breakGdb):
         #     if not os.path.isdir(os.path.basename(breakGdb)):
@@ -1879,7 +1879,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         # create output directories
         for filename in [fElevFile, cntFile, int1rMaxFile, firstReturnMaxFile]:
             if filename is not None:
-                df.create_dirs_and_gdbs(filename, log)
+                df.create_needed_dirs_and_gdbs(filename, log)
 
             # if not os.path.isdir(os.path.dirname(filename)):
             #     os.makedirs(os.path.dirname(filename))
@@ -1889,7 +1889,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                         abbrev = interpDict[window]
                         if abbrev != interpType:
                             altfilename = filename.replace(interpType, abbrev)
-                            df.create_dirs_and_gdbs(altfilename, log)
+                            df.create_needed_dirs_and_gdbs(altfilename, log)
                             # if not os.path.isdir(os.path.dirname(altfilename)):
                             #     os.makedirs(os.path.dirname(altfilename))
 
@@ -1954,7 +1954,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
             
             if ept_wesm_project_file is not None:
                 #assume not in a feature dataset...
-                df.create_dirs_and_gdbs(ept_wesm_project_file, log)
+                df.create_needed_dirs_and_gdbs(ept_wesm_project_file, log)
                 # ept_wesm_project_gdb = os.path.dirname(ept_wesm_project_file)
                 # if not arcpy.Exists(ept_wesm_project_gdb):
                 #     if not os.path.isdir(os.path.dirname(ept_wesm_project_gdb)):
