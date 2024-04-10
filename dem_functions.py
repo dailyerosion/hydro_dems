@@ -1515,50 +1515,72 @@ def getFrsAsList(fc, idFld, sel):
 from pathlib import Path
 
 def create_needed_dirs_and_gdbs(requested_location, log):
-    requested_path = Path(requested_location)
-    #create names of outputs so we can see test if it's been run recently
-    if requested_location.find('.gdb') == -1 and requested_location.find('sde') == -1:
-        # output into a folder based file structure, create directores
-        if not os.path.isdir(requested_path.parent):
-            requested_path.parent.mkdir(parents=True, exist_ok=True)
-    elif requested_location.find('.gdb') > -1:
-        if requested_path.parent.name.find('.gdb') > -1:
-            gdb_path = str(requested_path.parent.parent)
-            gdb_name = str(requested_path.parent.name)
-            log.debug(f"gdb_path: {gdb_path} with name: {gdb_name}")
-            if not arcpy.Exists(gdb_path):
-                create_gdb_flag = True
-                # create_fd_flag = False
+    try:
+        requested_path = Path(requested_location)
+        #create names of outputs so we can see test if it's been run recently
+        if requested_location.find('.gdb') == -1 and requested_location.find('sde') == -1:
+            # output into a folder based file structure, create directores
+            if not os.path.isdir(requested_path.parent):
+                requested_path.parent.mkdir(parents=True, exist_ok=True)
+        elif requested_location.find('.gdb') > -1:
+            if requested_path.parent.name.find('.gdb') > -1:
+                gdb_path = str(requested_path.parent.parent)
+                gdb_name = str(requested_path.parent.name)
+                log.debug(f"gdb_path: {gdb_path} with name: {gdb_name}")
+                if not arcpy.Exists(str(requested_path)):
+                    create_gdb_flag = True
+                    # create_fd_flag = False
+                else:
+                    create_gdb_flag = False
+                    # create_fd_flag = False
+            elif requested_path.parent.parent.name.find('.gdb') > -1:
+                gdb_path = str(requested_path.parent.parent.parent)
+                gdb_name = str(requested_path.parent.parent.name)
+                fd_name = str(requested_path.parent.name)
+                log.debug(f"gdb_path: {gdb_path} with name: {gdb_name} and fd: {fd_name}")
+                if not arcpy.Exists(str(requested_path)):
+                    create_gdb_flag = True
+                    # create_fd_flag = True
+                else:
+                    create_gdb_flag = False
+                    # create_fd_flag = False
             else:
-                create_gdb_flag = False
-                # create_fd_flag = False
-        elif requested_path.parent.parent.name.find('.gdb') > -1:
-            gdb_path = str(requested_path.parent.parent.parent)
-            gdb_name = str(requested_path.parent.parent.name)
-            fd_name = str(requested_path.parent.name)
-            log.debug(f"gdb_path: {gdb_path} with name: {gdb_name} and fd: {fd_name}")
-            if not arcpy.Exists(gdb_path):
-                create_gdb_flag = True
-                # create_fd_flag = True
-            else:
-                create_gdb_flag = False
-                # create_fd_flag = False
-        else:
-            log.warning('Unanticipated GDB location, unable to proceed')
+                log.warning('Unanticipated GDB location, unable to proceed')
+                sys.exit(1000)
+            if create_gdb_flag:
+                log.debug(f"making gdb: {gdb_path} with name: {gdb_name}")
+                gdb_result = arcpy.CreateFileGDB_management(gdb_path, gdb_name)
+            # if create_fd_flag:
+                # FDSet = arcpy.CreateFeatureDataset_management(sgdb, "Lidar_pts", srOut)
+            #     log.debug(f"no need to create: {gdb_path}")
+        elif requested_location.find('.sde') > -1:
+            log.warning('Unanticipated SDE location, unable to proceed')
             sys.exit(1000)
-        if create_gdb_flag:
-            log.debug(f"making gdb: {gdb_path} with name: {gdb_name}")
-            gdb_result = arcpy.CreateFileGDB_management(gdb_path, gdb_name)
-        # if create_fd_flag:
-            # FDSet = arcpy.CreateFeatureDataset_management(sgdb, "Lidar_pts", srOut)
-        #     log.debug(f"no need to create: {gdb_path}")
-    elif requested_location.find('.sde') > -1:
-        log.warning('Unanticipated SDE location, unable to proceed')
-        sys.exit(1000)
-    else:
-        log.warning(f"we don't do storage in {requested_location} yet!")
-        sys.exit(1000)
+        else:
+            log.warning(f"we don't do storage in {requested_location} yet!")
+            sys.exit(1000)
 
+    except:
+        print('handling as except')
+        # Get the traceback object
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+
+        # Concatenate information together concerning the error into a message string
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        # Return python error messages for use in script tool or Python Window
+        arcpy.AddError(pymsg)
+        # Print Python error messages for use in Python / Python Window
+        print(pymsg + "\n")
+        if log is not None:
+            log.warning(pymsg)
+
+        if arcpy.GetMessages(2) not in pymsg:
+            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+            arcpy.AddError(msgs)
+            print(msgs)
+            if log is not None:
+                log.warning(msgs)
 
 def CreateInitialWs(inDEM):
         fd_tmp = FlowDirection(inDEM)
