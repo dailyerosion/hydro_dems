@@ -1516,29 +1516,29 @@ from pathlib import Path
 
 def create_needed_dirs_and_gdbs(requested_location, log):
     try:
-        requested_path = Path(requested_location)
+        requested_fc_or_file = Path(requested_location)
         #create names of outputs so we can see test if it's been run recently
         if requested_location.find('.gdb') == -1 and requested_location.find('sde') == -1:
             # output into a folder based file structure, create directores
-            if not os.path.isdir(requested_path.parent):
-                requested_path.parent.mkdir(parents=True, exist_ok=True)
+            if not os.path.isdir(requested_fc_or_file.parent):
+                requested_fc_or_file.parent.mkdir(parents=True, exist_ok=True)
         elif requested_location.find('.gdb') > -1:
-            if requested_path.parent.name.find('.gdb') > -1:
-                gdb_path = str(requested_path.parent.parent)
-                gdb_name = str(requested_path.parent.name)
+            if requested_fc_or_file.parent.name.find('.gdb') > -1:
+                gdb_path = str(requested_fc_or_file.parent.parent)
+                gdb_name = str(requested_fc_or_file.parent.name)
                 log.debug(f"gdb_path: {gdb_path} with name: {gdb_name}")
-                if not arcpy.Exists(str(requested_path)):
+                if not arcpy.Exists(str(requested_fc_or_file.parent)):
                     create_gdb_flag = True
                     # create_fd_flag = False
                 else:
                     create_gdb_flag = False
                     # create_fd_flag = False
-            elif requested_path.parent.parent.name.find('.gdb') > -1:
-                gdb_path = str(requested_path.parent.parent.parent)
-                gdb_name = str(requested_path.parent.parent.name)
-                fd_name = str(requested_path.parent.name)
+            elif requested_fc_or_file.parent.parent.name.find('.gdb') > -1:
+                gdb_path = str(requested_fc_or_file.parent.parent.parent)
+                gdb_name = str(requested_fc_or_file.parent.parent.name)
+                fd_name = str(requested_fc_or_file.parent.name)
                 log.debug(f"gdb_path: {gdb_path} with name: {gdb_name} and fd: {fd_name}")
-                if not arcpy.Exists(str(requested_path)):
+                if not arcpy.Exists(str(requested_fc_or_file.parent)):
                     create_gdb_flag = True
                     # create_fd_flag = True
                 else:
