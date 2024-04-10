@@ -1522,10 +1522,10 @@ def create_dirs_and_gdbs(requested_location, log):
         if not os.path.isdir(requested_path.parent):
             requested_path.parent.mkdir(parents=True, exist_ok=True)
     elif requested_location.find('.gdb') > -1:
-        if requested_path.parent.stem.find('.gdb') > -1:
+        if requested_path.parent.name.find('.gdb') > -1:
             gdb_path = requested_path.parent.stem
             gdb_name = requested_path.stem
-        elif requested_path.parent.parent.stem.find('.gdb') > -1:
+        elif requested_path.parent.parent.name.find('.gdb') > -1:
             gdb_path = requested_path.parent.parent.stem
             gdb_name = requested_path.parent.stem
         if not arcpy.Exists(gdb_path):
