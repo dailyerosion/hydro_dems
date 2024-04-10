@@ -1043,7 +1043,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
                 '\nLatest 3DEP Lidar Data: ' : collect_majority
                 }
 
-        if int1rMaxFile != "" and int1rMinFile != "" and beReturnsMin != "":
+        if int1rMaxFile != "" and int1rMinFile != "" and bareEarthReturnMinFile != "":
             log.warning('---Creating FR Max Intensity at ' + time.asctime())
             recode_tf = False
             log.debug(f'ir.max: {internal_regions.maximum},ir.min: {internal_regions.minimum}')
