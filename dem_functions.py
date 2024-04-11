@@ -1524,9 +1524,11 @@ def create_needed_dirs_and_gdbs(requested_location, log):
                 requested_fc_or_file.parent.mkdir(parents=True, exist_ok=True)
         elif requested_location.find('.gdb') > -1:
             if requested_fc_or_file.parent.name.find('.gdb') > -1:
-                gdb_path = str(requested_fc_or_file.parent.parent)
+                gdb_folder = str(requested_fc_or_file.parent.parent)
+                if not os.path.isdir(gdb_folder):
+                    requested_fc_or_file.parent.parent.mkdir(parents=True, exist_ok=True)
                 gdb_name = str(requested_fc_or_file.parent.name)
-                log.debug(f"gdb_path: {gdb_path} with name: {gdb_name}")
+                log.debug(f"gdb_folder: {gdb_folder} with name: {gdb_name}")
                 if not arcpy.Exists(str(requested_fc_or_file.parent)):
                     create_gdb_flag = True
                     # create_fd_flag = False
@@ -1534,10 +1536,12 @@ def create_needed_dirs_and_gdbs(requested_location, log):
                     create_gdb_flag = False
                     # create_fd_flag = False
             elif requested_fc_or_file.parent.parent.name.find('.gdb') > -1:
-                gdb_path = str(requested_fc_or_file.parent.parent.parent)
+                if not os.path.isdir(requested_fc_or_file.parent.parent.parent):
+                    requested_fc_or_file.parent.parent.parent.mkdir(parents=True, exist_ok=True)
+                gdb_folder = str(requested_fc_or_file.parent.parent.parent)
                 gdb_name = str(requested_fc_or_file.parent.parent.name)
                 fd_name = str(requested_fc_or_file.parent.name)
-                log.debug(f"gdb_path: {gdb_path} with name: {gdb_name} and fd: {fd_name}")
+                log.debug(f"gdb_folder: {gdb_folder} with name: {gdb_name} and fd: {fd_name}")
                 if not arcpy.Exists(str(requested_fc_or_file.parent)):
                     create_gdb_flag = True
                     # create_fd_flag = True
@@ -1548,11 +1552,11 @@ def create_needed_dirs_and_gdbs(requested_location, log):
                 log.warning('Unanticipated GDB location, unable to proceed')
                 sys.exit(1000)
             if create_gdb_flag:
-                log.debug(f"making gdb: {gdb_path} with name: {gdb_name}")
-                gdb_result = arcpy.CreateFileGDB_management(gdb_path, gdb_name)
+                log.debug(f"making gdb: {gdb_folder} with name: {gdb_name}")
+                gdb_result = arcpy.CreateFileGDB_management(gdb_folder, gdb_name)
             # if create_fd_flag:
                 # FDSet = arcpy.CreateFeatureDataset_management(sgdb, "Lidar_pts", srOut)
-            #     log.debug(f"no need to create: {gdb_path}")
+            #     log.debug(f"no need to create: {gdb_folder}")
         elif requested_location.find('.sde') > -1:
             log.warning('Unanticipated SDE location, unable to proceed')
             sys.exit(1000)
