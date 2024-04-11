@@ -1517,16 +1517,22 @@ from pathlib import Path
 def create_needed_dirs_and_gdbs(requested_location, log):
     try:
         requested_fc_or_file = Path(requested_location)
-        #create names of outputs so we can see test if it's been run recently
         if requested_location.find('.gdb') == -1 and requested_location.find('sde') == -1:
-            # output into a folder based file structure, create directores
-            if not os.path.isdir(requested_fc_or_file.parent):
-                requested_fc_or_file.parent.mkdir(parents=True, exist_ok=True)
+            if requested_fc_or_file.suffix == "":
+                if not requested_fc_or_file.exists():
+                # folder request, no file extension found (hopefully it's not an ESRI grid or other no-extension file)
+                    requested_fc_or_file.mkdir(parents=True, exist_ok=True)
+            else:
+                if not requested_fc_or_file.parent.exists():
+                # output into a folder based file structure, create directores
+                    requested_fc_or_file.parent.mkdir(parents=True, exist_ok=True)
         elif requested_location.find('.gdb') > -1:
             if requested_fc_or_file.parent.name.find('.gdb') > -1:
-                gdb_folder = str(requested_fc_or_file.parent.parent)
-                if not os.path.isdir(gdb_folder):
-                    requested_fc_or_file.parent.parent.mkdir(parents=True, exist_ok=True)
+                # assumed to be feature class/raster in FGDB
+                gdb_path = requested_fc_or_file.parent.parent
+                gdb_folder = str(gdb_path)
+                if not gdb_path.exists():
+                    gdb_path.mkdir(parents=True, exist_ok=True)
                 gdb_name = str(requested_fc_or_file.parent.name)
                 log.debug(f"gdb_folder: {gdb_folder} with name: {gdb_name}")
                 if not arcpy.Exists(str(requested_fc_or_file.parent)):
@@ -1536,9 +1542,11 @@ def create_needed_dirs_and_gdbs(requested_location, log):
                     create_gdb_flag = False
                     # create_fd_flag = False
             elif requested_fc_or_file.parent.parent.name.find('.gdb') > -1:
-                if not os.path.isdir(requested_fc_or_file.parent.parent.parent):
-                    requested_fc_or_file.parent.parent.parent.mkdir(parents=True, exist_ok=True)
-                gdb_folder = str(requested_fc_or_file.parent.parent.parent)
+                # assumed to be feature class/raster in FGDB in Feature Dataset
+                gdb_path = requested_fc_or_file.parent.parent.parent
+                gdb_folder = str(gdb_path)
+                if not gdb_path.exists():
+                    gdb_path.mkdir(parents=True, exist_ok=True)
                 gdb_name = str(requested_fc_or_file.parent.parent.name)
                 fd_name = str(requested_fc_or_file.parent.name)
                 log.debug(f"gdb_folder: {gdb_folder} with name: {gdb_name} and fd: {fd_name}")
