@@ -1842,7 +1842,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         arcpy.env.scratchWorkspace = sgdb
         arcpy.env.workspace = sgdb
 
-        flib_metadata_template, derivative_metadata = df.getMetadata(['flib', 'deriv'], procDir)
+        flib_metadata_template, derivative_metadata = df.getMetadata(['flib', 'deriv'], procDir, log)
 
         # for access to 7za.exe and LASTools
         # softwareDir = 'C:\\Software'

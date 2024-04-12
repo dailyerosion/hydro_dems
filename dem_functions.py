@@ -2469,14 +2469,14 @@ def cleanupOther(procDir, log = None, sgdb = None, inm = None):
 
     del root, listDirs, listFiles
 
-def getMetadata(md_list, procdir):
-    dem_url = 'https://raw.githubusercontent.com/bkgelder/hydro_dems/dev'
+def getMetadata(md_list, procdir, log):
+    dem_url = 'https://raw.githubusercontent.com/bkgelder/hydro_dems/main/toolMetadata'
     web_md_dict = {
-    "clib_metadata" : opj(dem_url, 'CLib_DEMs2022_mTemplate.xml'),
-    "flib_metadata" : opj(dem_url, 'FLib_DEMs2022_mTemplate.xml'),
-    "plib_metadata" : opj(dem_url, 'PLib_DEMs2022_mTemplate.xml'),
-    "vlib_metadata" : opj(dem_url, 'VLib_DEMs2022_mTemplate.xml'),
-    "derivative_metadata" : opj(dem_url, 'FLib_Derivatives2022_mTemplate.xml')}
+    "clib_metadata" : '/'.join([dem_url, 'CLib_DEMs2022_mTemplate.xml']),
+    "flib_metadata" : '/'.join([dem_url, 'FLib_DEMs2022_mTemplate.xml']),
+    "plib_metadata" : '/'.join([dem_url, 'PLib_DEMs2022_mTemplate.xml']),
+    "vlib_metadata" : '/'.join([dem_url, 'VLib_DEMs2022_mTemplate.xml']),
+    "derivative_metadata" : '/'.join([dem_url, 'FLib_Derivatives2022_mTemplate.xml'])}
 
     local_md_dict = {
     "clib_metadata" : opj(procdir, 'CLib_DEMs2022_mTemplate.xml'),
@@ -2501,7 +2501,7 @@ def getMetadata(md_list, procdir):
 
         r = requests.get(request_details[0])
         if r.status_code == 404:
-            print(f"bad request: {request_details[0]}")
+            log(f"bad request: {request_details[0]}")
         filename = request_details[1]
         f = open(filename,'wb')
         f.write(r.content)
