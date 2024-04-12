@@ -513,9 +513,11 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         "holesFile" : os.path.join(holesDir, huc8, 'holes' + str(cellSize) + 'm' + huc12 + '.tif'),
 
         # bare earth return count file
-        "cntFile" : os.path.join(countDir, huc8, 'cbe' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "cntBeFile" : os.path.join(countDir, huc8, 'cbe' + str(cellSize) + 'm' + huc12 + '.tif'),
         # first return count file
         "cnt1rFile" : os.path.join(countDir, huc8, 'cfr' + str(cellSize) + 'm' + huc12 + '.tif'),
+        # pulse count file
+        "cntPlsFile" : os.path.join(countDir, huc8, 'cpls' + str(cellSize) + 'm' + huc12 + '.tif'),
 
         # first return min intensity file
         "int1rMinFile" : os.path.join(intDir, huc8, 'fr_int_min' + str(cellSize) + 'm' + huc12 + '.tif'),
@@ -922,7 +924,7 @@ def setupLoggingNoCh(node, scriptName, huc12 = '000000000000', version = ''):
     log.setLevel(logging.DEBUG)
 
     # create formatter and add it to the handlers
-    formatter = logging.Formatter('%(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(levelname)s - %(asctime)s - %(message)s')
 
     nowYmd = datetime.datetime.strftime(datetime.datetime.now(), '%Y_%m_%d_%H_%M_%S')
     logsDir = defineLocalProc(node)
@@ -974,7 +976,7 @@ def setupLoggingNew(node, scriptName, huc12 = '000000000000', version = ''):
     log.setLevel(logging.DEBUG)
 
     # create formatter and add it to the handlers
-    formatter = logging.Formatter('%(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(levelname)s - %(asctime)s - %(message)s')
     ##formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     nowYmd = datetime.datetime.strftime(datetime.datetime.now(), '%Y_%m_%d_%H_%M_%S')
