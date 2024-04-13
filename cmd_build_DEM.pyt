@@ -1827,7 +1827,10 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
          procDir, snap, breakpolys, breaklines, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, cleanup, messages):
 
-    arguments = locals()
+    arguments = [monthly_wesm_ept_mashup, dem_polygon, 
+        pdal_exe, gsds, fElevFile, 
+        procDir, snap, breakpolys, breaklines, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+        int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, cleanup]
 
     for a in arguments:
         if a == arguments[0]:
