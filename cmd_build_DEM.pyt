@@ -18,6 +18,7 @@ import platform
 import glob
 import traceback
 from os.path import join as opj
+from pathlib import Path
 
 sys.path.append("C:\\DEP\\Scripts\\basics")
 
@@ -258,7 +259,7 @@ def processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom, ept_las, srOut, inm
     try:
         ept_las_base = os.path.splitext(os.path.basename(ept_las))[0]
         sfx = arcpy.ValidateTableName('_' + ept_las_base, sgdb)
-        log.debug('lidar file suffix is: ' + sfx + ' at ' + time.asctime())
+        log.debug('lidar file suffix is: ' + sfx)
 
         # put in las or zlas format
 
@@ -276,10 +277,10 @@ def processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom, ept_las, srOut, inm
         log.debug(f'ExtractLas arguments are {allLasd}, {fixedFolder}, name_suffix = {nameSfx}, rearrange_points = {"MAINTAIN_POINTS"}, out_las_dataset = {opj(fixedFolder, "fixed" + sfx + ".lasd")}')
         if work_id < 0:
             tileGeomBuffer5 = geom.buffer(5) #tile Geometry column
-            log.debug('--- Use ExtractLas, boundary option, at ' + time.asctime())
+            log.debug('--- Use ExtractLas, boundary option,')
             fixedLasd = arcpy.ExtractLas_3d(allLasd, fixedFolder, name_suffix = nameSfx, rearrange_points = "MAINTAIN_POINTS", out_las_dataset = opj(fixedFolder, 'fixed' + sfx + '.lasd'), boundary = tileGeomBuffer5)
         else:
-            log.debug('--- Use ExtractLas, no boundary option, at ' + time.asctime())
+            log.debug('--- Use ExtractLas, no boundary option,')
             fixedLasd = arcpy.ExtractLas_3d(allLasd, fixedFolder, name_suffix = nameSfx, rearrange_points = "MAINTAIN_POINTS", out_las_dataset = opj(fixedFolder, 'fixed' + sfx + '.lasd'))#, boundary = tileGeomBuffer5)
         log.debug(fixedLasd.getMessages())
         fixedLasdDescDa = arcpy.da.Describe(fixedLasd)
@@ -301,16 +302,16 @@ def processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom, ept_las, srOut, inm
                 """Filters LAS points to class 2 and creates multipoints in FDSet"""
                 lasBase = os.path.splitext(os.path.basename(allLAZ))[0]
                 if allLAZ.endswith('.laz'):
-                    log.debug('--- Using ConvertLas to decompress LAZ at ' + time.asctime())
+                    log.debug('--- Using ConvertLas to decompress LAZ')
                     las_from_laz = arcpy.ConvertLas_conversion(allLAZ, target_folder=procDir, compression=None, las_options=None)
                 else:
                     las_from_laz = allLAZ
 
-                log.debug('--- Create las non-Minnesota Multipoint at ' + time.asctime())
+                log.debug('--- Create las non-Minnesota Multipoint')
                 lasMP = arcpy.LASToMultipoint_3d(las_from_laz, inm + "\\pts" + sfx, "1", class_code = [2,8], input_coordinate_system = srOut)
 
             elif allLAZ.endswith('.zlas'):
-                log.debug('--- Create zlas non-Minnesota Multipoint at ' + time.asctime())
+                log.debug('--- Create zlas non-Minnesota Multipoint')
                 lasMP = arcpy.LASToMultipoint_3d(allLAZ, inm + "\\pts" + sfx, "1", class_code = [2,8], input_coordinate_system = srOut)
                 las_from_laz = allLAZ
 
@@ -493,7 +494,7 @@ def createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, 
     try:
         maskRastOut = opj(sgdb, maskRastBase + str(demList[0]))
 
-        log.warning('---Counting Bare Earth Returns for ' + str(demList[0]) + ' at ' + time.asctime())
+        log.debug('---Counting Bare Earth Returns for ' + str(demList[0]))
         terrCountName = arcpy.ValidateTableName("cnt" + str(demList[0]) + "m_fl_" + huc12, sgdb)
         terrCount = arcpy.PointToRaster_conversion(finalMPinm, arcpy.Describe(finalMP).OIDFieldName, os.path.join(sgdb, terrCountName), "COUNT", "NONE", str(demList[0]))
         cntBeFileRasterObj = clipCountRaster(terrCount, maskRastOut, cntBeFile)
@@ -584,7 +585,7 @@ def createRastersFromTerrains(log, demList, procDir, terrains, huc12):
         dem_cellSize = demList[0]
         arcpy.env.cellSize = dem_cellSize
         for terrain in terrains:
-            log.warning('---Creating Raster from Terrain for ' + str(demList[0]) + ' using ' + terrain.getInput(6) + ' at ' + time.asctime())
+            log.debug('---Creating Raster from Terrain for ' + str(demList[0]) + ' using ' + terrain.getInput(6))
             tempTerrName = generateTempTerrName(procDir, terrain.getInput(6), dem_cellSize, huc12)
             pfFileTemp = os.path.join(procDir, '_'.join(['tmp_ter', terrain.getInput(6), str(demList[0]) + 'm', huc12, 'out.tif']))
             demOut = arcpy.TerrainToRaster_3d(terrain, pfFileTemp, "FLOAT", interpTechnique, "CELLSIZE " + str(demList[0]), pyramidLevel)
@@ -649,7 +650,7 @@ def setupLasDataset(lasIn, mask, procDir, breakpolys, breaklines, counterId, bad
         else:
             surfcons += str(mask) + " <None> Hard_Clip"
         log.info(f'surfcons are: {surfcons} at {time.asctime()}')
-##        log.warning('surfcons are ' + surfcons)
+##        log.debug('surfcons are ' + surfcons)
         lasd = arcpy.CreateLasDataset_management(lasIn, os.path.join(procDir, 'huc_cl2' + counterId + '.lasd'), in_surface_constraints = surfcons, spatial_reference = proj)
 
         return lasd
@@ -723,7 +724,7 @@ def projIfNeeded(input2, output, srOut):
     srInput = arcpy.Describe(input2).spatialReference#maybe use projectionCode?
     try:
         if srInput.PCSCode != srOut.PCSCode:
-    ##        log.warning('projecting ' + str(input2))
+    ##        log.debug('projecting ' + str(input2))
             projInput = arcpy.Project_management(input2, output, srOut)
         else:
             projInput = arcpy.CopyFeatures_management(input2, output)
@@ -772,9 +773,9 @@ def genClass2AndMultiPoints(allLAZ, sfx, srOut, inm, FDSet, procDir, log):
         ## Filter LAS to class 2 and 8 (key points), LAS 1.4 now has class 8 as reserved
             # LASTools requires " around file names with spaces, ' not allowed, (Windows Command Line too?)
             # Use pdal for this? https://pdal.io/en/stable/apps/translate.html#example-1
-            # log.debug('--- Use las2las at ' + time.asctime())
+            # log.debug('--- Use las2las')
             if allLAZ.endswith('.laz'):
-                log.debug('--- Using ConvertLas to decompress LAZ at ' + time.asctime())
+                log.debug('--- Using ConvertLas to decompress LAZ')
                 las_from_laz = arcpy.ConvertLas_conversion(allLAZ, target_folder=procDir, compression=None, las_options=None)
             else:
                 las_from_laz = allLAZ
@@ -784,7 +785,7 @@ def genClass2AndMultiPoints(allLAZ, sfx, srOut, inm, FDSet, procDir, log):
             #     log.warning('las2las did not create class 2 points file: ' + cl2LAS)
             #     lasMP = None
             # elif rc == 0:
-            log.debug('--- Create las non-Minnesota Multipoint at ' + time.asctime())
+            log.debug('--- Create las non-Minnesota Multipoint')
             lasMP = arcpy.LASToMultipoint_3d(cl2LAS, inm + "\\pts" + sfx, "1", class_code = [2,8], input_coordinate_system = srOut)
             # else:
                 # log.warning('las2las did not execute successfully')
@@ -792,7 +793,7 @@ def genClass2AndMultiPoints(allLAZ, sfx, srOut, inm, FDSet, procDir, log):
         ##        os.remove(cl2LAS)
 
         elif allLAZ.endswith('.zlas'):
-            log.debug('--- Create zlas non-Minnesota Multipoint at ' + time.asctime())
+            log.debug('--- Create zlas non-Minnesota Multipoint')
             lasMP = arcpy.LASToMultipoint_3d(allLAZ, inm + "\\pts" + sfx, "1", class_code = [2,8], input_coordinate_system = srOut)
 
         if lasMP:#allLAZ.endswith('.laz') and os.path.isfile(cl2LAS) or allLAZ.endswith('.zlas'):
@@ -864,32 +865,6 @@ def buildSelection(inList, field):
             sel += ' OR ' + field + ' = ' + str(item)
     return sel
 
-##def convertDEMunitsIfNeeded(srVCS, coDEM):
-def convertDEMunitsIfNeeded(srVCS, coDEM, state, log):
-    '''convert units, but not to centimeters'''
-    log.warning('coDEM is: ' + coDEM)
-    if srVCS is not None:
-        log.warning('srVCS: ' + str(srVCS.factoryCode) + ', ' + str(srVCS.name) + ', ' + srVCS.linearUnitName)
-        unitsLower = srVCS.linearUnitName.lower()
-        if 'foot' in unitsLower or 'feet' in unitsLower:
-            log.warning('Converting DEM')# at ' + str(time.clock()))
-            if 'survey' in unitsLower and 'foot' in unitsLower:
-                regionDEM = Raster(coDEM)* 1200.0/3937.0
-            elif 'foot' in unitsLower or 'feet' in unitsLower:
-                regionDEM = Raster(coDEM)*0.3048
-        elif 'meter' in unitsLower:
-            regionDEM = Raster(coDEM)
-
-    elif state == 'Illinois' or state == 'Wisconsin':
-        log.warning('srVCS is None for ' + coDEM)
-        # assume data in feet
-        regionDEM = Raster(coDEM)*0.3048
-    elif state == 'Missouri':
-        log.warning('srVCS is None for ' + coDEM)
-        # assume data in meters
-        regionDEM = Raster(coDEM)
-
-    return regionDEM
 
 def setupPointsAndBreaklines(finalMP, inm, FDSet, breakpolys, breaklines, log):
     try:
@@ -939,19 +914,19 @@ def setupPointsAndBreaklines(finalMP, inm, FDSet, breakpolys, breaklines, log):
         #         os.makedirs(os.path.dirname(breakGdb))
         #     breakGdbResult = arcpy.CreateFileGDB_management(os.path.dirname(breakGdb), os.path.basename(breakGdb))
 
-        log.warning(f'breakpolyList: {breakpolyList}')
+        log.debug(f'breakpolyList: {breakpolyList}')
         if len(breakpolyList) > 0:
             # mergedBreakpolys = arcpy.Merge_management(breakpolyList, os.path.join(breakGdb, 'break_polys_' + huc12))
             mergedBreakpolys = arcpy.Merge_management(breakpolyList, breakpolys)
 
         hlList = arcpy.ListFeatureClasses('hl_*', feature_type = 'POLYLINE', feature_dataset = os.path.basename(fd_string))
-        log.warning(f'hlList: {hlList}')
+        log.debug(f'hlList: {hlList}')
         if len(hlList) > 0:
             finalHl = arcpy.Merge_management(hlList, os.path.join(str(FDSet), 'hl_merge'))
 
             copiedBreaklines = arcpy.CopyFeatures_management(finalHl, breaklines)
             # copiedBreaklines = arcpy.CopyFeatures_management(finalHl, os.path.join(breakGdb, 'break_lines_' + huc12))
-            log.warning(f'copiedBreaklines: {copiedBreaklines}')
+            log.debug(f'copiedBreaklines: {copiedBreaklines}')
         else:
             finalHl = None
 
@@ -1001,16 +976,20 @@ def errorhandle(sei, arcpy, traceback):
 
 #     return tcdFdSet
 
-def updateResolution(filename, init_res, new_res, huc12, log):
+def updateResolution(filepath, init_res, new_res, huc12, log):
     """Take a filename with a specified resolution and alter it to the current processing resolution.
     This is done to reduce the number of arguments that are passed to the program."""
     # try:
     if init_res != new_res:
-        updated_filename = filename.replace(str(init_res) + 'm' + huc12, str(new_res) + 'm' + huc12)
-        log.debug(f"filename was: {filename}; updated filename: {updated_filename}")
+        filename_path = Path(filepath)
+        updated_filename = str(filename_path.name).replace(str(init_res) + 'm', str(new_res) + 'm')
+        updated_filepath = str(filename_path.parent.joinpath(updated_filename))
+
+        # updated_filename = filename.replace(str(init_res) + 'm' + huc12, str(new_res) + 'm' + huc12)
+        log.debug(f"filename was: {filepath}; updated filename: {updated_filepath}")
     else:
-        updated_filename = filename
-    return updated_filename
+        updated_filepath = filepath
+    return updated_filepath
     # except:
 
 
@@ -1041,7 +1020,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
                 }
 
         if int1rMaxFile is not None and int1rMinFile is not None and bareEarthReturnMinFile is not None:
-            log.warning('---Creating FR Max Intensity at ' + time.asctime())
+            log.debug('---Creating FR Max Intensity')
             recode_tf = False
             log.debug(f'ir.max: {internal_regions.maximum},ir.min: {internal_regions.minimum}')
             int1rMaxFile_sized = updateResolution(int1rMaxFile, named_cell_size, demList[0], huc12, log)
@@ -1068,7 +1047,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
 
             addMetadata(int1rMaxFile_sized, paraDict, derivative_metadata, log)
 
-            log.warning('---Creating FR Min Intensity at ' + time.asctime())
+            log.debug('---Creating FR Min Intensity')
             int1rMinFile_sized = updateResolution(int1rMinFile, named_cell_size, demList[0], huc12, log)
             if recode_tf:
                 int1rMinFile_sized_temp = opj(os.path.dirname(int1rMinFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
@@ -1093,7 +1072,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
             addMetadata(intBeMaxFile_sized, paraDict, derivative_metadata, log)
 
         if surfaceElevFile is not None:
-            log.warning('---Creating FR Max surface at ' + time.asctime())
+            log.debug('---Creating FR Max surface')
             frMaxFile_sized = updateResolution(surfaceElevFile, named_cell_size, demList[0], huc12, log)
             allReturnsMaxTempFile = os.path.join(procDir, '_'.join(['tmp_frmax', str(demList[0]) + 'm', huc12, 'out.tif']))
             allReturnsMax = arcpy.LasDatasetToRaster_conversion(lasdAll, allReturnsMaxTempFile, interpolation_type = 'BINNING MAXIMUM SIMPLE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'FLOAT')
@@ -1101,14 +1080,14 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
             allReturnsMaxCm.save(frMaxFile_sized)#locDict['surfaceElevFile'])#allReturnsMaxFile)
             addMetadata(frMaxFile_sized, paraDict, derivative_metadata, log)
 
-        # log.warning('---Creating FR Min surface at ' + time.asctime())
+        # log.debug('---Creating FR Min surface')
         # allReturnsMinTempFile = os.path.join(procDir, '_'.join(['tmp_frmin', str(demList[0]) + 'm', huc12, 'out.tif']))
         # allReturnsMin = arcpy.LasDatasetToRaster_conversion(lasdAll, allReturnsMinTempFile, interpolation_type = 'BINNING MINIMUM SIMPLE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'FLOAT')
         # allReturnsMinCm = Int(Times(allReturnsMin, 100))
         # allReturnsMinCm.save(frMinFile_sized)#locDict['firstReturnMinFile'])#allReturnsMinFile)
 
         if cnt1rFile is not None:
-            log.warning('---Counting All Returns at ' + time.asctime())
+            log.debug('---Counting All Returns')
             cnt1rFile_sized = updateResolution(cnt1rFile, named_cell_size, demList[0], huc12, log)
             cfrFileTemp = 'cnt_fr_' + str(demList[0]) + "m_" + huc12 + srSfx + '.tif'
             lasdCount = arcpy.LasPointStatsAsRaster_management(lasdAll, os.path.join(procDir, cfrFileTemp), 'POINT_COUNT', 'CELLSIZE', demList[0])
@@ -1116,14 +1095,14 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
             addMetadata(cnt1rFile_sized, paraDict, derivative_metadata, log)
 
         if cntPlsFile is not None:
-            log.warning('---Counting All Returns at ' + time.asctime())
+            log.debug('---Counting All Returns')
             cntPlsFile_sized = updateResolution(cntPlsFile, named_cell_size, demList[0], huc12, log)
             cntPlsFileTemp = 'cnt_pls_' + str(demList[0]) + "m_" + huc12 + srSfx + '.tif'
             lasdCount = arcpy.LasPointStatsAsRaster_management(lasdAll, os.path.join(procDir, cntPlsFileTemp), 'POINT_COUNT', 'CELLSIZE', demList[0])
             cntPlsFileRasterObj = clipCountRaster(lasdCount, maskRastOut, cntPlsFile_sized)
             addMetadata(cntPlsFile_sized, paraDict, derivative_metadata, log)
 
-        # log.warning('---Counting Z Range at ' + time.asctime())
+        # log.debug('---Counting Z Range')
         # zrangeFileTemp = 'zrng_all_' + str(demList[0]) + "m_" + huc12 + srSfx + '.tif'
         # lasdCount = arcpy.LasPointStatsAsRaster_management(lasdAll, os.path.join(procDir, zrangeFileTemp), 'Z_RANGE', 'CELLSIZE', demList[0])
 
@@ -1132,22 +1111,22 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
         #     lastLayer = arcpy.MakeLasDatasetLayer_management(lasdGround, 'last_layer', return_values = 'Last Return')
         # else:
         #     lastLayer = arcpy.MakeLasDatasetLayer_management(lasdGround, 'last_layer', return_values = 'LAST')
-        # log.warning('---Creating BE Max Intensity at ' + time.asctime())
+        # log.debug('---Creating BE Max Intensity')
         # # minimum be seems to be a little less 'noisy' than maximum
         # lasdBeMaxIntensity = arcpy.LasDatasetToRaster_conversion(lastLayer, intBeMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
 
-        # log.warning('---Creating BE Min Intensity at ' + time.asctime())
+        # log.debug('---Creating BE Min Intensity')
         # # minimum be seems to be a little less 'noisy' than maximum
         # lasdBeMinIntensity = arcpy.LasDatasetToRaster_conversion(lastLayer, intBeMinFile_sized, 'INTENSITY', 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
 
-        # log.warning('---Creating LR Min surface at ' + time.asctime())
+        # log.debug('---Creating LR Min surface')
         # lastReturnsMinTempFile = os.path.join(procDir, '_'.join(['tmp_lrmin', str(demList[0]) + 'm', huc12, 'out.tif']))
         # lastReturnsMin = arcpy.LasDatasetToRaster_conversion(lastLayer, lastReturnsMinTempFile, interpolation_type = 'BINNING MINIMUM SIMPLE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'FLOAT')
         # lastReturnsMinCm = Int(Times(lastReturnsMin, 100))
         # lastReturnsMinCm.save(lastReturnMinFile_sized)#locDict['lastReturnMinFile'])#.replace('fr', 'lr'))
 
         if bareEarthReturnMinFile is not None:
-            log.warning('---Creating LR Min surface at ' + time.asctime())
+            log.debug('---Creating LR Min surface')
             bareEarthReturnMinFile_sized = updateResolution(bareEarthReturnMinFile, named_cell_size, demList[0], huc12, log)
             if sys.version_info.minor < 9:
                 beLayer = arcpy.MakeLasDatasetLayer_management(lasdGround, 'ground_layer', [2,8], 'Last Return')
@@ -1163,9 +1142,9 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
 ##        # my current favorites  - minmax mild 18 terrain, binning min simple (almost too detailed),
 ##        interps = ['BINNING MINIMUM SIMPLE', 'BINNING AVERAGE SIMPLE', 'BINNING IDW SIMPLE', 'TRIANGULATION NATURAL_NEIGHBOR WINDOW_SIZE MINIMUM ' + str(demList[0]), 'TRIANGULATION LINEAR WINDOW_SIZE MINIMUM ' + str(demList[0]), 'TRIANGULATION NATURAL_NEIGHBOR WINDOW_SIZE CLOSEST_TO_MEAN ' + str(demList[0]), 'TRIANGULATION LINEAR WINDOW_SIZE CLOSEST_TO_MEAN ' + str(demList[0])]
 ##
-##        log.warning('---Creating extra LR Min surfaces at ' + time.asctime())
+##        log.debug('---Creating extra LR Min surfaces')
 ##        for interp in interps:
-##            log.warning('interp is ' + str(interp))
+##            log.debug('interp is ' + str(interp))
 ######        interp = 'BINNING MINIMUM SIMPLE'
 ##            if interp[:3] == 'BIN':
 ##                selection = interp.split()[1][:3]
@@ -1242,7 +1221,7 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procD
         maskRastOut = opj(sgdb, maskRastBase + str(demList[0]))
 
         noLASdem = demList[1:]#[]
-        log.warning('noLASdem (if present) is: ' + str(noLASdem))
+        log.debug('noLASdem (if present) is: ' + str(noLASdem))
 
         # windows are types of terrain (ZMEAN, ZMINMAX, etc.)
         if len(windows):
@@ -1272,7 +1251,7 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procD
                 #     if True:#len(mosaicList) > 1:
                 #         log.debug('resampling method for mosaic to new raster: ' + arcpy.env.resamplingMethod)
                 #         log.debug('cellsize for mosaic to new raster: ' + arcpy.env.cellSize)
-                #         log.warning('---Mosaicing DEMs for ' + str(demList[0]) + ' at ' + time.asctime())
+                #         log.debug('---Mosaicing DEMs for ' + str(demList[0]) + ')
                 #         mosDEM = arcpy.MosaicToNewRaster_management(mosaicList, procDir, 'mos_' + str(demList[0]) + 'm_' + huc12 + '.tif', number_of_bands = '1', pixel_type = '32_BIT_FLOAT', mosaic_method = 'MINIMUM')
                 #         maskedDEM = Con(Plus(maskRastOut, 2), mosDEM)
                 #         maskedDEMintPre = Int(maskedDEM*100)
@@ -1287,7 +1266,7 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procD
                 #     else:
                 #         log.debug('resampling method for Resample: ' + arcpy.env.resamplingMethod)
                 #         log.debug('cellsize for resample: ' + arcpy.env.cellSize)
-                #         log.warning('---Resampling DEMs for ' + str(demList[0]) + ' at ' + time.asctime())
+                #         log.debug('---Resampling DEMs for ' + str(demList[0]) + ')
                 #         mosDEM = arcpy.Resample_management(mosaicList[0], os.path.join(procDir, 'mos_' + str(demList[0]) + 'm_' + huc12 + '.tif'), cell_size = arcpy.env.cellSize, resampling_type = arcpy.env.resamplingMethod)
                 #         maskedDEM = Con(Plus(maskRastOut, 2), mosDEM)
                 #         maskedDEMintPre = Int(maskedDEM*100)
@@ -1309,14 +1288,14 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procD
                 arcpy.env.outputCoordinateSystem = None
                 arcpy.env.outputCoordinateSystem = srOutNoVCS
 
-                log.warning('msk_dem to be saved now')
+                log.debug('msk_dem to be saved now')
                 maskedDEMint.save('msk_dem_' + str(demList[0]) + 'm_' + huc12 + '.tif')
 
 
                 cmDEMnocs, cmDEMsinks = fillOCSinks(maskedDEMint)
-                log.warning('pfFile name will be ' + fElevFile_interp)#paths['fElevFile'])
+                log.debug('pfFile name will be ' + fElevFile_interp)#paths['fElevFile'])
                 cmDEMnocs.save(fElevFile_interp)#paths['fElevFile'])
-                log.warning('Saved DEM for ' + str(demList[0]))# + ' at ' + str(time.clock()))
+                log.debug('Saved DEM for ' + str(demList[0]))# + ' at ' + str(time.clock()))
                 arcpy.BuildPyramids_management(cmDEMnocs)
 
                 terrain_args, nowYmd, collect_starts_min, collect_ends_max, collect_majority, pyramid_args = [i for i in lidar_metadata_info]
@@ -1338,7 +1317,7 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procD
                     }
 
                 ## update metadata
-                log.warning('---Adding metadata at ' + time.asctime())
+                log.debug('---Adding metadata')
                 addMetadata(fElevFile_interp, paraDict, dem_metadata_template, log)
 
     except Exception as e:
@@ -2061,7 +2040,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                     log.debug(f"cl2_tiles_list: {cl2_tiles_list}")
                     # assume lidar data in same spatial reference as output, ExtractLAS should handle that
                     lasdGround = setupLasDataset(cl2_tiles_list, tcdFdSet, procDir, None, None, srSfx, None, log, time, arcpy.SpatialReference(int(srOutCode)))
-                    log.info('finished setting up las dataset at ' + time.asctime())
+                    log.info('finished setting up las dataset')
 
                     collect_ends_max, collect_starts_min, collect_majority = getLidarTimeframes(merged_copy)#, tilesClip_local)
 
@@ -2090,7 +2069,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                     # template_interp = derivative_metadata
 
                     # ## update metadata
-                    # log.warning('---Adding metadata at ' + time.asctime())
+                    # log.debug('---Adding metadata')
                     # addMetadata(overlapMaxIntensity.getOutput(0), paraDict, template_interp, log)
 
                     # try:
