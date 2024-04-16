@@ -367,7 +367,7 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
     version - identification string to code things uniquely for testing
     '''
 
-    assert len(huc12) == 12, 'HUC12 code too short'
+    assert len(huc12) >= 10, 'HUC12 code too short'
     assert 4 <= len(outEPSG) <= 5, 'coordinate system EPSG should be 4 or 5 characters'
     assert type(cellSize) == type(1), 'cellSize should be integer'
 
