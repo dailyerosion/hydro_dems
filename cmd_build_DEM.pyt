@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Creates DEMs and derivatives (return counts, intensity) from lidar datasets
 available via the Entwine Point cloud format for a given polygon (usually 
-buffered HUC12 watershed boundary). Uses a previous created merge of
+buffered HUC12 watershed boundary). Uses a previously created merge of
 the USGS WESM data and the EPT GeoJSON dataset to locate the AWS bucket for each
 project, then joins multiple projects and creates a lidar DEM and derivatives
 at one or multiple resolutions. Also creates a feature class of lidar datasets
@@ -2146,58 +2146,58 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
 
 
-if __name__ == "__main__":
-    import sys
+# if __name__ == "__main__":
+#     import sys
 
 
-    if len(sys.argv) == 1:
-        #Paste arguments into here for use within Python Window
-        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-        cleanup = False
+#     if len(sys.argv) == 1:
+#         #Paste arguments into here for use within Python Window
+#         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+#         cleanup = False
 
-        parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-	"C:/DEP/Scripts/basics/cmd_build_DEM.pyt",
-	"M:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2024_04_01",
-	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/buf_070801050901",
-	"C:/Users/bkgelder/Anaconda3/envs/pda_trial_2022_09_09/Library/bin/pdal.exe",
-	"3,2,1",
-	"M:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
-	"D:/DEP_Proc/DEMProc/LAS_dem2013_3m_070801050901",
-	"D:/DEP/Basedata_Summaries/Basedata_26915.gdb/Snap1m",
-	"",
-	"",
-	"M:/DEP/LiDAR_Current/surf_el_Lib/07080105/bemin3m070801050901.tif",
-	"M:/DEP/LiDAR_Current/surf_el_Lib/07080105/frmax3m070801050901.tif",
-	"M:/DEP/LiDAR_Current/count_Lib/07080105/cbe3m070801050901.tif",
-	"M:/DEP/LiDAR_Current/count_Lib/07080105/cfr3m070801050901.tif",
-	"M:/DEP/LiDAR_Current/count_Lib/07080105/cpls3m070801050901.tif",
-	"M:/DEP/LiDAR_Current/int_Lib/07080105/fr_int_min3m070801050901.tif",
-	"M:/DEP/LiDAR_Current/int_Lib/07080105/fr_int_max3m070801050901.tif",
-	"M:/DEP/LiDAR_Current/int_Lib/07080105/be_int_max3m070801050901.tif",
-	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/wesm_ept_resources_2024_04_01_070801050901"]
-        for i in parameters[2:]:
-            sys.argv.append(i)
+#         parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+# 	"C:/DEP/Scripts/basics/cmd_build_DEM.pyt",
+# 	"M:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2024_04_01",
+# 	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/buf_070801050901",
+# 	"C:/Users/bkgelder/Anaconda3/envs/pda_trial_2022_09_09/Library/bin/pdal.exe",
+# 	"3,2,1",
+# 	"M:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
+# 	"D:/DEP_Proc/DEMProc/LAS_dem2013_3m_070801050901",
+# 	"D:/DEP/Basedata_Summaries/Basedata_26915.gdb/Snap1m",
+# 	"",
+# 	"",
+# 	"M:/DEP/LiDAR_Current/surf_el_Lib/07080105/bemin3m070801050901.tif",
+# 	"M:/DEP/LiDAR_Current/surf_el_Lib/07080105/frmax3m070801050901.tif",
+# 	"M:/DEP/LiDAR_Current/count_Lib/07080105/cbe3m070801050901.tif",
+# 	"M:/DEP/LiDAR_Current/count_Lib/07080105/cfr3m070801050901.tif",
+# 	"M:/DEP/LiDAR_Current/count_Lib/07080105/cpls3m070801050901.tif",
+# 	"M:/DEP/LiDAR_Current/int_Lib/07080105/fr_int_min3m070801050901.tif",
+# 	"M:/DEP/LiDAR_Current/int_Lib/07080105/fr_int_max3m070801050901.tif",
+# 	"M:/DEP/LiDAR_Current/int_Lib/07080105/be_int_max3m070801050901.tif",
+# 	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/wesm_ept_resources_2024_04_01_070801050901"]
+#         for i in parameters[2:]:
+#             sys.argv.append(i)
 
-    else:
-        #For use via Windows Command Line
-        #above 'parameters' come in via command line arguments, nothing else needed
-        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-        # clean up the folder after done processing
-        cleanup = True
+#     else:
+#         #For use via Windows Command Line
+#         #above 'parameters' come in via command line arguments, nothing else needed
+#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+#         # clean up the folder after done processing
+#         cleanup = True
 
 
-    # inputs then outputs
-    (monthly_wesm_ept_mashup, dem_polygon, 
-         pdal_exe, gsds, fElevFile, 
-         procDir, snap, breakpolys, breaklines, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-         int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file
-        ) = [i for i in sys.argv[1:]]
+#     # inputs then outputs
+#     (monthly_wesm_ept_mashup, dem_polygon, 
+#          pdal_exe, gsds, fElevFile, 
+#          procDir, snap, breakpolys, breaklines, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+#          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file
+#         ) = [i for i in sys.argv[1:]]
 
-    messages = msgStub()
+#     messages = msgStub()
 
-    doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon, 
-         pdal_exe, gsds, fElevFile, 
-         procDir, snap, breakpolys, breaklines, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-         int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, cleanup, messages)#msgStub())
+#     doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon, 
+#          pdal_exe, gsds, fElevFile, 
+#          procDir, snap, breakpolys, breaklines, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+#          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, cleanup, messages)#msgStub())
 
-    # arcpy.AddMessage("Back from doEPT!")
+#     # arcpy.AddMessage("Back from doEPT!")

@@ -30,7 +30,7 @@ class Tool(object):
     def __init__(self):
         """Define the tool (tool name is the name of the class)."""
         self.label = "EPT_WESM_download"
-        self.description = "Creates a feature class to enable EPT downloads"
+        self.description = "Creates a feature class to enable EPT downloads by polygon"
         self.canRunInBackground = False
 
     def getParameterInfo(self):
@@ -107,7 +107,6 @@ def doEPT(ept_wesm_file, cleanup, messages):
 
         arcpy.env.overwriteOutput = True
 
-
         huc12 = 'XXXXXXXXXXXX'
         if cleanup:
             # log to file only
@@ -133,18 +132,18 @@ def doEPT(ept_wesm_file, cleanup, messages):
             os.makedirs(eptDir)
 
         #get geoJSON from https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson
-        now_ymd_string = nowYmd[:10]#ept_wesm_file[-10:]#datetime.datetime.today().replace(day=1)
+        now_ymd_string = nowYmd[:10]
         ept_first_of_month_name = "ept_resources_" + now_ymd_string
         ept_4269_first_of_month_name = "ept_resources_epsg4269_" + now_ymd_string
         wesm_first_of_month_name = "main_wesm_" + now_ymd_string
         requested_gdb = os.path.basename(os.path.dirname(ept_wesm_file))
-        ept_gdb_path = opj(eptDir, requested_gdb)#'ept.gdb')
+        ept_gdb_path = opj(eptDir, requested_gdb)
 
         if not arcpy.Exists(ept_gdb_path):
             log.debug(f"making ept gdb: {ept_gdb_path}")
             ept_gdb = arcpy.CreateFileGDB_management(os.path.dirname(ept_gdb_path), os.path.basename(ept_gdb_path))
 
-        arcpy.env.workspace = ept_gdb_path#'in_memory'
+        arcpy.env.workspace = ept_gdb_path
         ept_features_path = opj(ept_gdb_path, ept_first_of_month_name)
         ept_4269_features_path = opj(ept_gdb_path, ept_4269_first_of_month_name)
         if not arcpy.Exists(ept_features_path) or not arcpy.Exists(ept_wesm_file):
@@ -161,7 +160,7 @@ def doEPT(ept_wesm_file, cleanup, messages):
                 log.info('requesting wesm to ' + wesm_download_location)
                 download_file('https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/metadata/WESM.gpkg', wesm_download_location, log)
 ##                wesm_response = urllib.request.urlretrieve('https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/metadata/WESM.gpkg', wesm_download_location)
-                assert os.path.getsize(wesm_download_location) > 1000000000, "Check WESM download address, should be larger than 1 GB"
+                assert os.path.getsize(wesm_download_location) > 500000000, "Check WESM download address, should be larger than 500 MB"
 
             log.info('projecting WESM to EPSG 4269 (NAD83)')
             # do WESM first so map will be in epsg 4269 (NAD83)
@@ -201,21 +200,15 @@ def doEPT(ept_wesm_file, cleanup, messages):
                     if urow[3] == 'IA_FullState':
                         urow[2] = 'IA_STATEWIDE_2008'.lower()
                     elif urow[3] == 'MN_FullState':
-                        # just chose one of the IWI_REDRIVER collections to represent the state...
+                        # chose just one of the IWI_REDRIVER collections to represent the state...
                         urow[2] = '	IWI_REDRIVER_I_2009'.lower()
                     else:
                         urow[2] = urow[3].lower().replace('-', '_')
-                        # new = urow[3].lower().replace('-', '_')
                         if urow[3].startswith('USGS_LPC'):
                             # some names needed leading or trailing underscores stripped after this step to facilitate match with wesm
                             urow[4] = '_'.join(urow[2].split('_')[2:-2]).strip('_')
                             urow[5] = '_'.join(urow[2].split('_')[2:]).strip('_')
-                            # new1 = '_'.join(new.split('_')[2:-2]).strip('_')
-                            # new2 = '_'.join(new.split('_')[2:]).strip('_')
-                        # print(f"new1: {new1}, new2: {new2}")
                     ucur.updateRow(urow)
-            # #             #get WESM from https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/metadata/WESM.gpkg
-
 
             rslt1 = arcpy.management.JoinField(main_wesm_copy, workunit_lower_field, ept_features, name_lower_field, "id;count;url;opr_year")
             log.info(rslt1.getMessages())
@@ -240,7 +233,6 @@ def doEPT(ept_wesm_file, cleanup, messages):
             select_not_null4_copy = arcpy.management.CopyFeatures(select_not_null4, ept_wesm_file)#ept_features_path)#'wesm_copy')
 
             log.info('figure out Minnesota statewide data vagaries')
-            # srow_copy = arcpy.management.CopyFeatures(srow[1], 'srow_copy')
             mn_ept_neg_buffer = arcpy.analysis.Buffer(mn_ept_features, 'mn_neg_buffer', '-667 METERS')
             missing_mn = arcpy.analysis.Erase(mn_ept_neg_buffer, select_not_null4_copy)
 
@@ -253,7 +245,6 @@ def doEPT(ept_wesm_file, cleanup, messages):
             icur = arcpy.da.InsertCursor(select_not_null4_copy, ['OID@', 'SHAPE@'] + big_fields[2:-4] + ['workunit_id', 'collect_start'])
 
             # give the Minnesota data it's own fictitious workunit_id (and maybe date?)
-            # with arcpy.da.SearchCursor(mn_sj_data, ['OID@', 'SHAPE@'] + fields, "OBJECTID = 15") as mn_scur:
             with arcpy.da.SearchCursor(missing_mn_big, ['OID@', 'SHAPE@'] + big_fields[2:-4]) as mn_scur:
                 for srow in mn_scur:
                     print(srow[0:5])
@@ -286,26 +277,26 @@ def doEPT(ept_wesm_file, cleanup, messages):
     return
 
 
-if __name__ == "__main__":
-    import sys
+# if __name__ == "__main__":
+#     import sys
 
-    if len(sys.argv) == 1:
-        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-        cleanup = False
+#     if len(sys.argv) == 1:
+#         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+#         cleanup = False
 
-        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-    "C:/DEP/Scripts/basics/cmd_ept_wesm_processing.py",
-    "C:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_05_22"]
+#         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+#     "C:/DEP/Scripts/basics/cmd_ept_wesm_processing.py",
+#     "C:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_05_22"]
 
-        for i in parameters[2:]:
-            sys.argv.append(i)
-    else:
-        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-        # clean up the folder after done processing
-        cleanup = True
+#         for i in parameters[2:]:
+#             sys.argv.append(i)
+#     else:
+#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+#         # clean up the folder after done processing
+#         cleanup = True
 
-    # ept_wesm_file = "C:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_05_20"
-    ept_wesm_file = sys.argv[1]
-    doEPT(ept_wesm_file, cleanup, msgStub())
+#     # ept_wesm_file = "C:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_05_20"
+#     ept_wesm_file = sys.argv[1]
+#     doEPT(ept_wesm_file, cleanup, msgStub())
 
-    # arcpy.AddMessage("Back from doEPT!")
+#     # arcpy.AddMessage("Back from doEPT!")

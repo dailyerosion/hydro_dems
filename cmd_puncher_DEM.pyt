@@ -30,13 +30,12 @@ import os
 import traceback
 import time
 import platform
-# import getpass
-# import datetime as dt
 
+sys.path.append("C:\\DEP\\Scripts\\basics")
 import dem_functions as df
 
 from arcpy.sa import *
-# from arcpy import metadata as md
+
 from os.path import join as opj
 
 class Toolbox(object):

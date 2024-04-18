@@ -24,15 +24,14 @@ import sys
 import platform
 import winsound
 import math
-sys.path.append(os.getcwd())
-# sys.path.append('O:\\DEP\\Scripts\\basics')
-# import cmd_v9g_shallow_crv_plus_compact as vf
+sys.path.append("C:\\DEP\\Scripts\\basics")
+
+import dem_functions as df
 
 # fix for embedded code (using 'load code' in ArcGIS Pro) fails when testing len(sys.argv)
 if not hasattr(sys, 'argv'):
     sys.argv = ['']
-import dem_functions as df
-##import dem_functionsNew as dfNew
+
 from os.path import join as opj
 
 
