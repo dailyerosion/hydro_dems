@@ -1060,6 +1060,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
                 lasd1rMinIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMinFile_sized, 'INTENSITY', 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
             addMetadata(int1rMinFile_sized, paraDict, derivative_metadata, log)
 
+            log.debug('---Creating BE Max Intensity')
             intBeMaxFile_sized = updateResolution(intBeMaxFile, named_cell_size, demList[0], huc12, log)
             if recode_tf:
                 intBeMaxFile_sized_temp = opj(os.path.dirname(intBeMaxFile_sized), 'temp_' + os.path.basename(intBeMaxFile_sized))
@@ -1087,7 +1088,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
         # allReturnsMinCm.save(frMinFile_sized)#locDict['firstReturnMinFile'])#allReturnsMinFile)
 
         if cnt1rFile is not None:
-            log.debug('---Counting All Returns')
+            log.debug('---Counting First Returns')
             cnt1rFile_sized = updateResolution(cnt1rFile, named_cell_size, demList[0], huc12, log)
             cfrFileTemp = 'cnt_fr_' + str(demList[0]) + "m_" + huc12 + srSfx + '.tif'
             lasdCount = arcpy.LasPointStatsAsRaster_management(lasdAll, os.path.join(procDir, cfrFileTemp), 'POINT_COUNT', 'CELLSIZE', demList[0])
@@ -1098,7 +1099,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
             log.debug('---Counting All Returns')
             cntPlsFile_sized = updateResolution(cntPlsFile, named_cell_size, demList[0], huc12, log)
             cntPlsFileTemp = 'cnt_pls_' + str(demList[0]) + "m_" + huc12 + srSfx + '.tif'
-            lasdCount = arcpy.LasPointStatsAsRaster_management(lasdAll, os.path.join(procDir, cntPlsFileTemp), 'POINT_COUNT', 'CELLSIZE', demList[0])
+            lasdCount = arcpy.LasPointStatsAsRaster_management(lasdAll, os.path.join(procDir, cntPlsFileTemp), 'PULSE_COUNT', 'CELLSIZE', demList[0])
             cntPlsFileRasterObj = clipCountRaster(lasdCount, maskRastOut, cntPlsFile_sized)
             addMetadata(cntPlsFile_sized, paraDict, derivative_metadata, log)
 
@@ -2095,6 +2096,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 ##----------------------------------------------------------------------
         if merged_area / maskFc_area >= build_threshold:
             for demList in demLists:
+                log.debug(f'---Processing resolution {demList}')
                 # arcpy.env.snapRaster
                 cntBeFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntBeFile)#paths)
                 terrainList = createRastersFromTerrains(log, demList, procDir, terrains, huc12)
