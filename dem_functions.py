@@ -2511,3 +2511,66 @@ def getMetadata(md_list, procdir, log):
         return_metadata.append(request_details[1])
 
     return return_metadata
+
+
+def copy_text_line_by_line(source_file, destination_file):
+    # inspired by chatgpt
+    try:
+        # Open the source file in read mode
+        with open(source_file, 'r') as source:
+            # Read the content of the source file line by line
+            lines = source.readlines()
+        
+        # Open the destination file in write mode
+        with open(destination_file, 'w') as destination:
+            # Write each line to the destination file
+            comment = False
+            for line in lines:
+                # uncomment following lines
+                if line.startswith('# if __name__ == "__main__":'):
+                    comment = True
+                if comment:
+                    if line.startswith('# '):
+                        destination.write(line[2:])
+                    else:
+                        destination.write(line)
+                else:
+                    destination.write(line)
+
+##                # comment out following lines
+##                if line.startswith('if __name__ == "__main__":'):
+##                    comment = True
+##                if comment:
+##                    destination.write("##  " + line)
+##                else:
+##                    destination.write(line)
+        
+        print("Text copied line by line successfully from {} to {}.".format(source_file, destination_file))
+    
+    except FileNotFoundError:
+        print("File not found. Please check the file paths.")
+    
+    except Exception as e:
+        print("An error occurred:", e)
+
+def test_parameters(parameters):
+    for p in parameters:
+        if '\\' in p or '/' in p:
+            try:
+                rslt = arcpy.Exists(p)
+                if rslt:
+                    print(f"Found it: {p}")
+                elif os.path.isfile(p):
+                    print(f"Found it: {p}")
+                else:
+                    print(f"WARNING Did not find: {p}")
+            except:
+                print(f'Something went wrong testing: {p}')
+        else:
+            print(f"Can't test: {p}")
+
+def prep_arguments_text(start, end, text_code):
+	arg_string = ""
+	for i in range(start, end):
+		arg_string += text_code[:11] + str(i) + text_code[12:]
+	return arg_string
