@@ -1019,14 +1019,30 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
                 '\nLatest 3DEP Lidar Data: ' : collect_majority
                 }
 
-        if int1rMaxFile is not None and int1rMinFile is not None and bareEarthReturnMinFile is not None:
+        if bareEarthReturnMinFile is not None or intBeMaxFile is not None:
+            log.debug('---Creating LR Min surface')
+            if sys.version_info.minor < 9:
+                beLayer = arcpy.MakeLasDatasetLayer_management(lasdGround, 'ground_layer', [2,8], 'Last Return')
+            else:
+                beLayer = arcpy.MakeLasDatasetLayer_management(lasdGround, 'ground_layer', [2,8], 'LAST')
+
+            beReturnsMinTempFile = os.path.join(procDir, '_'.join(['tmp_bemin', str(demList[0]) + 'm', huc12, 'out.tif']))
+            beReturnsMin = arcpy.LasDatasetToRaster_conversion(beLayer, beReturnsMinTempFile, interpolation_type = 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'FLOAT')
+            beReturnsMinCm = Int(Times(beReturnsMin, 100))
+            if bareEarthReturnMinFile is not None:
+                bareEarthReturnMinFile_sized = updateResolution(bareEarthReturnMinFile, named_cell_size, demList[0], huc12, log)
+                beReturnsMinCm.save(bareEarthReturnMinFile_sized)#locDict['bareEarthReturnMinFile'])#.replace('fr', 'be'))
+                addMetadata(bareEarthReturnMinFile_sized, paraDict, derivative_metadata, log)
+
+        if int1rMaxFile is not None or int1rMinFile is not None or intBeMaxFile is not None:
             log.debug('---Creating FR Max Intensity')
             recode_tf = False
             log.debug(f'ir.max: {internal_regions.maximum},ir.min: {internal_regions.minimum}')
             int1rMaxFile_sized = updateResolution(int1rMaxFile, named_cell_size, demList[0], huc12, log)
             if internal_regions.maximum - internal_regions.minimum != 0:
                 log.info('multiple regions')
-                int1rMaxFile_sized_temp = opj(os.path.dirname(int1rMaxFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
+                # int1rMaxFile_sized_temp = opj(os.path.dirname(int1rMaxFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
+                int1rMaxFile_sized_temp = os.path.join(procDir, '_'.join(['tmp_frmax', str(demList[0]) + 'm', huc12, 'out.tif']))
                 lasd1rMaxIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMaxFile_sized_temp, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
                 int_zs_max = ZonalStatistics(internal_regions, 'VALUE', int1rMaxFile_sized_temp, 'MAXIMUM')
                 if int_zs_max.minimum < 256 and int_zs_max.maximum > 256:
@@ -1034,43 +1050,51 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
                     recode_areas = ZonalStatistics(internal_regions, 'VALUE', int_lt_256, 'MAXIMUM')
                     multiplied_intensities = Raster(int1rMaxFile_sized_temp) * 256
                     recoded_intensities = Con(recode_areas, multiplied_intensities, int1rMaxFile_sized_temp)
-                    recoded_intensities.save(int1rMaxFile_sized)
-                    arcpy.Delete_management(int1rMaxFile_sized_temp)
+                    if int1rMaxFile is not None:
+                        recoded_intensities.save(int1rMaxFile_sized)
+                        arcpy.Delete_management(int1rMaxFile_sized_temp)
                     recode_tf = True
                 else:
-                    log.info('all regions equal max intensity')
-                    arcpy.CopyRaster_management(int1rMaxFile_sized_temp, int1rMaxFile_sized)
-                    arcpy.Delete_management(int1rMaxFile_sized_temp)
+                    if int1rMaxFile is not None:
+                        log.info('all regions equal max intensity')
+                        arcpy.CopyRaster_management(int1rMaxFile_sized_temp, int1rMaxFile_sized)
+                        arcpy.Delete_management(int1rMaxFile_sized_temp)
             else:
                 log.info('one region')
-                lasd1rMaxIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
+                if int1rMaxFile is not None:
+                    lasd1rMaxIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
 
-            addMetadata(int1rMaxFile_sized, paraDict, derivative_metadata, log)
+            if int1rMaxFile is not None:
+                addMetadata(int1rMaxFile_sized, paraDict, derivative_metadata, log)
 
-            log.debug('---Creating FR Min Intensity')
-            int1rMinFile_sized = updateResolution(int1rMinFile, named_cell_size, demList[0], huc12, log)
-            if recode_tf:
-                int1rMinFile_sized_temp = opj(os.path.dirname(int1rMinFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
-                lasd1rMinIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMinFile_sized_temp, 'INTENSITY', 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
-                multiplied_intensities = Raster(int1rMinFile_sized_temp) * 256
-                recoded_intensities = Con(recode_areas, multiplied_intensities, int1rMinFile_sized_temp)
-                recoded_intensities.save(int1rMinFile_sized)
-                arcpy.Delete_management(int1rMinFile_sized_temp)
-            else:
-                lasd1rMinIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMinFile_sized, 'INTENSITY', 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
-            addMetadata(int1rMinFile_sized, paraDict, derivative_metadata, log)
+            if int1rMinFile is not None:
+                log.debug('---Creating FR Min Intensity')
+                int1rMinFile_sized = updateResolution(int1rMinFile, named_cell_size, demList[0], huc12, log)
+                if recode_tf:
+                    # int1rMinFile_sized_temp = opj(os.path.dirname(int1rMinFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
+                    int1rMinFile_sized_temp = os.path.join(procDir, '_'.join(['tmp_frmin', str(demList[0]) + 'm', huc12, 'out.tif']))
+                    lasd1rMinIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMinFile_sized_temp, 'INTENSITY', 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
+                    multiplied_intensities = Raster(int1rMinFile_sized_temp) * 256
+                    recoded_intensities = Con(recode_areas, multiplied_intensities, int1rMinFile_sized_temp)
+                    recoded_intensities.save(int1rMinFile_sized)
+                    arcpy.Delete_management(int1rMinFile_sized_temp)
+                else:
+                    lasd1rMinIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMinFile_sized, 'INTENSITY', 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
+                addMetadata(int1rMinFile_sized, paraDict, derivative_metadata, log)
 
-            log.debug('---Creating BE Max Intensity')
-            intBeMaxFile_sized = updateResolution(intBeMaxFile, named_cell_size, demList[0], huc12, log)
-            if recode_tf:
-                intBeMaxFile_sized_temp = opj(os.path.dirname(intBeMaxFile_sized), 'temp_' + os.path.basename(intBeMaxFile_sized))
-                lasdBeMaxIntensity = arcpy.LasDatasetToRaster_conversion(beLayer, intBeMaxFile_sized_temp, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
-                multiplied_intensities = Raster(intBeMaxFile_sized_temp) * 256
-                recoded_intensities = Con(recode_areas, multiplied_intensities, intBeMaxFile_sized_temp)
-                recoded_intensities.save(intBeMaxFile_sized)
-            else:
-                lasdBeMaxIntensity = arcpy.LasDatasetToRaster_conversion(beLayer, intBeMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
-            addMetadata(intBeMaxFile_sized, paraDict, derivative_metadata, log)
+            if intBeMaxFile is not None:
+                log.debug('---Creating BE Max Intensity')
+                intBeMaxFile_sized = updateResolution(intBeMaxFile, named_cell_size, demList[0], huc12, log)
+                if recode_tf:
+                    # intBeMaxFile_sized_temp = opj(os.path.dirname(intBeMaxFile_sized), 'temp_' + os.path.basename(intBeMaxFile_sized))
+                    intBeMaxFile_sized_temp = os.path.join(procDir, '_'.join(['tmp_bemax', str(demList[0]) + 'm', huc12, 'out.tif']))
+                    lasdBeMaxIntensity = arcpy.LasDatasetToRaster_conversion(beLayer, intBeMaxFile_sized_temp, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
+                    multiplied_intensities = Raster(intBeMaxFile_sized_temp) * 256
+                    recoded_intensities = Con(recode_areas, multiplied_intensities, intBeMaxFile_sized_temp)
+                    recoded_intensities.save(intBeMaxFile_sized)
+                else:
+                    lasdBeMaxIntensity = arcpy.LasDatasetToRaster_conversion(beLayer, intBeMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'INT')
+                addMetadata(intBeMaxFile_sized, paraDict, derivative_metadata, log)
 
         if surfaceElevFile is not None:
             log.debug('---Creating FR Max surface')
@@ -1125,20 +1149,6 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
         # lastReturnsMin = arcpy.LasDatasetToRaster_conversion(lastLayer, lastReturnsMinTempFile, interpolation_type = 'BINNING MINIMUM SIMPLE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'FLOAT')
         # lastReturnsMinCm = Int(Times(lastReturnsMin, 100))
         # lastReturnsMinCm.save(lastReturnMinFile_sized)#locDict['lastReturnMinFile'])#.replace('fr', 'lr'))
-
-        if bareEarthReturnMinFile is not None:
-            log.debug('---Creating LR Min surface')
-            bareEarthReturnMinFile_sized = updateResolution(bareEarthReturnMinFile, named_cell_size, demList[0], huc12, log)
-            if sys.version_info.minor < 9:
-                beLayer = arcpy.MakeLasDatasetLayer_management(lasdGround, 'ground_layer', [2,8], 'Last Return')
-            else:
-                beLayer = arcpy.MakeLasDatasetLayer_management(lasdGround, 'ground_layer', [2,8], 'LAST')
-
-            beReturnsMinTempFile = os.path.join(procDir, '_'.join(['tmp_bemin', str(demList[0]) + 'm', huc12, 'out.tif']))
-            beReturnsMin = arcpy.LasDatasetToRaster_conversion(beLayer, beReturnsMinTempFile, interpolation_type = 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'FLOAT')
-            beReturnsMinCm = Int(Times(beReturnsMin, 100))
-            beReturnsMinCm.save(bareEarthReturnMinFile_sized)#locDict['bareEarthReturnMinFile'])#.replace('fr', 'be'))
-            addMetadata(bareEarthReturnMinFile_sized, paraDict, derivative_metadata, log)
 
 ##        # my current favorites  - minmax mild 18 terrain, binning min simple (almost too detailed),
 ##        interps = ['BINNING MINIMUM SIMPLE', 'BINNING AVERAGE SIMPLE', 'BINNING IDW SIMPLE', 'TRIANGULATION NATURAL_NEIGHBOR WINDOW_SIZE MINIMUM ' + str(demList[0]), 'TRIANGULATION LINEAR WINDOW_SIZE MINIMUM ' + str(demList[0]), 'TRIANGULATION NATURAL_NEIGHBOR WINDOW_SIZE CLOSEST_TO_MEAN ' + str(demList[0]), 'TRIANGULATION LINEAR WINDOW_SIZE CLOSEST_TO_MEAN ' + str(demList[0])]
