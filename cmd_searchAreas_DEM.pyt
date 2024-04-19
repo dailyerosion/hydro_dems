@@ -131,61 +131,8 @@ class Tool(object):
 
 
 
-# def doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8RoadsFC, procDir, cleanup, messages):
+def doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8RoadsFC, procDir, cleanup, messages):
 
-
-
-class msgStub:
-    def addMessage(self,text):
-        arcpy.AddMessage(text)
-    def addErrorMessage(self,text):
-        arcpy.AddErrorMessage(text)
-    def addWarningMessage(self,text):
-        arcpy.AddWarningMessage(text)
-
-if __name__ == "__main__":
-##if True:
-
-    if len(sys.argv) == 1:
-        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-        cleanup = False
-
-        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-	"C:/DEP/Scripts/basics/cmd_searchAreas_DEM.pyt",
-	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
-	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/MW_HUC8_v2022",
-	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
-	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/railways_merge",
-	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/runways",
-	"C:/DEP_bkg_search_newtest/LiDAR_Current/huc8_26915/huc_07080105.gdb/rd_rr_rd_rw_mrg_07080105",
-	"C:/DEP_bkg_search_newtest/LiDAR_Current/huc8_26915/huc_07080105.gdb/roads_07080105",
-	"C:/DEP_Proc_bkg_search_newtest/Median_Proc/Medians_26915_07080105"]
-
-        for i in parameters[2:]:
-            sys.argv.append(i)
-    else:
-        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-        # clean up the folder after done processing
-        cleanup = True
-
-    messages = msgStub()
-
-    # inputs
-    input_dem = sys.argv[1]
-    huc8fc = sys.argv[2]
-    roadsFC = sys.argv[3]
-    rrsFC = sys.argv[4]
-    apFC = sys.argv[5]
-
-    # outputs
-    mergedMdnsHuc8FC = sys.argv[6]
-    huc8RoadsFC = sys.argv[7]
-
-    # local processing directory
-    procDir = sys.argv[8]
-
-    # doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8RoadsFC, procDir, cleanup, messages)
-    # arcpy.AddMessage("Back from doing!")
     try:
         arguments = [input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8RoadsFC, procDir, cleanup]
 
@@ -197,7 +144,7 @@ if __name__ == "__main__":
 
         messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 
-        huc12, huc8, ProcSize = df.figureItOut(input_dem)
+        huc12, huc8 = df.figureItOut(input_dem)
 
         if cleanup:
             # log to file only
@@ -618,3 +565,56 @@ if __name__ == "__main__":
             log.info("Ending script execution at " + time.asctime())
             log.info("Script execution lasted " + str(time.time()-startTime) + " seconds or " + str((time.time()-startTime)/60) + " minutes\n")
 
+
+
+class msgStub:
+    def addMessage(self,text):
+        arcpy.AddMessage(text)
+    def addErrorMessage(self,text):
+        arcpy.AddErrorMessage(text)
+    def addWarningMessage(self,text):
+        arcpy.AddWarningMessage(text)
+
+if __name__ == "__main__":
+##if True:
+
+    if len(sys.argv) == 1:
+        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+        cleanup = False
+
+        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+	"C:/DEP/Scripts/basics/cmd_searchAreas_DEM.pyt",
+	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/MW_HUC8_v2022",
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/railways_merge",
+	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/runways",
+	"C:/DEP_bkg_search_newtest/LiDAR_Current/huc8_26915/huc_07080105.gdb/rd_rr_rd_rw_mrg_07080105",
+	"C:/DEP_bkg_search_newtest/LiDAR_Current/huc8_26915/huc_07080105.gdb/roads_07080105",
+	"C:/DEP_Proc_bkg_search_newtest/Median_Proc/Medians_26915_07080105"]
+
+        for i in parameters[2:]:
+            sys.argv.append(i)
+    else:
+        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+        # clean up the folder after done processing
+        cleanup = True
+
+    messages = msgStub()
+
+    # inputs
+    input_dem = sys.argv[1]
+    huc8fc = sys.argv[2]
+    roadsFC = sys.argv[3]
+    rrsFC = sys.argv[4]
+    apFC = sys.argv[5]
+
+    # outputs
+    mergedMdnsHuc8FC = sys.argv[6]
+    huc8RoadsFC = sys.argv[7]
+
+    # local processing directory
+    procDir = sys.argv[8]
+
+    doSearcher(input_dem, huc8fc, roadsFC, rrsFC, apFC, mergedMdnsHuc8FC, huc8RoadsFC, procDir, cleanup, messages)
+    arcpy.AddMessage("Back from doing!")
