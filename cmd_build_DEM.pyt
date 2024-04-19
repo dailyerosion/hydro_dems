@@ -1842,12 +1842,35 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         huc12, huc8 = df.figureItOut(fElevFile)
         # huc12, huc8, named_cell_size = df.figureItOut(fElevFile)
 
+        if procDir != "":
+            if os.path.isdir(procDir):
+                log.info('nuking: ' + procDir)
+                df.nukedir(procDir)
+
+            if not os.path.isdir(procDir):
+                os.makedirs(procDir)
+
+            arcpy.env.scratchWorkspace = procDir
+
+        sfldr = arcpy.env.scratchFolder
+        sgdb = arcpy.env.scratchGDB
+        arcpy.env.scratchWorkspace = sgdb
+        arcpy.env.workspace = sgdb
+
+        #figure out where to create log files
+        node = platform.node()
+        if 'EL3354-02' in node.upper() or 'EL3321-02' in node.upper() or 'DA214B-12' in node.upper() or 'DA214B-11' in node.upper() or 'DEP' in node.upper():
+            logProc = 'D:\\DEP_Proc'
+        elif '-M' in node.upper():
+            logProc = 'C:\\DEP_Proc'
+        else:
+            logProc = sfldr
+
         if cleanup:
-            # log to file only
-            log, nowYmd, logName, startTime = df.setupLoggingNoCh(platform.node(), sys.argv[0], huc12)
+            log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)
         else:
             # log to file and console
-            log, nowYmd, logName, startTime = df.setupLoggingNew(platform.node(), sys.argv[0], huc12)
+            log, nowYmd, logName, startTime = df.setupLoggingNew(logProc, sys.argv[0], huc12)
 
         # if not os.path.isfile(flib_metadata_template):
         #     log.warning('flib_metadata does not exist')
@@ -1866,25 +1889,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         log.info("Output will be in EPSG Code (spatial reference): " + str(srOutCode))#sys.argv[9])
         log.info("Log file at " + logName)
 
-        if procDir != "":
-            if os.path.isdir(procDir):
-                log.info('nuking: ' + procDir)
-                df.nukedir(procDir)
-
-            if not os.path.isdir(procDir):
-                os.makedirs(procDir)
-
-            arcpy.env.scratchWorkspace = procDir
-
-        sfldr = arcpy.env.scratchFolder
-        sgdb = arcpy.env.scratchGDB
-        arcpy.env.scratchWorkspace = sgdb
-        arcpy.env.workspace = sgdb
-
         flib_metadata_template, derivative_metadata = df.getMetadata(['flib', 'deriv'], procDir, log)
-
-        # for access to 7za.exe and LASTools
-        # softwareDir = 'C:\\Software'
 
         ## store a list of all DEMs (lidar based, others) that must be joined to create HUC12
         ## Now a list of lists to facilitate creating two DEM resolutions easily (2 and 3 meter)
@@ -1894,12 +1899,6 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         rezes.sort(reverse = True)
         demLists = [r for r in rezes]
         named_cell_size = demLists[0]
-        # demList0 = [1,]
-        # demList1 = [2,]
-        # demList2 = [3,]
-        # demLists.append(demList2)
-        # demLists.append(demList1)
-        # demLists.append(demList0)
 
         ## windowsizeMethods are the criterion used to select which point(s) in the window define the terrain
         interpDict = df.loadInterpDict()

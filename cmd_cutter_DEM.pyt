@@ -182,7 +182,7 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
 
         messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 
-        huc12, huc8, ProcSize = df.figureItOut(input_dem)
+        huc12, huc8 = df.figureItOut(input_dem)
 
         if cleanup:
             # log to file only
@@ -216,6 +216,7 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
         arcpy.env.snapRaster = input_dem
 
         arcpy.env.cellSize = input_dem
+        ProcSize = arcpy.env.cellSize
 
         arcpy.env.extent = input_dem
 

@@ -927,7 +927,11 @@ def setupLoggingNoCh(node, scriptName, huc12 = '000000000000', version = ''):
     formatter = logging.Formatter('%(levelname)s - %(asctime)s - %(message)s')
 
     nowYmd = datetime.datetime.strftime(datetime.datetime.now(), '%Y_%m_%d_%H_%M_%S')
-    logsDir = defineLocalProc(node)
+    # 'upgrade' to allow node to come in as a path - 2024.04.19, bkgelder
+    if ':' not in node:
+        logsDir = defineLocalProc(node)
+    else:
+        logsDir = node
     logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0] + '_' + huc12 + '_' + nowYmd + '.txt')
     if not os.path.isdir(os.path.dirname(logName)):
         os.makedirs(os.path.dirname(logName))
@@ -980,7 +984,11 @@ def setupLoggingNew(node, scriptName, huc12 = '000000000000', version = ''):
     ##formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     nowYmd = datetime.datetime.strftime(datetime.datetime.now(), '%Y_%m_%d_%H_%M_%S')
-    logsDir = defineLocalProc(node)
+    # 'upgrade' to allow node to come in as a path - 2024.04.19, bkgelder
+    if ':' not in node:
+        logsDir = defineLocalProc(node)
+    else:
+        logsDir = node
     logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0] + '_' + huc12 + '_' + nowYmd + '.txt')
     if not os.path.isdir(os.path.dirname(logName)):
         os.makedirs(os.path.dirname(logName))

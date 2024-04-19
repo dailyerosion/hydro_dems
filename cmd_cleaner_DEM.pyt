@@ -529,7 +529,7 @@ def doCleaner(fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile, clea
 
         messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 
-        huc12, huc8, proc_size = df.figureItOut(fillTif)
+        huc12, huc8 = df.figureItOut(fillTif)
 
         if cleanup:
             # log to file only
@@ -561,7 +561,8 @@ def doCleaner(fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile, clea
 
         arcpy.env.snapRaster = fillTif#snapRaster
 
-        arcpy.env.cellSize = proc_size
+        arcpy.env.cellSize = fillTif#proc_size
+        proc_size = arcpy.env.cellSize
         arcpy.env.snapRaster = fillTif
         arcpy.env.extent = fillTif
 

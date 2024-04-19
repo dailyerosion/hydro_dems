@@ -422,7 +422,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
 
         messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 
-        huc12, huc8, ProcSize = df.figureItOut(fill_or_void_tif)
+        huc12, huc8 = df.figureItOut(fill_or_void_tif)
 
         if cleanup:
             # log to file only
@@ -459,6 +459,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         arcpy.env.extent = fill_or_void_tif
 
         arcpy.env.cellSize = fill_or_void_tif
+        ProcSize = arcpy.env.cellSize
 
         arcpy.CheckOutExtension("Spatial")
         arcpy.env.overwriteOutput = True
