@@ -154,7 +154,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
 
         messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 
-        huc12, huc8, ProcSize = df.figureItOut(input_dem)
+        huc12, huc8 = df.figureItOut(input_dem)
 
         if cleanup:
             # log to file only
@@ -200,7 +200,8 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
 
         arcpy.env.snapRaster = input_dem
 
-        arcpy.env.cellSize = ProcSize
+        arcpy.env.cellSize = input_dem#
+        ProcSize = arcpy.env.cellSize
 
         arcpy.CheckOutExtension("Spatial")
         arcpy.env.overwriteOutput = True

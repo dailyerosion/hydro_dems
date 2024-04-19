@@ -313,7 +313,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
 
         messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 
-        huc12, huc8, proc_size = df.figureItOut(fillTif)
+        huc12, huc8 = df.figureItOut(fillTif)
 
         if cleanup:
             # log to file only
@@ -347,7 +347,8 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
 
         arcpy.env.snapRaster = fillTif#snapRaster
 
-        arcpy.env.cellSize = proc_size
+        arcpy.env.cellSize = fillTif#proc_size
+        proc_size = arcpy.env.cellSize
 
         gdb = sgdb + "\\"
         cp = voidProc + "\\"
