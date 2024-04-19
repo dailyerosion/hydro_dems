@@ -1076,7 +1076,7 @@ def figureItOut(inputRaster):
         # proc_size = int(end.split('m')[0])
 
     else:
-        huc12 = basename#'X' * 12
+        huc12 = fillbaseNoExt#basename#'X' * 12
         if len(huc12) > 8:
             huc8 = huc12[:8]
         else:
