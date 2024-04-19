@@ -1830,7 +1830,6 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
     messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 
-
     arcpy.env.overwriteOutput = True
 
     arcpy.CheckOutExtension("Spatial")
@@ -1844,7 +1843,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
         if procDir != "":
             if os.path.isdir(procDir):
-                log.info('nuking: ' + procDir)
+                # log.info('nuking: ' + procDir)
                 df.nukedir(procDir)
 
             if not os.path.isdir(procDir):
