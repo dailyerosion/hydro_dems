@@ -1064,22 +1064,26 @@ def figureItOut(inputRaster):
     '''figure out huc12 code and projected coordinate system from a formatted raster name'''
     basename = os.path.basename(inputRaster)
     fillbaseNoExt = os.path.splitext(basename)[0]
-    huc12 = fillbaseNoExt[-12:]
 
-    # assume name format like 'ef' or 'ep' or 'ec'
-    end = fillbaseNoExt[2:]
-    # end = fillbaseNoExt.split('ef')[1]
-        
-    proc_size = int(end.split('m')[0])
+    if 'ef' or 'ep' or 'ec' or 'ev' or 'ex' in basename:#inpu
+        huc12 = fillbaseNoExt[-12:]
+        huc8 = huc12[:8]
 
-    ## pcs is projected cordinate system EPSG code
-    # rasterDesc = arcpy.Describe(inputRaster)
-    # proc_size = rasterDesc.meanCellHeight
-####    pcs = rasterDesc.spatialReference.PCSCode
-####    pcs = sys.argv[1].split(os.path.sep)[-3].split('_')[-1]
-    huc8 = huc12[:8]
+        # assume name format like 'ef' or 'ep' or 'ec'
+        # end = fillbaseNoExt[2:]
+        # end = fillbaseNoExt.split('ef')[1]
+            
+        # proc_size = int(end.split('m')[0])
 
-    return huc12, huc8, proc_size
+    else:
+        huc12 = basename#'X' * 12
+        if len(huc12 > 8):
+            huc8 = huc12[:8]
+        else:
+            huc8 = huc12
+
+
+    return huc12, huc8#, proc_size
 
 def splitall(path):
 ##https://www.oreilly.com/library/view/python-cookbook/0596001673/ch04s16.html

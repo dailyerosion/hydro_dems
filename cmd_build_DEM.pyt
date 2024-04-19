@@ -1839,7 +1839,8 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
     arcpy.env.ZResolution = "0.01"
 
     try:
-        huc12, huc8, named_cell_size = df.figureItOut(fElevFile)
+        huc12, huc8 = df.figureItOut(fElevFile)
+        # huc12, huc8, named_cell_size = df.figureItOut(fElevFile)
 
         if cleanup:
             # log to file only
@@ -1892,6 +1893,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         # do lower to higher resolution
         rezes.sort(reverse = True)
         demLists = [r for r in rezes]
+        named_cell_size = demLists[0]
         # demList0 = [1,]
         # demList1 = [2,]
         # demList2 = [3,]
@@ -1910,6 +1912,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                 if str(named_cell_size) + 'm' in ras:
                     if len(demLists) > 0:
                         for demList in demLists:
+                            # updateResolution(filepath, init_res, new_res, huc12, log)
                             rasRes = ras.replace(str(named_cell_size) + 'm', str(demList[0]) + 'm')
                             try_to_delete(rasRes, log)
                     else:
