@@ -17,6 +17,7 @@ import subprocess
 import platform
 import glob
 import traceback
+import re
 from os.path import join as opj
 from pathlib import Path
 
@@ -976,14 +977,22 @@ def errorhandle(sei, arcpy, traceback):
 
 #     return tcdFdSet
 
-def updateResolution(filepath, init_res, new_res, huc12, log):
+def updateResolution(filepath, init_res, new_res, pattern27, log):
     """Take a filename with a specified resolution and alter it to the current processing resolution.
     This is done to reduce the number of arguments that are passed to the program."""
     # try:
     if init_res != new_res:
         filename_path = Path(filepath)
-        updated_filename = str(filename_path.name).replace(str(init_res) + 'm', str(new_res) + 'm')
-        updated_filepath = str(filename_path.parent.joinpath(updated_filename))
+        # check to see if it follows HUC DEM naming procedure
+        st = filename_path.stem
+        if re.match(st, pattern27):
+            # replace within the name
+            updated_filename = str(filename_path.name).replace(str(init_res) + 'm', str(new_res) + 'm')
+            updated_filepath = str(filename_path.parent.joinpath(updated_filename))
+        else:
+            # append to the name
+            updated_filename = str(filename_path.stem + "_" + str(new_res) + 'm' + filename_path.suffix)
+            updated_filepath = str(filename_path.parent.joinpath(updated_filename))
 
         # updated_filename = filename.replace(str(init_res) + 'm' + huc12, str(new_res) + 'm' + huc12)
         log.debug(f"filename was: {filepath}; updated filename: {updated_filepath}")
@@ -1698,6 +1707,8 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 
                             ept_json_full_filename = create_ept_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode)
 
+                            df.create_needed_dirs_and_gdbs(ept_las_full_filename)
+
                             if not os.path.exists(ept_las_full_filename):
                                 run_string = " ".join([pdal_exe, "pipeline", ept_json_full_filename])
                                 # estimate download time based on 102500040309 (area 1175 km2) in 4 parts, scaled up 3x, 2023.04.21
@@ -1839,6 +1850,8 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
     try:
         huc12, huc8 = df.figureItOut(fElevFile)
+        # the DEP huc DEM naming convention
+        pattern27 = 'e[cfpxv][0-9]m\\d{10,16}'
         # huc12, huc8, named_cell_size = df.figureItOut(fElevFile)
 
         if procDir != "":
@@ -1894,9 +1907,25 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         ## Now a list of lists to facilitate creating two DEM resolutions easily (2 and 3 meter)
         rezes = gsds.split(",")
         log.info(f'Resolutions: {rezes}')
+        ordered_rezes = []
+        for r in rezes:
+            filename_path = Path(fElevFile)
+            # check to see if it follows HUC DEM naming procedure
+            stem = filename_path.stem
+            pattern28 = '[0-9]m'
+            if re.match(stem, pattern28):
+                log.debug(f"found match in {stem} of resolution {r}m")
+                ordered_rezes.append(r)
+                rezes.pop(r)
+
+        for r in rezes:
+            ordered_rezes.append(r)
+        log.debug(f"ordered_rezes is {ordered_rezes}")
+
         # do lower to higher resolution
-        rezes.sort(reverse = True)
-        demLists = [r for r in rezes]
+        # rezes.sort(reverse = True)
+        demLists = [r for r in ordered_rezes]
+        log.debug(f"demLists is {demLists}")
         named_cell_size = demLists[0]
 
         ## windowsizeMethods are the criterion used to select which point(s) in the window define the terrain
@@ -1907,14 +1936,21 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         # delete any pre-existing inputs
         for ras in [fElevFile, cntBeFile, int1rMaxFile, int1rMinFile, cnt1rFile, firstReturnMaxFile]:
             if ras is not None:
-                if str(named_cell_size) + 'm' in ras:
+                filename_path = Path(ras)
+                # check to see if it follows HUC DEM naming procedure
+                stem = filename_path.stem
+                if re.match(stem, pattern27):
                     if len(demLists) > 0:
-                        for demList in demLists:
-                            # updateResolution(filepath, init_res, new_res, huc12, log)
-                            rasRes = ras.replace(str(named_cell_size) + 'm', str(demList[0]) + 'm')
-                            try_to_delete(rasRes, log)
-                    else:
+                        named_cell_size = demLists[0][0]
+                        rasRes = updateResolution(ras, named_cell_size, demList[0], huc12, log)
                         try_to_delete(rasRes, log)
+                    # if str(named_cell_size) + 'm' in ras:
+                    #     for demList in demLists:
+                    #         # updateResolution(filepath, init_res, new_res, huc12, log)
+                    #         rasRes = ras.replace(str(named_cell_size) + 'm', str(demList[0]) + 'm')
+                    #         try_to_delete(rasRes, log)
+                    # else:
+                    #     try_to_delete(rasRes, log)
 
         # create output directories
         for filename in [fElevFile, cntBeFile, int1rMaxFile, firstReturnMaxFile]:
