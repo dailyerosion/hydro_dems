@@ -229,6 +229,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         sfx = '_' + str(index)
 
         meterNdDEM = 0.01 * Raster(input_dem)
+        ProcSize = meterNdDEM.meanCellHeight
         slopePct = Slope(meterNdDEM, 'PERCENT_RISE')
         slopePct.save(opj(procDir, 'slope_pct'))
 
