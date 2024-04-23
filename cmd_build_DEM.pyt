@@ -2090,7 +2090,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                     lasdGround = setupLasDataset(cl2_tiles_list, tcdFdSet, procDir, None, None, srSfx, None, log, time, arcpy.SpatialReference(int(srOutCode)))
                     log.info('finished setting up las dataset')
 
-                    collect_ends_max, collect_starts_min, collect_majority = getLidarTimeframes(merged_copy)#, tilesClip_local)
+                    collect_ends_max, collect_starts_min, collect_majority = getLidarTimeframes(prev_merged)#merged_copy)#, tilesClip_local)
 
                     lidar_metadata_info = [terrain_args, nowYmd, collect_starts_min, collect_ends_max, collect_majority, pyramid_args]
 
