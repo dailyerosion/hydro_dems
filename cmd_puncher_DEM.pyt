@@ -201,7 +201,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         arcpy.env.snapRaster = input_dem
 
         arcpy.env.cellSize = input_dem#
-        ProcSize = int(arcpy.env.cellSize)
+        ProcSize = arcpy.env.cellSize
 
         arcpy.CheckOutExtension("Spatial")
         arcpy.env.overwriteOutput = True
@@ -264,7 +264,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         ##        # fldName is need to fix boggling of max field name for some versions (10.5, 10.6, others?)
         ##        if version.find('10.5') > -1 or version.find('10.6') > -1:
             fldName = arcpy.ListFields(rgMinFilledEl, 'MAX*')[0].name
-            rgToPunch = Con(rgMinFilledEl, rgMinFilledEl, "", '"' + fldName + '" > ' + str(depth_threshold) + ' OR "COUNT" * ' + str(ProcSize**2) + ' > ' + str(area_threshold))
+            rgToPunch = Con(rgMinFilledEl, rgMinFilledEl, "", '"' + fldName + '" > ' + str(depth_threshold) + ' OR "COUNT" * ' + str(float(ProcSize)**2) + ' > ' + str(area_threshold))
         ##        else:
         ##            rgToPunch = Con(rgMinFilledEl, rgMinFilledEl, "", '"MAX" > ' + str(depth_threshold) + ' OR "COUNT" * ' + str(ProcSize**2) + ' > ' + str(area_threshold))
             arcpy.BuildRasterAttributeTable_management(rgToPunch)
