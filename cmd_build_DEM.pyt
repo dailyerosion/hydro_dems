@@ -1707,7 +1707,7 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 
                             ept_json_full_filename = create_ept_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode)
 
-                            df.create_needed_dirs_and_gdbs(ept_las_full_filename)
+                            df.create_needed_dirs_and_gdbs(ept_las_full_filename, log)
 
                             if not os.path.exists(ept_las_full_filename):
                                 run_string = " ".join([pdal_exe, "pipeline", ept_json_full_filename])

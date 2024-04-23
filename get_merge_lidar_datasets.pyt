@@ -108,12 +108,30 @@ def doEPT(ept_wesm_file, cleanup, messages):
         arcpy.env.overwriteOutput = True
 
         huc12 = 'XXXXXXXXXXXX'
+
+        assert ept_wesm_file.find('.gdb') != -1, "Output must be located in '.gdb' (File Geodatabase)"
+
+        eptDir = os.path.dirname(os.path.dirname(ept_wesm_file))
+        # log.debug(f"checking for dir: {eptDir}")
+
+        if not os.path.isdir(eptDir):
+            # log.debug(f"making dir: {eptDir}")
+            os.makedirs(eptDir)
+
+        #figure out where to create log files
+        node = platform.node()
+        if 'EL3354-02' in node.upper() or 'EL3321-02' in node.upper() or 'DA214B-12' in node.upper() or 'DA214B-11' in node.upper() or 'DEP' in node.upper():
+            logProc = 'D:\\DEP_Proc'
+        elif '-M' in node.upper():
+            logProc = 'C:\\DEP_Proc'
+        else:
+            logProc = eptDir
+
         if cleanup:
-            # log to file only
-            log, nowYmd, logName, startTime = df.setupLoggingNoCh(platform.node(), sys.argv[0], huc12)
+            log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)
         else:
             # log to file and console
-            log, nowYmd, logName, startTime = df.setupLoggingNew(platform.node(), sys.argv[0], huc12)
+            log, nowYmd, logName, startTime = df.setupLoggingNew(logProc, sys.argv[0], huc12)
 
         log.info("Beginning execution: " + time.asctime())
         log.info("Log file at " + logName)
@@ -122,15 +140,6 @@ def doEPT(ept_wesm_file, cleanup, messages):
         log.info("Tool: Executing with parameters:\n" + arg_str)
 
         #create names of outputs so we can see test if it's been run recently
-        assert ept_wesm_file.find('.gdb') != -1, "Output must be located in '.gdb' (File Geodatabase)"
-
-        eptDir = os.path.dirname(os.path.dirname(ept_wesm_file))
-        log.debug(f"checking for dir: {eptDir}")
-
-        if not os.path.isdir(eptDir):
-            log.debug(f"making dir: {eptDir}")
-            os.makedirs(eptDir)
-
         #get geoJSON from https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson
         now_ymd_string = nowYmd[:10]
         ept_first_of_month_name = "ept_resources_" + now_ymd_string
