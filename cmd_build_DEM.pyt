@@ -1705,14 +1705,15 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 
                             ept_json_filename = "_".join(["get", "ept", huc12, str(work_id_part) + ".json"])
 
-                            ept_json_full_filename = create_ept_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode)
-
+                            df.create_needed_dirs_and_gdbs(ept_json_full_filename, log)
                             df.create_needed_dirs_and_gdbs(ept_las_full_filename, log)
+                            ept_json_full_filename = create_ept_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode)
 
                             if not os.path.exists(ept_las_full_filename):
                                 run_string = " ".join([pdal_exe, "pipeline", ept_json_full_filename])
                                 # estimate download time based on 102500040309 (area 1175 km2) in 4 parts, scaled up 3x, 2023.04.21
                                 m2_per_sec = 3 * 1175.2*1000**2/len(parts)/2200
+                                log.debug(f'pdal run_string: {run_string}')
                                 log.info(f'At {time.asctime()} - Estimated pdal download time (for QL2 lidar): {round(square_area/(m2_per_sec * len(parts) * 60), 2)} minutes for {ept_json_filename}')
                                 co = subprocess.run(run_string)
 
@@ -1900,6 +1901,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
         log.info("Output will be in EPSG Code (spatial reference): " + str(srOutCode))#sys.argv[9])
         log.info("Log file at " + logName)
+        messages.addMessage("Log file at " + logName)
 
         flib_metadata_template, derivative_metadata = df.getMetadata(['flib', 'deriv'], procDir, log)
 

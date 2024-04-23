@@ -201,7 +201,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         arcpy.env.snapRaster = input_dem
 
         arcpy.env.cellSize = input_dem#
-        ProcSize = arcpy.env.cellSize
+        ProcSize = int(arcpy.env.cellSize)
 
         arcpy.CheckOutExtension("Spatial")
         arcpy.env.overwriteOutput = True
@@ -447,33 +447,32 @@ class msgStub:
     def addWarningMessage(self,text):
         arcpy.AddWarningMessage(text)
 
-if __name__ == "__main__":
-##if True:
+# if __name__ == "__main__":
 
-    if len(sys.argv) == 1:
-        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-        cleanup = False
+#     if len(sys.argv) == 1:
+#         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+#         cleanup = False
 
-        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-	"C:/DEP/Scripts/basics/cmd_puncher_all_steps.pyt",
-	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
-	"C:/DEP/LiDAR_Current/elev_PLib_mean18/07080105/ep3m070801050901.tif",
-	"C:/DEP/toolMetadata/PLib_DEMs2022_mTemplate.xml",
-	"C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/dprsns_mean18_dem2013_3m_070801050901",
-	"5.0",
-	"500",
-	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901"]
+#         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+# 	"C:/DEP/Scripts/basics/cmd_puncher_all_steps.pyt",
+# 	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
+# 	"C:/DEP/LiDAR_Current/elev_PLib_mean18/07080105/ep3m070801050901.tif",
+# 	"C:/DEP/toolMetadata/PLib_DEMs2022_mTemplate.xml",
+# 	"C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/dprsns_mean18_dem2013_3m_070801050901",
+# 	"5.0",
+# 	"500",
+# 	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901"]
 
-        for i in parameters[2:]:
-            sys.argv.append(i)
-    else:
-        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-        # DO NOT clean up the folder after done processing - matcher needs this data
-        cleanup = False
+#         for i in parameters[2:]:
+#             sys.argv.append(i)
+#     else:
+#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+#         # DO NOT clean up the folder after done processing - matcher needs this data
+#         cleanup = False
 
-    messages = msgStub()
+#     messages = msgStub()
 
-    input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir = [i for i in sys.argv[1:]]
+#     input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir = [i for i in sys.argv[1:]]
 
-    doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir, cleanup, messages)
-    arcpy.AddMessage("Back from doing!")
+#     doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir, cleanup, messages)
+#     arcpy.AddMessage("Back from doing!")
