@@ -201,7 +201,6 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         arcpy.env.snapRaster = input_dem
 
         arcpy.env.cellSize = input_dem#
-        ProcSize = arcpy.env.cellSize
 
         arcpy.CheckOutExtension("Spatial")
         arcpy.env.overwriteOutput = True
