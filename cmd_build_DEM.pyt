@@ -2147,7 +2147,9 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
             for demList in demLists:
                 log.debug(f'---Processing resolution {demList}')
                 # arcpy.env.snapRaster
-                cntBeFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntBeFile)#paths)
+                if cntBeFile is not None:
+                    cntBeFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntBeFile)
+
                 terrainList = createRastersFromTerrains(log, demList, procDir, terrains, huc12)
 
                 buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, named_cell_size, internal_regions, lidar_metadata_info, derivative_metadata)
