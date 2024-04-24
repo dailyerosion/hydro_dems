@@ -977,7 +977,7 @@ def errorhandle(sei, arcpy, traceback):
 
 #     return tcdFdSet
 
-def updateResolution(filepath, init_res, new_res, pattern27, log):
+def updateResolution(filepath, init_res, new_res, pattern, log):
     """Take a filename with a specified resolution and alter it to the current processing resolution.
     This is done to reduce the number of arguments that are passed to the program."""
     # try:
@@ -985,7 +985,7 @@ def updateResolution(filepath, init_res, new_res, pattern27, log):
         filename_path = Path(filepath)
         # check to see if it follows HUC DEM naming procedure
         st = filename_path.stem
-        if re.match(st, pattern27):
+        if re.match(st, pattern):
             # replace within the name
             updated_filename = str(filename_path.name).replace(str(init_res) + 'm', str(new_res) + 'm')
             updated_filepath = str(filename_path.parent.joinpath(updated_filename))
@@ -1853,6 +1853,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         huc12, huc8 = df.figureItOut(fElevFile)
         # the DEP huc DEM naming convention
         pattern27 = 'e[cfpxv][0-9]m\\d{10,16}'
+        pattern26 = '[0-9]m\\d{10,16}'
         # huc12, huc8, named_cell_size = df.figureItOut(fElevFile)
 
         if procDir != "":
@@ -1928,7 +1929,9 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         # rezes.sort(reverse = True)
         demLists = [r for r in ordered_rezes]
         log.debug(f"demLists is {demLists}")
-        named_cell_size = demLists[0]
+        # named_cell_size = demLists[0]
+        init_res = demLists[0][0]
+        log.debug(f"init_res is {init_res}")
 
         ## windowsizeMethods are the criterion used to select which point(s) in the window define the terrain
         interpDict = df.loadInterpDict()
@@ -1941,13 +1944,12 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                 filename_path = Path(ras)
                 # check to see if it follows HUC DEM naming procedure
                 stem = filename_path.stem
-                if re.match(stem, pattern27):
+                if re.match(stem, pattern26):
                     if len(demLists) > 0:
-                        named_cell_size = demLists[0][0]
-                        rasRes = updateResolution(ras, named_cell_size, demList[0], huc12, log)
-                        try_to_delete(rasRes, log)
+                        for demList in demLists:
+                            rasRes = updateResolution(ras, init_res, demList[0], pattern26, log)
+                            try_to_delete(rasRes, log)
                     # if str(named_cell_size) + 'm' in ras:
-                    #     for demList in demLists:
                     #         # updateResolution(filepath, init_res, new_res, huc12, log)
                     #         rasRes = ras.replace(str(named_cell_size) + 'm', str(demList[0]) + 'm')
                     #         try_to_delete(rasRes, log)
@@ -2150,9 +2152,9 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                 cntBeFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntBeFile)#paths)
                 terrainList = createRastersFromTerrains(log, demList, procDir, terrains, huc12)
 
-                buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, named_cell_size, internal_regions, lidar_metadata_info, derivative_metadata)
+                buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, init_res, internal_regions, lidar_metadata_info, derivative_metadata)
 
-                mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windowsizeMethods, procDir, fElevFile, interpDict, named_cell_size, srOutNoVCS, terrain_args, pyramid_args, flib_metadata_template, lidar_metadata_info)
+                mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windowsizeMethods, procDir, fElevFile, interpDict, init_res, srOutNoVCS, terrain_args, pyramid_args, flib_metadata_template, lidar_metadata_info)
         else:
             log.warning('lidar data area does not exist or does not exceed build threshold; DEM was not built')
 
