@@ -182,12 +182,23 @@ class Tool(object):
             datatype="DEFeatureClass",
             parameterType='Optional',
             direction="Output")
-                
+        
+        param18 = arcpy.Parameter(
+            name = "cleanup",
+            displayName="end of run data deletion",
+            datatype="GPBoolean",
+            parameterType='Optional',
+            direction="Output")
+
+        param18.filter.type = "ValueList"
+        param18.filter.list = [True, False]
+        param18.value = True
+                        
         params = [param0, param1, param2, param3,
                   param4, param5, param6, param7,
                   param8, param9, param10, param11,
                   param12, param13, param14, param15,
-                  param16, param17]
+                  param16, param17, param18]
         return params
 
 
@@ -211,8 +222,8 @@ class Tool(object):
         cleanup = False
         doLidarDEMs(parameters[0].valueAsText, parameters[1].valueAsText, parameters[2].valueAsText, parameters[3].valueAsText, parameters[4].valueAsText, 
                     parameters[5].valueAsText, parameters[6].valueAsText, parameters[7].valueAsText, parameters[8].valueAsText, parameters[9].valueAsText, 
-                    parameters[10].valueAsText, parameters[11].valueAsText, parameters[12].valueAsText, parameters[13].valueAsText, 
-                    parameters[14].valueAsText, parameters[15].valueAsText, parameters[16].valueAsText, parameters[17].valueAsText, cleanup, messages)
+                    parameters[10].valueAsText, parameters[11].valueAsText, parameters[12].valueAsText, parameters[13].valueAsText, parameters[14].valueAsText, 
+                    parameters[15].valueAsText, parameters[16].valueAsText, parameters[17].valueAsText, parameters[18].valueAsText, messages)
         return
 
     def postExecute(self, parameters):
@@ -2253,4 +2264,4 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 #          procDir, snap, breakpolys, breaklines, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
 #          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, cleanup, messages)#msgStub())
 
-#     # arcpy.AddMessage("Back from doEPT!")
+#     # arcpy.AddMessage("Back from doEPT!")y
