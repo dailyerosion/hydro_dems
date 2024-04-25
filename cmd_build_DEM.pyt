@@ -502,14 +502,15 @@ def getLasRasterArguments(lasToRaster):
 
     return raster_arguments
 
-def createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntBeFile):#locDict):
+def createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntBeFile, named_cell_size, pattern):#locDict):
     try:
         maskRastOut = opj(sgdb, maskRastBase + str(demList[0]))
 
+        cntBeFile_sized = updateResolution(cntBeFile, named_cell_size, demList[0], pattern, log)
         log.debug('---Counting Bare Earth Returns for ' + str(demList[0]))
         terrCountName = arcpy.ValidateTableName("cnt" + str(demList[0]) + "m_fl_" + huc12, sgdb)
         terrCount = arcpy.PointToRaster_conversion(finalMPinm, arcpy.Describe(finalMP).OIDFieldName, os.path.join(sgdb, terrCountName), "COUNT", "NONE", str(demList[0]))
-        cntBeFileRasterObj = clipCountRaster(terrCount, maskRastOut, cntBeFile)
+        cntBeFileRasterObj = clipCountRaster(terrCount, maskRastOut, cntBeFile_sized)
 
         return cntBeFileRasterObj
 
@@ -2154,7 +2155,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                 log.debug(f'---Processing resolution {demList}')
                 # arcpy.env.snapRaster
                 if cntBeFile is not None:
-                    cntBeFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntBeFile)
+                    cntBeFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntBeFile, init_res, pattern26)
 
                 terrainList = createRastersFromTerrains(log, demList, procDir, terrains, huc12)
 
