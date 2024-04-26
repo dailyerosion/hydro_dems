@@ -273,13 +273,7 @@ def processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom, ept_las, srOut, inm
         sfx = arcpy.ValidateTableName('_' + ept_las_base, sgdb)
         log.debug('lidar file suffix is: ' + sfx)
 
-        # put in las or zlas format
-
-
-        # fixedLasPath = ept_las#lasCopy
-    ##                                        allTilesList.append(fixedLasPath)
         allLasd = arcpy.CreateLasDataset_management(ept_las, opj(sfldr, 'all' + sfx))
-        # allLasdDescDa = arcpy.da.Describe(allLasd)
 
         # extract to tile geometry and project if necessary
         nameSfx = '_' + str(srOutCode)
@@ -304,11 +298,6 @@ def processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom, ept_las, srOut, inm
             allTilesList.append(fixedLasPath)
 
         if fixedLasPath in allTilesList:#non 0 amount of lidar points in las
-            ## generate multipoint feature class from lidar class 2 (BE) points
-#             ptOut, cl2Las = genClass2AndMultiPoints(fixedLasPath, sfx, srOut, inm, FDSet, procDir, log)
-
-# def genClass2AndMultiPoints(allLAZ, sfx, srOut, inm, FDSet, procDir, log):
-#     try:
             allLAZ = fixedLasPath
             if allLAZ.endswith('.laz') or allLAZ.endswith('.las'):
                 """Filters LAS points to class 2 and creates multipoints in FDSet"""
@@ -334,12 +323,8 @@ def processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom, ept_las, srOut, inm
             else:
                 log.warning('no ptOut created, setting to None')
                 ptOut = None
-
-        # ##    return cl2LAS, ptOut
-        #     return ptOut, cl2LAS
                 
             cl2Las = las_from_laz
-
 
         # ready so there is something to return
         if 'cl2Las' not in locals():
@@ -1710,9 +1695,9 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 
                             ept_json_filename = "_".join(["get", "ept", huc12, str(work_id_part) + ".json"])
 
-                            df.create_needed_dirs_and_gdbs(ept_json_full_filename, log)
                             df.create_needed_dirs_and_gdbs(ept_las_full_filename, log)
                             ept_json_full_filename = create_ept_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode)
+                            df.create_needed_dirs_and_gdbs(ept_json_full_filename, log)
 
                             if not os.path.exists(ept_las_full_filename):
                                 run_string = " ".join([pdal_exe, "pipeline", ept_json_full_filename])
@@ -1833,6 +1818,11 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
          pdal_exe, gsds, fElevFile, 
          procDir, snap, breakpolys, breaklines, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, cleanup, messages):
+    
+    if cleanup == 'True':
+        cleanup = True
+    else:
+        cleanup = False
 
     arguments = [monthly_wesm_ept_mashup, dem_polygon, 
         pdal_exe, gsds, fElevFile, 
@@ -2212,13 +2202,10 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
 
 # if __name__ == "__main__":
-#     import sys
-
-
 #     if len(sys.argv) == 1:
 #         #Paste arguments into here for use within Python Window
 #         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-#         cleanup = False
+#         # cleanup = False
 
 #         parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
 # 	"C:/DEP/Scripts/basics/cmd_build_DEM.pyt",
@@ -2239,7 +2226,8 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 # 	"M:/DEP/LiDAR_Current/int_Lib/07080105/fr_int_min3m070801050901.tif",
 # 	"M:/DEP/LiDAR_Current/int_Lib/07080105/fr_int_max3m070801050901.tif",
 # 	"M:/DEP/LiDAR_Current/int_Lib/07080105/be_int_max3m070801050901.tif",
-# 	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/wesm_ept_resources_2024_04_01_070801050901"]
+# 	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/wesm_ept_resources_2024_04_01_070801050901",
+#     "True"]
 #         for i in parameters[2:]:
 #             sys.argv.append(i)
 
@@ -2248,14 +2236,13 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 #         #above 'parameters' come in via command line arguments, nothing else needed
 #         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
 #         # clean up the folder after done processing
-#         cleanup = True
-
+#         # cleanup = True
 
 #     # inputs then outputs
 #     (monthly_wesm_ept_mashup, dem_polygon, 
 #          pdal_exe, gsds, fElevFile, 
 #          procDir, snap, breakpolys, breaklines, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-#          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file
+#          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, cleanup
 #         ) = [i for i in sys.argv[1:]]
 
 #     messages = msgStub()
@@ -2265,4 +2252,4 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 #          procDir, snap, breakpolys, breaklines, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
 #          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, cleanup, messages)#msgStub())
 
-#     # arcpy.AddMessage("Back from doEPT!")y
+#     arcpy.AddMessage("Back from doEPT!")
