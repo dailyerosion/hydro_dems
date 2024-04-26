@@ -1819,10 +1819,8 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
          procDir, snap, breakpolys, breaklines, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, cleanup, messages):
     
-    if cleanup == 'True':
-        cleanup = True
-    else:
-        cleanup = False
+    # switch a text 'True' into a real Python True
+    cleanup = True if cleanup == "True" else False
 
     arguments = [monthly_wesm_ept_mashup, dem_polygon, 
         pdal_exe, gsds, fElevFile, 
@@ -1877,9 +1875,11 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
         if cleanup:
             log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)
+            arcpy.SetLogHistory = False
         else:
             # log to file and console
             log, nowYmd, logName, startTime = df.setupLoggingNew(logProc, sys.argv[0], huc12)
+            arcpy.SetLogHistory = True
 
         # if not os.path.isfile(flib_metadata_template):
         #     log.warning('flib_metadata does not exist')

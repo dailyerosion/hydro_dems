@@ -156,19 +156,28 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
 
         huc12, huc8 = df.figureItOut(input_dem)
 
+        #figure out where to create log files
+        node = platform.node()
+        if 'EL3354-02' in node.upper() or 'EL3321-02' in node.upper() or 'DA214B-12' in node.upper() or 'DA214B-11' in node.upper() or 'DEP' in node.upper():
+            logProc = 'D:\\DEP_Proc'
+        elif '-M' in node.upper():
+            logProc = 'C:\\DEP_Proc'
+        else:
+            logProc = sfldr
+
         if cleanup:
             # log to file only
-            log, nowYmd, logName, startTime = df.setupLoggingNoCh(platform.node(), sys.argv[0], huc12)
+            log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)
             verbose = False
             arcpy.SetLogHistory = False
         else:
             # log to file and console
-            log, nowYmd, logName, startTime = df.setupLoggingNew(platform.node(), sys.argv[0], huc12)
+            log, nowYmd, logName, startTime = df.setupLoggingNew(logProc, sys.argv[0], huc12)
             verbose = True
             arcpy.SetLogHistory = True
 
         startTime = time.time()
-        log.info("Beginning execution: " + time.asctime())
+        log.info("Beginning execution:")
         log.info("Tool: Executing with parameters:\n" + arg_str)
         messages.addMessage("Log file at " + logName)
 
