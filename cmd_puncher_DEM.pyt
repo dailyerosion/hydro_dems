@@ -189,7 +189,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         if not arcpy.Exists(output_gdb):
             arcpy.CreateFileGDB_management(folder_dir, os.path.basename(output_gdb))
 
-        df.create_needed_dirs_and_gdbs(output_dem)
+        df.create_needed_dirs_and_gdbs(output_dem, log)
 
         # control where scratchFolder and GDB are created
         if os.path.isdir(procDir):
