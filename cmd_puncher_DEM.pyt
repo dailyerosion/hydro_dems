@@ -181,14 +181,15 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         log.info("Tool: Executing with parameters:\n" + arg_str)
         messages.addMessage("Log file at " + logName)
 
-        ## Set the environments
         ## Make sure depression output locations exist
         output_gdb = os.path.dirname(depressions_fc)
         folder_dir = os.path.dirname(output_gdb)
         if not os.path.isdir(folder_dir):
             os.makedirs(folder_dir)
         if not arcpy.Exists(output_gdb):
-            arcpy.CreateFileGDB_management(folder_dir, os.path.basename(output_gdb))            
+            arcpy.CreateFileGDB_management(folder_dir, os.path.basename(output_gdb))
+
+        df.create_needed_dirs_and_gdbs(output_dem)
 
         # control where scratchFolder and GDB are created
         if os.path.isdir(procDir):
@@ -198,6 +199,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         if not os.path.isdir(procDir):
             os.makedirs(procDir)
 
+        ## Set the environments
         arcpy.env.scratchWorkspace = procDir
 
         sfldr = arcpy.env.scratchFolder
