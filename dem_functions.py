@@ -691,8 +691,10 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
 
         if int(ACPFyear) <= 2015:
             geeResidueMap = opj(otherBaseNoVersion, 'Iowa_RC.gdb', 'huc' + huc8 + '_ACPF2017')
-        elif int(ACPFyear) <= 2025:
+        elif int(ACPFyear) <= 2021:
             geeResidueMap = opj(otherBaseNoVersion, 'GEE_residue_cover', 'residue_cover_' + ACPFyear + '.tif')
+        elif int(ACPFyear) <= 2025:
+            geeResidueMap = opj(otherBaseNoVersion, 'GEE_residue_cover', 'residue_cover_' + ACPFyear + '_L89.tif')
         if int(ACPFyear) <= 2017:
             mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', '2017_combo_agonly_recount_combo_residue_times2.img')
         elif int(ACPFyear) <= 2020:
@@ -700,6 +702,8 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         elif int(ACPFyear) == 2021:
             mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_2021_boax_rowcrop_noforage_residue_times2_rc200_new_combo2019_2020_model.img')
         elif int(ACPFyear) == 2022:
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage_final_w_flood_mask_out.tif')
+        elif int(ACPFyear) == 2023:
             mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage_final_w_flood_mask_out.tif')
         
         locationsDict.update({
@@ -709,10 +713,10 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         "geeResidueMap" : geeResidueMap,
 ##        "mnTillageTable" : opj(locationsDictNoVersion["huc8_fields"], 'huc' + huc8 + '_mn_rc' + ACPFyear),
 ##        "geeTillageTable" : opj(locationsDictNoVersion["huc8_fields"], 'huc' + huc8 + '_gee_rc' + ACPFyear),
-        "tillageTable" : opj(ACPFDir, 'huc' + huc12 + '_till' + ACPFyear),
+        "tillageTable" : opj(ACPFDir, "_".join(['till', ACPFyear, 'huc', huc12])),
         # "geeTillageTable" : opj(ACPFDir, 'huc' + huc12 + '_till' + ACPFyear),
-        "mnResidueTable" : opj(ACPFDir, 'huc' + huc12 + '_mn_rc' + ACPFyear),
-        "geeResidueTable" : opj(ACPFDir, 'huc' + huc12 + '_gee_rc' + ACPFyear),
+        "mnResidueTable" : opj(ACPFDir, "_".join(['RC_MN', ACPFyear, 'huc', huc12])),
+        "geeResidueTable" : opj(ACPFDir, "_".join(['RC_GEE', ACPFyear, 'huc', huc12])),
         "eptBaseDir" : opj(locationsDict["eleBaseDir"], 'ept'),
 
         "ept_wesm_monthly_file" : opj(locationsDict["eleBaseDir"], 'ept', 'ept.gdb', ept_first_of_month_name),
