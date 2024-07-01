@@ -280,16 +280,18 @@ def createBasicDirectories(node, ACPFyear, uversion = ''):
     '''Creates the most basic DEP directories, ACPF directory and DEP base directory as strings'''
     # depBase - location of most DEP inputs and outputs
     # acpfBase - location of DEP/ACPF management data geodatabases
-    if 'EL3354-02' in node.upper():# or 'DA214B-11' in node.upper():
-        acpfStart = 'D:\\DEP'
-        depBase = 'M:\\DEP'
-    elif 'EL3321-M10' in node.upper():
-        # run everything local on laptop
-        acpfStart = 'C:\\DEP'
-        depBase = 'C:\\DEP'
-    else:
-        acpfStart = '\\\\EL3354-02\\D$\\DEP'#\\Man_Data_ACPF\\dep_ACPF' + ACPFyear
-        depBase = '\\\\EL3354-02\\M$\\DEP'
+    acpfStart = '\\\\10.27.15.155\\D$\\DEP'#\\Man_Data_ACPF\\dep_ACPF' + ACPFyear
+    depBase = '\\\\10.27.15.155\\M$\\DEP'
+    # if 'EL3354-02' in node.upper():# or 'DA214B-11' in node.upper():
+    #     acpfStart = 'D:\\DEP'
+    #     depBase = 'M:\\DEP'
+    # elif 'EL3321-M10' in node.upper():
+    #     # run everything local on laptop
+    #     acpfStart = 'C:\\DEP'
+    #     depBase = 'C:\\DEP'
+    # else:
+    #     acpfStart = '\\\\EL3354-02\\D$\\DEP'#\\Man_Data_ACPF\\dep_ACPF' + ACPFyear
+    #     depBase = '\\\\EL3354-02\\M$\\DEP'
 
     # basedata never changes with version
     basedataDir = opj(acpfStart, 'Basedata_Summaries')
