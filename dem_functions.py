@@ -261,9 +261,7 @@ def defineLocalProc(node, uversion = ''):
     #Alan Kuutilla's naming for laptops
     if '-M' in node.upper():
         localProc = 'C:\\DEP_Proc'
-    elif 'EL3354-02' in node.upper() or 'EL3321-02' in node.upper():
-        localProc = 'D:\\DEP_Proc'
-    elif 'DA214B-12' in node.upper() or 'DA214B-11' in node.upper():
+    elif 'EL3354' in node.upper() or 'EL3321' in node.upper() or 'DA214B' in node.upper():
         localProc = 'D:\\DEP_Proc'
     elif 'DEP' in node.upper():
         localProc = 'D:\\DEP_Proc'
