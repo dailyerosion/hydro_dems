@@ -86,39 +86,39 @@ class Tool(object):
         param3.values = "3,2,1"#default gsds value to create 3, 2, and 1 meter rasters
         
         param4 = arcpy.Parameter(
-            name = "fElevFile",
-            displayName="Output Pit-Filled Elevation Model",
-            datatype="DERasterDataset",
-            parameterType='Required',
-            direction="Output")
-        
-        param5 = arcpy.Parameter(
             name = "procDir",
             displayName="Local Processing Directory",
             datatype="DEFolder",
             parameterType='Optional',
             direction="Input")
         
-        param6 = arcpy.Parameter(
+        param5 = arcpy.Parameter(
             name="snap",
             displayName="Snap Raster",
             datatype="DERasterDataset",
             parameterType='Optional',
             direction="Input")
         
-        param7 = arcpy.Parameter(
+        param6 = arcpy.Parameter(
             name = "breakpolys",
             displayName="Input HUC12 Merged Breakline Polygon Features",
             datatype="DEFeatureClass",
             parameterType='Optional',
             direction="Input")
         
-        param8 = arcpy.Parameter(
+        param7 = arcpy.Parameter(
             name = "breaklines",
             displayName="Input HUC12 Merged Breakline Polyline Features",
             datatype="DEFeatureClass",
             parameterType='Optional',
             direction="Input")
+        
+        param8 = arcpy.Parameter(
+            name = "fElevFile",
+            displayName="Output Pit-Filled Elevation Model",
+            datatype="DERasterDataset",
+            parameterType='Required',
+            direction="Output")
         
         param9 = arcpy.Parameter(
             name = "bareEarthReturnMinFile",
@@ -1815,16 +1815,16 @@ def try_to_delete(rasRes, log):
 
 
 def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon, 
-         pdal_exe, gsds, fElevFile, 
-         procDir, snap, breakpolys, breaklines, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+         pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
+         fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, cleanup, messages):
     
     # switch a text 'True' into a real Python True
     cleanup = True if cleanup == "True" else False
 
     arguments = [monthly_wesm_ept_mashup, dem_polygon, 
-        pdal_exe, gsds, fElevFile, 
-        procDir, snap, breakpolys, breaklines, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+        pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
+        fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
         int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, cleanup]
 
     for a in arguments:
@@ -1866,7 +1866,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
         #figure out where to create log files
         node = platform.node()
-        if 'EL3354-02' in node.upper() or 'EL3321-02' in node.upper() or 'DA214B-12' in node.upper() or 'DA214B-11' in node.upper() or 'DEP' in node.upper():
+        if 'EL3354-02' in node.upper() or 'EL3321-02' in node.upper() or 'EL3321-03' in node.upper() or 'DA214B-12' in node.upper() or 'DA214B-11' in node.upper() or 'DEP' in node.upper():
             logProc = 'D:\\DEP_Proc'
         elif '-M' in node.upper():
             logProc = 'C:\\DEP_Proc'
@@ -2213,11 +2213,11 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 # 	"D:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/buf_070801050901",
 # 	"C:/Users/bkgelder/Anaconda3/envs/pda_trial_2022_09_09/Library/bin/pdal.exe",
 # 	"3,2,1",
-# 	"M:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
 # 	"D:/DEP_Proc/DEMProc/LAS_dem2013_3m_070801050901",
 # 	"D:/DEP/Basedata_Summaries/Basedata_26915.gdb/Snap1m",
 # 	"",
 # 	"",
+# 	"M:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
 # 	"M:/DEP/LiDAR_Current/surf_el_Lib/07080105/bemin3m070801050901.tif",
 # 	"M:/DEP/LiDAR_Current/surf_el_Lib/07080105/frmax3m070801050901.tif",
 # 	"M:/DEP/LiDAR_Current/count_Lib/07080105/cbe3m070801050901.tif",
@@ -2240,16 +2240,16 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
 #     # inputs then outputs
 #     (monthly_wesm_ept_mashup, dem_polygon, 
-#          pdal_exe, gsds, fElevFile, 
-#          procDir, snap, breakpolys, breaklines, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+#          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
+#          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
 #          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, cleanup
 #         ) = [i for i in sys.argv[1:]]
 
 #     messages = msgStub()
 
 #     doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon, 
-#          pdal_exe, gsds, fElevFile, 
-#          procDir, snap, breakpolys, breaklines, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+#          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
+#          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
 #          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, cleanup, messages)#msgStub())
 
 #     arcpy.AddMessage("Back from doEPT!")
