@@ -1866,12 +1866,9 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
         #figure out where to create log files
         node = platform.node()
-        if 'EL3354-02' in node.upper() or 'EL3321-02' in node.upper() or 'EL3321-03' in node.upper() or 'DA214B-12' in node.upper() or 'DA214B-11' in node.upper() or 'DEP' in node.upper():
-            logProc = 'D:\\DEP_Proc'
-        elif '-M' in node.upper():
-            logProc = 'C:\\DEP_Proc'
-        else:
-            logProc = sfldr
+        logProc = df.defineLocalProc(node)
+        if not os.path.isdir(logProc):
+            logProc - eptDir
 
         if cleanup:
             log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)

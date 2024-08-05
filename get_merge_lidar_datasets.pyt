@@ -124,10 +124,11 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
 
         if procDir != "":
             if os.path.isdir(procDir):
-                # log.info('nuking: ' + procDir)
+                log.info('nuking: ' + procDir)
                 df.nukedir(procDir)
 
             if not os.path.isdir(procDir):
+                log.debug(f"making dir: {procDir}")
                 os.makedirs(procDir)
 
             arcpy.env.scratchWorkspace = procDir
@@ -137,14 +138,13 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
         arcpy.env.scratchWorkspace = sgdb
         arcpy.env.workspace = sgdb
 
+        eptDir = procDir#os.path.dirname(os.path.dirname(ept_wesm_file))
+
         #figure out where to create log files
         node = platform.node()
-        if 'EL3354' in node.upper() or 'EL3321' in node.upper() or 'DA214B' in node.upper() or 'DEP' in node.upper():
-            logProc = 'D:\\DEP_Proc'
-        elif '-M' in node.upper():
-            logProc = 'C:\\DEP_Proc'
-        else:
-            logProc = eptDir
+        logProc = df.defineLocalProc(node)
+        if not os.path.isdir(logProc):
+            logProc - eptDir
 
         if cleanup:
             log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)
@@ -152,13 +152,6 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
             # log to file and console
             log, nowYmd, logName, startTime = df.setupLoggingNew(logProc, sys.argv[0], huc12)
 
-
-        eptDir = procDir#os.path.dirname(os.path.dirname(ept_wesm_file))
-        # log.debug(f"checking for dir: {eptDir}")
-
-        if not os.path.isdir(eptDir):
-            # log.debug(f"making dir: {eptDir}")
-            os.makedirs(eptDir)
 
         log.info("Beginning execution: " + time.asctime())
         log.info("Log file at " + logName)
