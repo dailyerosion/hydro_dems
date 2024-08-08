@@ -351,6 +351,435 @@ def loadBasicVariablesDict(node, ACPFyear, uversion = ''):
     return basicDict, MWHUC12_ACPF, MWHUC8_ACPF, MWHUC2_ACPF
 
 
+def loadVariablesDictNew(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowYmd, version = ''):
+    '''This function creates the locations where the DEP data is stored as this
+    depends on the required processing steps and year of the input data. The output
+    list is subsetted based on the subset argument. Version adds a version identifier
+    to all output and creates a copy ACPF directory.
+    node - platform.node()
+    ACPFyear - year of ACPF data to use, as string
+    huc12 - 12 digit string
+    outEPSG - coordinate reference system as string
+    interpType - Terrain code abbreviation (e.g. mean18, mnmx18)
+    cellSize - cell size as integer
+    nowYmd - %Y_%m_%d_%H_%M_%S to append to filenames
+    version - identification string to code things uniquely for testing
+    '''
+
+    assert len(huc12) >= 10, 'HUC12 code too short'
+    assert 4 <= len(outEPSG) <= 5, 'coordinate system EPSG should be 4 or 5 characters'
+    assert type(cellSize) == type(1), 'cellSize should be integer'
+
+    huc12_2022 = ['051201130904', '051402020705', '050800020907', '071200030304', '071200030302', '071200011308', '040400010510', '040400010103', '040400010302', '040400010303', '040400010401', '040400010403', '040400010501', '040400010502', '040400010503', '040400010504', '040400010505', '040400010508', '071200011004', '071200011008', '040400010204', '040400010104', '040400010201', '040400010205', '071200010201', '071200030303', '071200030203', '071200030407', '071100090107', '102300030501', '040400010402', '071401010401', '071100090403', '071100090401', '071401010206', '102100100206', '102001011107', '102002020103', '102702010101', '102002020211', '102200031003', '040400010506', '071300111006', '102400010106', '051402060703', '040801010504', '040700030401', '041000100503', '080101000201', '040400010604', '040301140201', '040301140101', '040601040401', '040400020101', '040400010102', '040400010605', '040400010602', '040400010601', '040400010105', '040101010105', '042600000101', '040400010507', '041800000101', '041800000102', '090300010301', '040101010101', '040101010208', '040101010207', '040101011504', '040101010203', '040101011403', '040101010108', '040101010107', '040101011404', '040101011503', '040101011502', '040101010103', '040101010106', '040101011401', '040101010104', '040101011402', '040101010102', '040101011501', '040900020102', '040900020901', '040900020702', '040900020304', '040900010504', '040900020203', '040900020301', '040900020602', '040900020401', '040900020101', '040900020701', '040900010501', '040900040602', '040900040603', '040900040502', '040900040601', '040900040702', '040900040703', '040900040701', '040900021008', '040900021007', '040900021006', '040900021005', '040900040503', '040900040501', '040900020503', '040900021004', '040900021001', '040900020902', '040900020801', '040900021009', '040900020303', '040900020803', '040900020302', '040900020703', '040900021002', '040900020402', '040900020501', '040900020502', '040900020201', '040900020802', '040900021003', '040900020603', '040900020204', '040900020202', '040900020504', '040900020601', '041000130106', '041000130405', '041000130104', '041000130101', '041000130102', '041000130103', '041000130105', '041000130107', '041000130111', '041000130108', '041000130109', '041000130110', '041000130112', '041000130201', '041000130301', '041000130202', '041000130203', '041000130204', '041000130302', '041000130303', '041000130304', '041000130404', '041000130401', '041000130402', '041000130403', '041000130305', '041000130306', '041000130307', '041000130308', '041000130309', '041000130406', '041000130407', '041900000100', '040900010502', '101000042706', '101102050609', '101101010101', '101101012903', '042000021003', '042000021005', '042000021105', '042000021104', '042000021006', '042000021004', '042000021002', '042000021007', '042000021001', '042000021103', '042000021101', '042000021102', '042000020301', '042000020302', '042000020303', '042000020903', '042000020603', '042000020606', '042000020602', '042000020601', '042000020902', '042000020706', '042000020901', '042000020604', '042000020801', '042000020201', '042000020401', '042000020202', '042000020704', '042000020702', '042000020802', '042000020609', '042000020701', '042000020402', '042000020501', '042000020502', '042000020608', '042000020703', '042000020607', '042000020605', '040301020104', '040900010503', '042600000102', '041800000200', '042000020203', '042000020705', '042600000200', '051401010304', '101702040602', '070200080601', '090201060401', '090201060301', '103001010202', '103001010203', '051202070601', '080101000103', '080102010506', '102001030507', '102002020105', '102100090605', '102200040406', '102200010801', '102200030805', '102200031002', '102200031006', '101800091707', '101800140102', '070900021401', '071200060402', '050902030204', '040400010206', '042400020200', '101701040109', '101701040202', '101701040304', '101701040103', '101701040107', '101701040101', '101701040102', '101701040104', '101701040105', '101701040106', '101701040108', '101701040110', '101701040201', '101701040203', '101701040204', '101701040207', '101701040205', '101701040206', '101701040301', '101701040305', '101701040302', '101701040303', '071401010403', '071401010502', '041000010201', '041000010206', '040400010606', '071200011002', '040400010509', '071200030306', '040400010301', '041900000200', '090201030805']
+
+    huc12_2019 = ['080203020101', '071100090201', '071100090301', '071402040501', '071402040506', '051201120204', '070200090301', '101702040504', '040400010603', '051201090801', '102300020301', '071200021201', '071200030104', '071200030107', '051201130901', '051201130902', '051201130903', '051201130904', '071200011308', '071200020703', '071402010206', '071200030304', '071200030305', '051402020705', '071300020104', '051201141004', '071300120401', '071000030403', '102400010106', '070600030704', '070700051804', '051402040501', '051402060507', '051402060508', '051402060509', '102500100303', '102500100304', '102500110303', '102500110304', '102500160804', '102701020906', '102701030510', '110100070804', '070400080904', '102300030501', '102801011707', '102801011708', '102801021404', '070300040403', '071000010502', '071000010801', '102802020410', '102901030205', '102901050204', '070102060903', '070300050404', '070400010209', '070102070401', '070400030601', '070400060502', '070600010504', '070102070602', '070200080503', '103001011204', '070102010101', '070102020504', '080103000101', '080103000102', '080103000103', '080103000104', '080103000201', '080103000202', '080103000203', '080103000204', '080103000301', '080103000302', '080103000303', '080103000304', '080103000305', '080103000306', '080103000307', '080103000308', '080103000309', '101900180606', '101800140808', '102500090701', '102500090703', '102500090901', '101900180703', '101900180705', '101900180706', '102001010901', '102001010902', '102001010903', '102001011004', '102001011005', '102001011101', '102001011102', '102500160301', '102500160303', '102001011106', '102001011107', '102001030206', '102002020101', '102002020103', '102702010101', '102002020211', '102702030401', '102702060101', '102702060301', '102702060901', '102100090503', '102200031003', '102200031005', '070700031401', '040301020102', '040301020103', '040301020105', '040301020106', '040301020107', '040301020108', '040301020109', '040301020110', '040301020201', '040301020204', '040301020205', '040301020305', '040301020401', '040301020403', '040301020404', '040301020405', '040301020406', '040301020407', '070400070701', '070500051205', '070500010904', '070500020704', '090203020104', '041800000200', '040103020109', '041800000100', '040103010504', '040103010503', '040103010601', '040103010602', '040103010603', '040103010607', '040103010608', '040103010705', '040103010806', '040103010807', '040103010901', '040103010902', '040103010903', '040103010904', '040103010906', '040103011002', '040103011003', '040103011004', '040103011008', '040103011101', '040103011105', '040103020703', '040103020705', '090300050302', '040101010802', '040102011604', '090300010302', '090300070501', '040102010602', '040101010401', '040101011301', '090300091423', '071402040504', '071402040505', '071402040502', '090203140101', '090203140102', '090203140103', '090203140104', '090203140105', '090203140106', '090203140107', '090203120606', '090203120601', '090203120502', '090203140408', '090203110702', '090203120602', '090203140604', '090203110701', '090203140504', '090203140603', '090203120501', '090203140508', '090203140606', '090203140607', '090203140409', '090203110803', '090203140407', '090203110703', '090203140808', '090203140405', '090203110804', '090203140801', '090203140507', '090203140608', '090203140809', '090203140602', '090203140406', '090203140806', '040400020503', '040400020502', '040400020501', '040400020401', '040400020403', '040400020306', '040400020102', '040400030606', '040400030601', '040301011203', '040301011202', '040301011109', '040301010705', '040301010704', '040301010703', '040301010702', '040301010605', '040301010604', '040301010205', '040301010101', '040302040405', '040302040401', '040302040106', '040301030205', '040301030104', '040301030103', '040301040506', '040301050607', '040301050606', '040301050605', '040301080913', '040400020101', '041900000002', '041900000001', '040302040101', '041800000300', '040301020104', '040301020101', '040301020402', '040301020111']
+    if int(ACPFyear) > 2021:
+        if huc12 in huc12_2022:
+            ACPFDEMyear = '2022'
+        elif huc12 in huc12_2019:
+            ACPFDEMyear = '2019'
+        else:
+            ACPFDEMyear = '2013'
+##        print('ACPFDEMyear is: ' + ACPFDEMyear)
+
+    elif int(ACPFyear) > 2018:
+        if huc12 in huc12_2019:# and int(ACPFyear) > 2018:
+            ACPFDEMyear = '2019'
+##        print('ACPFDEMyear is: ' + ACPFDEMyear)
+        else:
+            ACPFDEMyear = '2013'
+##        print('ACPFDEMyear is: ' + ACPFDEMyear)
+
+    else:
+        ACPFDEMyear = '2013'
+
+    dem_year = '_dem' + ACPFDEMyear
+
+    DEMyear = 'Current'
+
+    if version != '':
+        if version.startswith('_') or version.endswith('_'):
+            version = version.replace('_', '')
+        uversion = '_' + version
+        version = version + '_'
+    else:
+        uversion = ''
+
+    uinterpType = '_' + interpType
+    ucellSize = '_' + str(cellSize) + 'm'
+    uhuc12 = '_' + huc12
+
+
+    try:
+##        print('uinterpType: ' + uinterpType)
+##        print('uversion: ' + uversion)
+##        print('dem_year: ' + dem_year)
+##        print('node: ' + node)
+        # localProc - local processing directory (a local drive)
+        # get the local processing directory (usually D:)
+        localProc = defineLocalProc(node, uversion)
+##        print('localProc: ' + localProc)
+        # basedataDir - location of the PCS specific datasets
+
+        locationsDict, MWHUC12_ACPF, MWHUC8_ACPF, MWHUC2_ACPF = loadBasicVariablesDict(node, ACPFyear, uversion)
+        acpfBase = locationsDict['acpfBase']
+        depBase = locationsDict['depBase']
+        basedataDir = locationsDict['basedataDir']
+        otherBase = locationsDict['otherBase']
+        locationsDictNoVersion, MWHUC12_ACPF_no_version, MWHUC8_ACPF_no_version, MWHUC2_ACPF_no_version = loadBasicVariablesDict(node, ACPFyear, '')
+        otherBaseNoVersion = locationsDictNoVersion['otherBase']
+        acpfBaseNoVersion = locationsDictNoVersion['acpfBase']
+
+####        acpfBase, depBase, basedataDir = createBasicDirectories(node, ACPFyear, uversion)
+##        print(', '.join([acpfBase, depBase, basedataDir]))
+
+        lidarOutputDir = opj(depBase, 'LiDAR_' + DEMyear)
+        
+        depFlowpaths = opj(depBase, 'DEP_Flowpaths')
+
+        depDocumentation = opj(basedataDir, 'Documentation')
+
+        depMetadata = opj(depBase.replace(uversion, ""), 'toolMetadata')
+
+        gullyOutputs = opj(depBase, 'Gully_Outputs')
+
+        depOutput = opj(locationsDict['acpfStart'], 'DEP_Outputs')
+
+        huc8 = huc12[0:8]
+        uhuc12 = '_' + huc12
+
+        pElevDir = os.path.join(lidarOutputDir, '_'.join(['elev', 'PLib', interpType]))# + '_' + outEPSG)# + uversion)
+        fElevDir = os.path.join(lidarOutputDir, '_'.join(['elev', 'FLib', interpType]))# + '_' + outEPSG)# + uversion)
+        cElevDir = os.path.join(lidarOutputDir, '_'.join(['elev', 'CLib', interpType]))# + '_' + outEPSG)# + uversion)
+        vElevDir = os.path.join(lidarOutputDir, '_'.join(['elev', 'VLib', interpType]))# + '_' + outEPSG)# + uversion)
+
+        firstReturnDir = os.path.join(lidarOutputDir, '_'.join(['surf', 'el', 'Lib']))# + outEPSG)# + uversion)
+        countDir = os.path.join(lidarOutputDir, '_'.join(['count', 'Lib']))# + outEPSG)# + uversion)
+        intDir = os.path.join(lidarOutputDir, '_'.join(['int', 'Lib']))# + outEPSG)# + uversion)
+
+        copyDir = os.path.join(lidarOutputDir, '_'.join(['copy', 'gdb', interpType]))# + '_' + outEPSG)# + uversion)
+
+        holesDir = os.path.join(lidarOutputDir, '_'.join(['holes', 'Lib', interpType]))# + '_' + outEPSG)# + uversion)
+
+        voidDir = os.path.join(lidarOutputDir, '_'.join(['voids', 'Lib', interpType]))# + '_' + outEPSG)# + uversion)
+
+        huc8Dir = os.path.join(lidarOutputDir, '_'.join(['huc8', outEPSG]))# + uversion)
+
+##        huc8gdb = opj(huc8Dir, 'huc_' + huc8 + uversion + '.gdb')
+        huc8gdb = opj(huc8Dir, 'huc_' + huc8 + '.gdb')
+
+##        copyGDB = os.path.join(copyDir, huc8, 'copies_' + huc12 + uversion + '.gdb')
+        copyGDB = os.path.join(copyDir, huc8, 'copies_' + huc12 + '.gdb')
+        
+        ACPFDir = os.path.join(acpfBase, huc8, 'idepACPF' + huc12 + '.gdb')
+##        if not arcpy.Exists(ACPFDir):
+##            if not os.path.isdir(os.path.dirname(ACPFDir)):
+##                os.makedirs(os.path.dirname(ACPFDir))
+##            acpfOriginal = ACPFDir.replace(uversion, '')
+##            acpfVersionCopy = arcpy.Copy_management(acpfOriginal, ACPFDir)
+##        localACPFDir = ACPFDir
+
+        first_of_month = datetime.datetime.today().replace(day=1)
+        ept_first_of_month_name = "ept_resources_" + first_of_month.strftime("%Y_%m_%d")
+
+        locationsDict.update({
+        # pit filled elevation file
+        "fElevFile" : os.path.join(fElevDir, huc8, "_".join(['ef', str(cellSize) + 'm', huc12 + '.tif'])),
+        # punched elevation file
+        "pElevFile" : os.path.join(pElevDir, huc8, "_".join(['ep', str(cellSize) + 'm', huc12 + '.tif'])),
+        # cut elevaiton file
+        "cElevFile" : os.path.join(cElevDir, huc8, "_".join(['ec', str(cellSize) + 'm', huc12 + '.tif'])),
+        # lake-fixed elevation file
+        "vElevFile" : os.path.join(vElevDir, huc8, "_".join(['ev', str(cellSize) + 'm', huc12 + '.tif'])),
+        # bridge-fixed elevation file
+        "wElevFile" : os.path.join(vElevDir, huc8, "_".join(['ew', str(cellSize) + 'm', huc12 + '.tif'])),
+        # channel-fixed elevation files
+        "xElevFile" : os.path.join(vElevDir, huc8, "_".join(['ex', str(cellSize) + 'm', huc12 + '.tif'])),
+        # channel-fixed elevation files
+        "yElevFile" : os.path.join(vElevDir, huc8, "_".join(['ey', str(cellSize) + 'm', huc12 + '.tif'])),
+        # channel-fixed elevation files
+        "zElevFile" : os.path.join(vElevDir, huc8, "_".join(['ez', str(cellSize) + 'm', huc12 + '.tif'])),
+        # first return max elevation file
+        "surfaceElevFile" : os.path.join(firstReturnDir, huc8, "_".join(['frmax', str(cellSize) + 'm', huc12 + '.tif'])),
+        # first return min elevation file
+        "firstReturnMinFile" : os.path.join(firstReturnDir, huc8, "_".join(['frmin', str(cellSize) + 'm', huc12 + '.tif'])),
+        # last return min elevation file
+        "lastReturnMinFile" : os.path.join(firstReturnDir, huc8, "_".join(['lrmin', str(cellSize) + 'm', huc12 + '.tif'])),
+        # bareearth return min elevation file, created from lasdataset to raster, not terrain to raster
+        "bareEarthReturnMinFile" : os.path.join(firstReturnDir, huc8, "_".join(['bemin', str(cellSize) + 'm', huc12 + '.tif'])),
+
+        # holes that were punched in punched elevation file
+        "holesFile" : os.path.join(holesDir, huc8, 'holes' + str(cellSize) + 'm' + huc12 + '.tif'),
+
+        # bare earth return count file
+        "cntBeFile" : os.path.join(countDir, huc8, "_".join(['cbe', str(cellSize) + 'm', huc12 + '.tif'])),
+        # first return count file
+        "cnt1rFile" : os.path.join(countDir, huc8, "_".join(['cfr', str(cellSize) + 'm', huc12 + '.tif'])),
+        # pulse count file
+        "cntPlsFile" : os.path.join(countDir, huc8, "_".join(['cpls', str(cellSize) + 'm', huc12 + '.tif'])),
+
+        # first return min intensity file
+        "int1rMinFile" : os.path.join(intDir, huc8, "_".join(['fr_int_min', str(cellSize) + 'm', huc12 + '.tif'])),
+        # first return max intensity file
+        "int1rMaxFile" : os.path.join(intDir, huc8, "_".join(['fr_int_max', str(cellSize) + 'm', huc12 + '.tif'])),
+        # bare earth return min intensity file
+        "intBeMinFile" : os.path.join(intDir, huc8, "_".join(['be_int_min', str(cellSize) + 'm', huc12 + '.tif'])),
+        # bare earth return max intensity file
+        "intBeMaxFile" : os.path.join(intDir, huc8, "_".join(['be_int_max', str(cellSize) + 'm', huc12 + '.tif'])),
+
+        # documentation folder
+        "docFolder" : depDocumentation,
+
+        # metadata documents
+        "clib_metadata" : opj(depMetadata, 'CLib_DEMs2022_mTemplate.xml'),
+        "flib_metadata" : opj(depMetadata, 'FLib_DEMs2022_mTemplate.xml'),
+        "plib_metadata" : opj(depMetadata, 'PLib_DEMs2022_mTemplate.xml'),
+        "vlib_metadata" : opj(depMetadata, 'VLib_DEMs2022_mTemplate.xml'),
+        "derivative_metadata" : opj(depMetadata, 'FLib_Derivatives2022_mTemplate.xml'),
+
+        # no data areas (big voids) to fix first (likely rivers/lakes/lagoons)
+        "bigNoData" : opj(voidDir, huc8, "_".join(['bigvds', str(cellSize) + 'm', huc12 + '.tif'])),
+        # no data areas (smaller voids) to fix second (likely bridge decks/culverts)
+        "mediumNoData" : opj(voidDir, huc8, "_".join(['medvds', str(cellSize) + 'm', huc12 + '.tif'])),
+        # no data areas (smallest voids) to fix third (likely streams)
+        "smallNoData" : opj(voidDir, huc8, "_".join(['smlvds', str(cellSize) + 'm', huc12 + '.tif'])),
+
+        # other datasets where feature, thus name, is based on DEM year vintage
+##      new version of file names
+        "pdCatch" : opj(ACPFDir, "pdCatch" + uinterpType + dem_year + ucellSize + uhuc12),
+        "pdChnl" : opj(ACPFDir, "pdChnl" + uinterpType + dem_year + ucellSize + uhuc12),
+        "wShed" : opj(ACPFDir, "WShed" + uinterpType + dem_year + ucellSize + uhuc12),
+
+        # old version of feature class names
+####        "pdCatch" : opj(ACPFDir, "pdCatch" + huc12 + uversion + uinterpType + dem_year),
+####        "pdChnl" : opj(ACPFDir, "pdChnl" + huc12 + uversion + uinterpType + dem_year),
+####        "wShed" : opj(ACPFDir, "WShed" + huc12 + uversion + uinterpType + dem_year),
+
+        "fieldBoundaries" : opj(ACPFDir, "FB" + huc12),
+        "LU6" : opj(ACPFDir, "LU6_" + huc12),
+        "SSURGO" : opj(ACPFDir, 'gSSURGO'),
+        # "rc_table" : opj(ACPFDir, "ResCover_" + huc12),
+        "manField" : 'Management_CY_' + ACPFyear,
+        "rotField" : 'CropRotatn_CY_' + ACPFyear,
+        "tillField": 'Till_code_CY_' + ACPFyear,
+        "resCoverField": 'Adj_RC_CY_' + ACPFyear,
+
+            # for running cutter
+        "watershedBoundaries" : opj(ACPFDir, "bnd" + huc12),
+        "bufferedBoundaries" : opj(ACPFDir, "buf_" + huc12),
+        "wesm_project_boundaries" : opj(ACPFDir, "_".join(["wesm", ept_first_of_month_name, huc12])),
+        "snapraster" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'Snap1m'),
+        "roadsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'roads_merge'),
+        "rrsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'railways_merge'),
+        "rwsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'runways'),
+        "waterwaysfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'waterways'),
+        "waterfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'water'),
+
+        "mn_dnr_forest_roads" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'mn_dnr_roads'),
+        "us_fs_forest_roads" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'us_fs_roads'),
+        "us_fs_forest_trails" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'us_fs_trails'),
+
+        # other datasets where feature, thus name, is based on DEM year vintage
+        "goodcutsfc" : opj(ACPFDir, "cuts_prelim" + uinterpType + dem_year + ucellSize + uhuc12),
+        "bestcutsfc" : opj(ACPFDir, "cuts_final" + uinterpType + dem_year + ucellSize + uhuc12),
+        "depressionsfc" : opj(ACPFDir, "dprsns" + uinterpType + dem_year + ucellSize + uhuc12),
+        "depressions2cutfc" : opj(ACPFDir, "dprsns2cut" + uinterpType + dem_year + ucellSize + uhuc12),
+        "best_cut_stf" : opj(ACPFDir, "best_cut_stf" + uinterpType + dem_year + ucellSize + uhuc12),
+        "void_pit_dif" : opj(ACPFDir, "void_pit_dif" + uinterpType + dem_year + ucellSize + uhuc12),
+        "punch_pit_dif" : opj(ACPFDir, "punch_pit_dif" + uinterpType + dem_year + ucellSize + uhuc12),
+        "fil_dif_cut" : opj(ACPFDir, "fil_dif_cut" + uinterpType + dem_year + ucellSize + uhuc12),
+        "fil_dif_delta" : opj(ACPFDir, "fil_dif_delta" + uinterpType + dem_year + ucellSize + uhuc12),
+        "fil_dif_pit" : opj(ACPFDir, "fil_dif_pit" + uinterpType + dem_year + ucellSize + uhuc12),
+        "layerPath" : opj(depBase, 'Layers'),
+        "overviewPath" : opj(depBase, 'Overview_Maps'),
+
+##        "goodcutsfc" : opj(ACPFDir, "cuts_prelim" + uversion + uinterpType + dem_year + _huc12),
+##        "bestcutsfc" : opj(ACPFDir, "cuts_final" + uversion + uinterpType + dem_year + _huc12),
+##        "depressionsfc" : opj(ACPFDir, "dprsns" + uversion + uinterpType + dem_year + _huc12),
+##        "depressions2cutfc" : opj(ACPFDir, "dprsns2cut" + uversion + uinterpType + dem_year + _huc12),
+##        "layerPath" : opj(lidarOutputDir, 'Layers'),
+
+        "mwHuc12s" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', MWHUC12_ACPF),
+        "mwHuc12s5070_stats" : opj(basedataDir, 'Basedata_5070.gdb', MWHUC12_ACPF + '_'.join(['', 'Status', str(cellSize) + 'm', interpType])),
+        "mwHuc8s" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', MWHUC8_ACPF),
+        "mwHuc2s" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', MWHUC2_ACPF),
+
+        "medianProcDir" : opj(localProc,  'Median_Proc', '_'.join(['Medians', outEPSG, huc8])),
+        "mergedMdnsHuc8FC" : opj(huc8gdb, 'rd_rr_rd_rw_mrg_' + huc8),
+        "huc8Roads" : opj(huc8gdb, 'roads_' + huc8),
+
+        "GordRaster" : opj(depFlowpaths, '_'.join(['HUC12', 'GridOrder', interpType]), huc8, 'gord_' + huc12 + '.tif'),
+        "FPath_Mosaic_out" : opj(depFlowpaths, '_'.join(['HUC12', 'FlowPaths', interpType]), huc8, 'fp' + huc12 + '.tif'),
+        "FPLen_Mosaic_out" : opj(depFlowpaths, '_'.join(['HUC12', 'FPLengths', interpType]), huc8, 'fpLen' + huc12 + '.tif'),
+
+        # rasters to use in calculating gully erosion outputs and metrics
+        "tau_slope" : opj(gullyOutputs, 'Tau_D8_Slope' + '_' + interpType, huc8, 'sd8_' + str(cellSize) + 'm_' + huc12 + '.tif'),
+        "ag_fd" : opj(gullyOutputs, 'AG_FD' + '_' + interpType, huc8, 'fd_' + str(cellSize) + 'm_' + huc12 + '.tif'),
+        "ag_fa" : opj(gullyOutputs, 'AG_FA' + '_' + interpType, huc8, 'fa_' + str(cellSize) + 'm_' + huc12 + '.tif'),
+        "ag_plan_crv" : opj(gullyOutputs, 'AG_Plan_Crv' + '_' + interpType, huc8, 'pln_crv_' + str(cellSize) + 'm_' + huc12 + '.tif'),
+
+        # gully erosion terrain index rasters
+        "stream_power_raster" : opj(gullyOutputs, 'spi' + '_' + interpType, huc8, 'stream_power_' + str(cellSize) + 'm_' + huc12 + '.tif'),
+        "modified_stream_power_raster" : opj(gullyOutputs, 'mod_spi' + '_' + interpType, huc8, 'mod_strm_pwr_' + str(cellSize) + 'm_' + huc12 + '.tif'),
+        "compound_topo_index_raster" : opj(gullyOutputs, 'cti' + '_' + interpType, huc8, 'compound_topo_' + str(cellSize) + 'm_' + huc12 + '.tif'),
+        "specific_contributing_area_raster" : opj(gullyOutputs, 'contrib_area' + '_' + interpType, huc8, 'spec_con_area_' + str(cellSize) + 'm_' + huc12 + '.tif'),
+        "flup_raster" : opj(gullyOutputs, 'flow_length' + '_' + interpType, huc8, 'flup_' + str(cellSize) + 'm_' + huc12 + '.tif'),
+
+        "samples" : opj(ACPFDir, 'smpl' + str(cellSize) + 'm_' + interpType + huc12),
+        "samples_defined" : opj(ACPFDir, 'smpldef' + str(cellSize) + 'm_' + interpType + huc12),
+        "nulls" : opj(ACPFDir, 'null' + str(cellSize) + 'm_' + interpType + huc12),
+        "null_flowpaths" : opj(ACPFDir, 'null_flowpaths' + str(cellSize) + 'm_' + interpType + huc12),
+        "areas" : opj(ACPFDir, 'areas' + str(cellSize) + 'm_' + interpType + huc12),
+        "snaps" : opj(ACPFDir, 'snaps' + str(cellSize) + 'm_' + interpType + huc12),
+        # "tillages" : opj(ACPFDir, 'tillage' + str(cellSize) + 'm' + huc12),
+
+##        "samples" : opj(ACPFDir, 'smpl' + str(cellSize) + 'm_' + interpType + '_' + huc12),
+##        "samples_defined" : opj(ACPFDir, 'smpldef' + str(cellSize) + 'm_' + interpType + '_' + huc12),
+##        "nulls" : opj(ACPFDir, 'null' + str(cellSize) + 'm_' + interpType + '_' + huc12),
+##        "areas" : opj(ACPFDir, 'areas' + str(cellSize) + 'm_' + interpType + '_' + huc12),
+##        "snaps" : opj(ACPFDir, 'snaps' + str(cellSize) + 'm_' + interpType + '_' + huc12),
+##        "tillages" : opj(ACPFDir, 'tillage' + str(cellSize) + 'm' + '_' + huc12),
+##
+        "blFile" : opj(lidarOutputDir, 'bl_Lib', huc8, 'breaklines_' + huc12 + '.shp'),
+        "breaklines" : opj(lidarOutputDir, 'bl_Lib', huc8, "breaks_" + huc8 + ".gdb", 'break_lines_' + huc12),
+        "breakpolys" : opj(lidarOutputDir, 'bl_Lib', huc8, "breaks_" + huc8 + ".gdb", 'break_polys_' + huc12),
+        "lasTilesDrive" : opj(basedataDir, 'Basedata_5070.gdb','IA_MN_NE_Tiles_Merge'),
+        "kansasTilesPath" : opj(basedataDir, 'Basedata_5070.gdb','Kansas_tiles_available_actual_extents'),
+
+        "stripsFlumes_old" : opj(depBase, 'temp', 'STRIPS2_flume_points', 'STRIPS2_flume_points.gdb', 'flume_points'),
+        "ephemeralGullies_old" : opj(depBase, 'temp', 'Gord_cmwang', 'ruraldata', 'data' + huc12 + '.gdb', 'Gullyhead'),
+
+        "stripsFlumes" : opj(otherBaseNoVersion, 'Gully_data', 'STRIPS2_flume_points', 'STRIPS2_flume_points.gdb', 'flume_points'),
+        "ephemeralGullies" : opj(otherBaseNoVersion, 'Gully_data', 'cmwang', 'data' + huc12 + '.gdb', 'Gullyhead'),
+        "nrcs_gullies" : opj(otherBaseNoVersion, 'Gully_data', 'NRCS', 'NRCS_Gulley_' + huc12 + '.gdb', 'GullyHeads_' + huc12),
+
+        # processing directories
+        "peukProcDir" : opj(localProc, 'DEMProc', 'Catch' + dem_year + '_' + str(cellSize) + 'm_' + huc12),
+        "fpProcDir" : opj(localProc, 'DEMProc', 'Flowpath' + dem_year + '_' + str(cellSize) + 'm_' + huc12),
+        "manProcDir" : opj(localProc, 'DEMProc', 'Manage' + dem_year + '_' + str(cellSize) + 'm_' + huc12),
+        "samplerProcDir" : opj(localProc, 'DEMProc', 'Sample' + dem_year + '_' + str(cellSize) + 'm_' + huc12),
+        "fProcDir" : opj(localProc, "DEMProc", "LAS" + dem_year + '_' + str(cellSize) + 'm_' + huc12),
+        "cutProcDir" : opj(localProc, "DEMProc", "Cut" + dem_year + '_' + str(cellSize) + 'm_' + huc12),
+        "voidProcDir" : opj(localProc, "DEMProc", "Void" + dem_year + '_' + str(cellSize) + 'm_' + huc12),
+        "otherProcDir" : opj(localProc, "DEMProc", "Other" + dem_year + '_' + str(cellSize) + 'm_' + huc12),
+
+        # focal statistics kernels
+        "EKernelFile" : opj(depBase, 'kernels', 'FlowE_Kernel.txt'),
+        "SEKernelFile" : opj(depBase, 'kernels', 'FlowSE_Kernel.txt'),
+        "SKernelFile" : opj(depBase, 'kernels', 'FlowS_Kernel.txt'),
+        "SWKernelFile" : opj(depBase, 'kernels', 'FlowSW_Kernel.txt'),
+        "WKernelFile" : opj(depBase, 'kernels', 'FlowW_Kernel.txt'),
+        "NWKernelFile" : opj(depBase, 'kernels', 'FlowNW_Kernel.txt'),
+        "NKernelFile" : opj(depBase, 'kernels', 'FlowN_Kernel.txt'),
+        "NEKernelFile" : opj(depBase, 'kernels', 'FlowNE_Kernel.txt'),
+
+        # residue cover directory
+        "rescoverDir" : opj(os.path.dirname(basedataDir), 'Man_Data_Other', 'GEE_residue_cover'),
+
+        # DEP SSURGO soils directory
+        # altered SOL file to remove SOL = ACPF + 1 year assumption, on consultation with David James, 2021.10.28 bkgelder
+##        "soilsDir" : opj(acpfBase, 'Man_Data_ACPF\\dep_WEPP_SOL'+ str(int(ACPFyear) + 1)),
+        "soilsDir" : opj(os.path.dirname(acpfBaseNoVersion), 'dep_WEPP_SOL'+ str(int(ACPFyear) + 1)),
+        # Dave switched it back, 2022.04.03 bkgelder
+##        "soilsDir" : opj(os.path.dirname(acpfBase), 'dep_WEPP_SOL'+ str(int(ACPFyear))),
+
+        "eleBaseDir" : opj(depBase, 'Elev_Base_Data'),
+
+        "projRasterDir" : opj(depBase, 'proj_rasters')})
+
+
+        if int(ACPFyear) <= 2015:
+            geeResidueMap = opj(otherBaseNoVersion, 'Iowa_RC.gdb', 'huc' + huc8 + '_ACPF2017')
+        elif int(ACPFyear) <= 2021:
+            geeResidueMap = opj(otherBaseNoVersion, 'GEE_residue_cover', 'residue_cover_' + ACPFyear + '.tif')
+        elif int(ACPFyear) <= 2025:
+            geeResidueMap = opj(otherBaseNoVersion, 'GEE_residue_cover', 'residue_cover_' + ACPFyear + '_L89.tif')
+        if int(ACPFyear) <= 2017:
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', '2017_combo_agonly_recount_combo_residue_times2.img')
+        elif int(ACPFyear) <= 2020:
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_2020_boax_rowcrop_noforage_residue_times2_rc200_new_combo2019_2020_model.img')
+        elif int(ACPFyear) == 2021:
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_2021_boax_rowcrop_noforage_residue_times2_rc200_new_combo2019_2020_model.img')
+        elif int(ACPFyear) == 2022:
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage_final_w_flood_mask_out.tif')
+        elif int(ACPFyear) == 2023:
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage_final_w_flood_mask_out.tif')
+        
+        locationsDict.update({
+        "irrigationMap" : opj(otherBaseNoVersion, 'lanid2011-2017', 'lanid2017.tif'),
+        "canopyCoverMap" : opj(otherBaseNoVersion, 'Forest_Cover', 'LF2022_CC_220_CONUS', 'Tif', 'LC22_CC_220.tif'),
+        "mnResidueMap" : mnResidueMap,
+        "geeResidueMap" : geeResidueMap,
+##        "mnTillageTable" : opj(locationsDictNoVersion["huc8_fields"], 'huc' + huc8 + '_mn_rc' + ACPFyear),
+##        "geeTillageTable" : opj(locationsDictNoVersion["huc8_fields"], 'huc' + huc8 + '_gee_rc' + ACPFyear),
+        "tillageTable" : opj(ACPFDir, "_".join(['till', ACPFyear, 'huc', huc12])),
+        # "geeTillageTable" : opj(ACPFDir, 'huc' + huc12 + '_till' + ACPFyear),
+        "mnResidueTable" : opj(ACPFDir, "_".join(['RC_MN', ACPFyear, 'huc', huc12])),
+        "geeResidueTable" : opj(ACPFDir, "_".join(['RC_GEE', ACPFyear, 'huc', huc12])),
+        "eptBaseDir" : opj(locationsDict["eleBaseDir"], 'ept'),
+
+        "ept_wesm_monthly_file" : opj(locationsDict["eleBaseDir"], 'ept', 'ept.gdb', ept_first_of_month_name),
+        "sampleOutput" : opj(depOutput, '_'.join(['smpl', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['samples']) + '.json'),
+        "sampleDefOutput" : opj(depOutput, '_'.join(['smpldef', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['samples']) + '.json'),
+        # nulls are stored with same basename as samples (they are null samples)
+        "nullOutput" : opj(depOutput, '_'.join(['smpl', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['nulls']) + '.json'),
+####        "nullDefOutput" : opj(depOutput, '_'.join(['smpl', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['nulls']) + '.json'),
+        "fieldBoundariesOutput": opj(depOutput, '_'.join(['fb', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['fieldBoundaries']) + '.json'),
+        "LU6Output": opj(depOutput, '_'.join(['lu6', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['LU6']) + '.csv'),
+        "areaOutput" : opj(depOutput, '_'.join(['areas', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['areas']) + '.json'),
+        # "tillageOutput" : opj(depOutput, '_'.join(['tillage', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['tillages']) + '.json'),
+        "snapOutput" : opj(depOutput, '_'.join(['snap', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['snaps']) + '.json'),
+
+
+        "pickleDistanceFile" : opj(locationsDict['cutProcDir'], 'search_' + huc12 + '_' + interpType + '.pkl')})
+
+        return locationsDict
+
+    except Exception as e:
+        print('handling as exception')
+##        log.debug(e.message)
+        if sys.version_info.major == 2:
+            arcpy.AddError(e.message)
+            print(e.message)
+        elif sys.version_info.major == 3:
+            arcpy.AddError(e)
+            print(e)
+
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+
+        # Concatenate information together concerning the error into a message string
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        # Return python error messages for use in script tool or Python Window
+        arcpy.AddError(pymsg)
+        # Print Python error messages for use in Python / Python Window
+        print(pymsg + "\n")
+
+        if arcpy.GetMessages(2) not in pymsg:
+            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+            arcpy.AddError(msgs)
+            print(msgs)
+
+    except:
+        print('handling as except')
+        # Get the traceback object
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+
+        # Concatenate information together concerning the error into a message string
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        # Return python error messages for use in script tool or Python Window
+        arcpy.AddError(pymsg)
+        # Print Python error messages for use in Python / Python Window
+        print(pymsg + "\n")
+
+        if arcpy.GetMessages(2) not in pymsg:
+            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+            arcpy.AddError(msgs)
+            print(msgs)
+
+
+
 ##def loadVariablesDict(listy):
 def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowYmd, version = ''):
     '''This function creates the locations where the DEP data is stored as this
