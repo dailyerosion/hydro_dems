@@ -500,23 +500,23 @@ def loadVariablesDictNew(node, ACPFyear, huc12, outEPSG, interpType, cellSize, n
         # channel-fixed elevation files
         "zElevFile" : os.path.join(vElevDir, huc8, "_".join(['ez', str(cellSize) + 'm', huc12 + '.tif'])),
         # first return max elevation file
-        "surfaceElevFile" : os.path.join(firstReturnDir, huc8, "_".join(['frmax', str(cellSize) + 'm', huc12 + '.tif'])),
+        "surfaceElevFile" : os.path.join(firstReturnDir, huc8, "_".join(['fr', 'max', str(cellSize) + 'm', huc12 + '.tif'])),
         # first return min elevation file
-        "firstReturnMinFile" : os.path.join(firstReturnDir, huc8, "_".join(['frmin', str(cellSize) + 'm', huc12 + '.tif'])),
+        "firstReturnMinFile" : os.path.join(firstReturnDir, huc8, "_".join(['fr', 'min', str(cellSize) + 'm', huc12 + '.tif'])),
         # last return min elevation file
-        "lastReturnMinFile" : os.path.join(firstReturnDir, huc8, "_".join(['lrmin', str(cellSize) + 'm', huc12 + '.tif'])),
+        "lastReturnMinFile" : os.path.join(firstReturnDir, huc8, "_".join(['lr', 'min', str(cellSize) + 'm', huc12 + '.tif'])),
         # bareearth return min elevation file, created from lasdataset to raster, not terrain to raster
-        "bareEarthReturnMinFile" : os.path.join(firstReturnDir, huc8, "_".join(['bemin', str(cellSize) + 'm', huc12 + '.tif'])),
+        "bareEarthReturnMinFile" : os.path.join(firstReturnDir, huc8, "_".join(['be', 'min', str(cellSize) + 'm', huc12 + '.tif'])),
 
         # holes that were punched in punched elevation file
         "holesFile" : os.path.join(holesDir, huc8, 'holes' + str(cellSize) + 'm' + huc12 + '.tif'),
 
         # bare earth return count file
-        "cntBeFile" : os.path.join(countDir, huc8, "_".join(['cbe', str(cellSize) + 'm', huc12 + '.tif'])),
+        "cntBeFile" : os.path.join(countDir, huc8, "_".join(['cnt', 'be', str(cellSize) + 'm', huc12 + '.tif'])),
         # first return count file
-        "cnt1rFile" : os.path.join(countDir, huc8, "_".join(['cfr', str(cellSize) + 'm', huc12 + '.tif'])),
+        "cnt1rFile" : os.path.join(countDir, huc8, "_".join(['cnt', 'fr', str(cellSize) + 'm', huc12 + '.tif'])),
         # pulse count file
-        "cntPlsFile" : os.path.join(countDir, huc8, "_".join(['cpls', str(cellSize) + 'm', huc12 + '.tif'])),
+        "cntPlsFile" : os.path.join(countDir, huc8, "_".join(['cnt', 'pls', str(cellSize) + 'm', huc12 + '.tif'])),
 
         # first return min intensity file
         "int1rMinFile" : os.path.join(intDir, huc8, "_".join(['fr_int_min', str(cellSize) + 'm', huc12 + '.tif'])),
