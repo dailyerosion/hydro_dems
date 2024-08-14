@@ -423,6 +423,7 @@ def loadVariablesDictNew(node, ACPFyear, huc12, outEPSG, interpType, cellSize, n
 
         locationsDict, MWHUC12_ACPF, MWHUC8_ACPF, MWHUC2_ACPF = loadBasicVariablesDict(node, ACPFyear, uversion)
         acpfBase = locationsDict['acpfBase']
+        acpfStart = locationsDict['acpfStart']
         depBase = locationsDict['depBase']
         basedataDir = locationsDict['basedataDir']
         otherBase = locationsDict['otherBase']
@@ -685,6 +686,8 @@ def loadVariablesDictNew(node, ACPFyear, huc12, outEPSG, interpType, cellSize, n
 
         "eleBaseDir" : opj(depBase, 'Elev_Base_Data'),
 
+        "eleDataDir" : opj(acpfStart, 'Elevation_databases'),
+
         "projRasterDir" : opj(depBase, 'proj_rasters')})
 
 
@@ -716,9 +719,10 @@ def loadVariablesDictNew(node, ACPFyear, huc12, outEPSG, interpType, cellSize, n
         # "geeTillageTable" : opj(ACPFDir, 'huc' + huc12 + '_till' + ACPFyear),
         "mnResidueTable" : opj(ACPFDir, "_".join(['RC_MN', ACPFyear, 'huc', huc12])),
         "geeResidueTable" : opj(ACPFDir, "_".join(['RC_GEE', ACPFyear, 'huc', huc12])),
-        "eptBaseDir" : opj(locationsDict["eleBaseDir"], 'ept'),
+        # "eptBaseDir" : opj(locationsDict["eleBaseDir"], 'ept'),
 
-        "ept_wesm_monthly_file" : opj(locationsDict["eleBaseDir"], 'ept', 'ept.gdb', ept_first_of_month_name),
+        "lidar_download_directory" : locationsDict["eleBaseDir"],
+        "ept_wesm_monthly_file" : opj(locationsDict["eleDataDir"], 'ept', 'ept.gdb', ept_first_of_month_name),
         "sampleOutput" : opj(depOutput, '_'.join(['smpl', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['samples']) + '.json'),
         "sampleDefOutput" : opj(depOutput, '_'.join(['smpldef', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['samples']) + '.json'),
         # nulls are stored with same basename as samples (they are null samples)
@@ -853,6 +857,7 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
 
         locationsDict, MWHUC12_ACPF, MWHUC8_ACPF, MWHUC2_ACPF = loadBasicVariablesDict(node, ACPFyear, uversion)
         acpfBase = locationsDict['acpfBase']
+        acpfStart = locationsDict['acpfStart']
         depBase = locationsDict['depBase']
         basedataDir = locationsDict['basedataDir']
         otherBase = locationsDict['otherBase']
@@ -914,48 +919,48 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
 
         locationsDict.update({
         # pit filled elevation file
-        "fElevFile" : os.path.join(fElevDir, huc8, 'ef' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "fElevFile" : os.path.join(fElevDir, huc8, "_".join(['ef', str(cellSize) + 'm', huc12 + '.tif'])),
         # punched elevation file
-        "pElevFile" : os.path.join(pElevDir, huc8, 'ep' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "pElevFile" : os.path.join(pElevDir, huc8, "_".join(['ep', str(cellSize) + 'm', huc12 + '.tif'])),
         # cut elevaiton file
-        "cElevFile" : os.path.join(cElevDir, huc8, 'ec' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "cElevFile" : os.path.join(cElevDir, huc8, "_".join(['ec', str(cellSize) + 'm', huc12 + '.tif'])),
         # lake-fixed elevation file
-        "vElevFile" : os.path.join(vElevDir, huc8, 'ev' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "vElevFile" : os.path.join(vElevDir, huc8, "_".join(['ev', str(cellSize) + 'm', huc12 + '.tif'])),
         # bridge-fixed elevation file
-        "wElevFile" : os.path.join(vElevDir, huc8, 'ew' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "wElevFile" : os.path.join(vElevDir, huc8, "_".join(['ew', str(cellSize) + 'm', huc12 + '.tif'])),
         # channel-fixed elevation files
-        "xElevFile" : os.path.join(vElevDir, huc8, 'ex' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "xElevFile" : os.path.join(vElevDir, huc8, "_".join(['ex', str(cellSize) + 'm', huc12 + '.tif'])),
         # channel-fixed elevation files
-        "yElevFile" : os.path.join(vElevDir, huc8, 'ey' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "yElevFile" : os.path.join(vElevDir, huc8, "_".join(['ey', str(cellSize) + 'm', huc12 + '.tif'])),
         # channel-fixed elevation files
-        "zElevFile" : os.path.join(vElevDir, huc8, 'ez' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "zElevFile" : os.path.join(vElevDir, huc8, "_".join(['ez', str(cellSize) + 'm', huc12 + '.tif'])),
         # first return max elevation file
-        "surfaceElevFile" : os.path.join(firstReturnDir, huc8, 'frmax' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "surfaceElevFile" : os.path.join(firstReturnDir, huc8, "_".join(['fr', 'max', str(cellSize) + 'm', huc12 + '.tif'])),
         # first return min elevation file
-        "firstReturnMinFile" : os.path.join(firstReturnDir, huc8, 'frmin' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "firstReturnMinFile" : os.path.join(firstReturnDir, huc8, "_".join(['fr', 'min', str(cellSize) + 'm', huc12 + '.tif'])),
         # last return min elevation file
-        "lastReturnMinFile" : os.path.join(firstReturnDir, huc8, 'lrmin' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "lastReturnMinFile" : os.path.join(firstReturnDir, huc8, "_".join(['lr', 'min', str(cellSize) + 'm', huc12 + '.tif'])),
         # bareearth return min elevation file, created from lasdataset to raster, not terrain to raster
-        "bareEarthReturnMinFile" : os.path.join(firstReturnDir, huc8, 'bemin' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "bareEarthReturnMinFile" : os.path.join(firstReturnDir, huc8, "_".join(['be', 'min', str(cellSize) + 'm', huc12 + '.tif'])),
 
         # holes that were punched in punched elevation file
         "holesFile" : os.path.join(holesDir, huc8, 'holes' + str(cellSize) + 'm' + huc12 + '.tif'),
 
         # bare earth return count file
-        "cntBeFile" : os.path.join(countDir, huc8, 'cbe' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "cntBeFile" : os.path.join(countDir, huc8, "_".join(['cnt', 'be', str(cellSize) + 'm', huc12 + '.tif'])),
         # first return count file
-        "cnt1rFile" : os.path.join(countDir, huc8, 'cfr' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "cnt1rFile" : os.path.join(countDir, huc8, "_".join(['cnt', 'fr', str(cellSize) + 'm', huc12 + '.tif'])),
         # pulse count file
-        "cntPlsFile" : os.path.join(countDir, huc8, 'cpls' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "cntPlsFile" : os.path.join(countDir, huc8, "_".join(['cnt', 'pls', str(cellSize) + 'm', huc12 + '.tif'])),
 
         # first return min intensity file
-        "int1rMinFile" : os.path.join(intDir, huc8, 'fr_int_min' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "int1rMinFile" : os.path.join(intDir, huc8, "_".join(['fr_int_min', str(cellSize) + 'm', huc12 + '.tif'])),
         # first return max intensity file
-        "int1rMaxFile" : os.path.join(intDir, huc8, 'fr_int_max' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "int1rMaxFile" : os.path.join(intDir, huc8, "_".join(['fr_int_max', str(cellSize) + 'm', huc12 + '.tif'])),
         # bare earth return min intensity file
-        "intBeMinFile" : os.path.join(intDir, huc8, 'be_int_min' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "intBeMinFile" : os.path.join(intDir, huc8, "_".join(['be_int_min', str(cellSize) + 'm', huc12 + '.tif'])),
         # bare earth return max intensity file
-        "intBeMaxFile" : os.path.join(intDir, huc8, 'be_int_max' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "intBeMaxFile" : os.path.join(intDir, huc8, "_".join(['be_int_max', str(cellSize) + 'm', huc12 + '.tif'])),
 
         # documentation folder
         "docFolder" : depDocumentation,
@@ -968,11 +973,11 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         "derivative_metadata" : opj(depMetadata, 'FLib_Derivatives2022_mTemplate.xml'),
 
         # no data areas (big voids) to fix first (likely rivers/lakes/lagoons)
-        "bigNoData" : opj(voidDir, huc8, 'bigvds' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "bigNoData" : opj(voidDir, huc8, "_".join(['bigvds', str(cellSize) + 'm', huc12 + '.tif'])),
         # no data areas (smaller voids) to fix second (likely bridge decks/culverts)
-        "mediumNoData" : opj(voidDir, huc8, 'medvds' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "mediumNoData" : opj(voidDir, huc8, "_".join(['medvds', str(cellSize) + 'm', huc12 + '.tif'])),
         # no data areas (smallest voids) to fix third (likely streams)
-        "smallNoData" : opj(voidDir, huc8, 'smlvds' + str(cellSize) + 'm' + huc12 + '.tif'),
+        "smallNoData" : opj(voidDir, huc8, "_".join(['smlvds', str(cellSize) + 'm', huc12 + '.tif'])),
 
         # other datasets where feature, thus name, is based on DEM year vintage
 ##      new version of file names
@@ -1115,6 +1120,8 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
 
         "eleBaseDir" : opj(depBase, 'Elev_Base_Data'),
 
+        "eleDataDir" : opj(acpfStart, 'Elevation_databases'),
+
         "projRasterDir" : opj(depBase, 'proj_rasters')})
 
 
@@ -1146,9 +1153,10 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         # "geeTillageTable" : opj(ACPFDir, 'huc' + huc12 + '_till' + ACPFyear),
         "mnResidueTable" : opj(ACPFDir, "_".join(['RC_MN', ACPFyear, 'huc', huc12])),
         "geeResidueTable" : opj(ACPFDir, "_".join(['RC_GEE', ACPFyear, 'huc', huc12])),
-        "eptBaseDir" : opj(locationsDict["eleBaseDir"], 'ept'),
+        # "eptBaseDir" : opj(locationsDict["eleBaseDir"], 'ept'),
 
-        "ept_wesm_monthly_file" : opj(locationsDict["eleBaseDir"], 'ept', 'ept.gdb', ept_first_of_month_name),
+        "lidar_download_directory" : locationsDict["eleBaseDir"],
+        "ept_wesm_monthly_file" : opj(locationsDict["eleDataDir"], 'ept', 'ept.gdb', ept_first_of_month_name),
         "sampleOutput" : opj(depOutput, '_'.join(['smpl', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['samples']) + '.json'),
         "sampleDefOutput" : opj(depOutput, '_'.join(['smpldef', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['samples']) + '.json'),
         # nulls are stored with same basename as samples (they are null samples)
