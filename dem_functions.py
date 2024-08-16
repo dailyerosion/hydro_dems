@@ -722,7 +722,7 @@ def loadVariablesDictNew(node, ACPFyear, huc12, outEPSG, interpType, cellSize, n
         # "eptBaseDir" : opj(locationsDict["eleBaseDir"], 'ept'),
 
         "lidar_download_directory" : locationsDict["eleBaseDir"],
-        "ept_wesm_monthly_file" : opj(locationsDict["eleDataDir"], 'ept', 'ept.gdb', ept_first_of_month_name),
+        "ept_wesm_monthly_file" : opj(locationsDict["eleDataDir"], 'ept.gdb', ept_first_of_month_name),
         "sampleOutput" : opj(depOutput, '_'.join(['smpl', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['samples']) + '.json'),
         "sampleDefOutput" : opj(depOutput, '_'.join(['smpldef', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['samples']) + '.json'),
         # nulls are stored with same basename as samples (they are null samples)
@@ -1156,7 +1156,7 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         # "eptBaseDir" : opj(locationsDict["eleBaseDir"], 'ept'),
 
         "lidar_download_directory" : locationsDict["eleBaseDir"],
-        "ept_wesm_monthly_file" : opj(locationsDict["eleDataDir"], 'ept', 'ept.gdb', ept_first_of_month_name),
+        "ept_wesm_monthly_file" : opj(locationsDict["eleDataDir"], 'ept.gdb', ept_first_of_month_name),
         "sampleOutput" : opj(depOutput, '_'.join(['smpl', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['samples']) + '.json'),
         "sampleDefOutput" : opj(depOutput, '_'.join(['smpldef', 'acpf' + ACPFyear, nowYmd]), os.path.basename(locationsDict['samples']) + '.json'),
         # nulls are stored with same basename as samples (they are null samples)

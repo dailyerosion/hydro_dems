@@ -1524,6 +1524,32 @@ def create_cl2_json_pipeline(cl2_json_filename, eptDir, all_las_file, cl2_las_fu
 
     return cl2_json_full_filename
 
+
+def create_laz_json_pipeline(laz_json_filename, saveDir, all_las_file, laz_full_filename):
+    '''Writes a json pipeline for use by pdal (point data abstraction library)'''
+
+    laz_json_full_filename = os.altsep.join([saveDir, laz_json_filename])
+
+    json_str = '''{
+"pipeline": [
+{
+    "filename": "''' + all_las_file + '''",
+    "type": "readers.las",
+    "tag": "readdata"
+},
+{
+    "filename": "''' + laz_full_filename + '''",
+    "tag": "writerslas",
+    "type": "writers.las"
+}]}'''
+
+    json_file_obj = open(laz_json_full_filename, 'w')
+    json_file_obj.write(json_str)
+    json_file_obj.close()
+
+    return laz_json_full_filename
+
+
 def create_ept_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode):
     '''Writes a json pipeline for use by pdal (point data abstraction library)'''
 
@@ -1565,7 +1591,7 @@ def organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshol
     merged_area = 0
     for cnt, o in enumerate(ordered_work_ids):
         if merged_area <= maskFc_area * build_threshold:
-            print(o)
+            log.debug(o)
             if o < 0:
                 selected = arcpy.Select_analysis(wesm_huc12, 'select_wkid_neg' + str(abs(o)), work_id_name + ' = ' + str(o))
             else:
@@ -1580,7 +1606,7 @@ def organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshol
                 merged = selected
                 merged_area += [s[0] for s in arcpy.da.SearchCursor(selected, ['SHAPE@AREA'])][0]
             prev_merged = merged
-            print(f"merged_area: {merged_area}")
+            log.debug(f"merged_area: {merged_area}")
     log.info(f'merged_area was: {merged_area} and maskFc_area was: {maskFc_area}')
 
     # if merged_area >= maskFc_area * 0.9999:
@@ -1651,7 +1677,7 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log):#maskFc_3857, mas
     return parts, square_area
 
 
-def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eptDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir):
+def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eptDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir, eleDir):
     try:
         if df.testForZero(prev_merged):
             # requests to EPT must be in 3857
@@ -1687,10 +1713,21 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 
                         ept_zlas_filename = "_".join(["ept", huc12, str(work_id_part) + ".zlas"])
                         ept_zlas_full_filename = os.altsep.join([eptDir.replace(os.path.sep, os.path.altsep), ept_zlas_filename])
+
                         ept_las_filename = ept_zlas_filename.replace(".zlas", ".las")
+
+                        ept_laz_filename = ept_zlas_filename.replace(".zlas", ".laz")
+                        ept_laz_full_filename = os.altsep.join([eptDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
+                        local_ept_laz_full_filename = os.altsep.join([procDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
+
                         # pipeline json requires / not \ for path separator
                         ept_las_full_filename = os.altsep.join([procDir.replace(os.path.sep, os.path.altsep), ept_las_filename])
-                        if os.path.isfile(ept_zlas_full_filename) and not os.path.isfile(ept_las_full_filename):
+                        if os.path.isfile(ept_laz_full_filename) and not os.path.isfile(ept_las_full_filename):
+                            log.info('converting laz to las')
+                            log.info(f"arguments: {ept_laz_full_filename}, {procDir}")
+                            las_result = arcpy.conversion.ConvertLas(ept_laz_full_filename, procDir)#, compression = 'ZLAS')
+                            log.info(las_result)
+                        elif os.path.isfile(ept_zlas_full_filename) and not os.path.isfile(ept_las_full_filename):
                             log.info('converting zlas to las')
                             log.info(f"arguments: {ept_zlas_full_filename}, {procDir}")
                             las_result = arcpy.conversion.ConvertLas(ept_zlas_full_filename, procDir)#, compression = 'ZLAS')
@@ -1708,18 +1745,29 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 
                             if not os.path.exists(ept_las_full_filename):
                                 run_string = " ".join([pdal_exe, "pipeline", ept_json_full_filename])
-                                # estimate download time based on 102500040309 (area 1175 km2) in 4 parts, scaled up 3x, 2023.04.21
-                                m2_per_sec = 3 * 1175.2*1000**2/len(parts)/2200
+                                # estimate download time based on 102500040309 (area 1175 km2) in 4 parts
+                                m2_per_sec = 1175.2*1000**2/len(parts)/2200
                                 log.debug(f'pdal run_string: {run_string}')
                                 log.info(f'At {time.asctime()} - Estimated pdal download time (for QL2 lidar): {round(square_area/(m2_per_sec * len(parts) * 60), 2)} minutes for {ept_json_filename}')
                                 co = subprocess.run(run_string)
+                                log.debug(f'completed pdal run_string')
 
                             # archive as zlas for use later in this script and re-use
                             stats = os.stat(ept_las_full_filename)
                             if stats.st_size > las_size_threshold:
-                                log.info('converting las to zlas for archive')
-                                zlas_result = arcpy.conversion.ConvertLas(ept_las_full_filename, eptDir.replace(os.path.sep, os.path.altsep), compression = 'ZLAS', las_options = None)
-                                log.info(zlas_result)
+                                # log.info('converting las to zlas for archive')
+                                # zlas_result = arcpy.conversion.ConvertLas(ept_las_full_filename, ele, compression = 'ZLAS', las_options = None)
+                                # log.info(zlas_result)
+
+                                # log.debug('converting las to laz for archive')
+                                # laz_json_full_filename = create_laz_json_pipeline(ept_laz_filename, procDir, ept_las_full_filename, ept_laz_full_filename)
+                                # laz_run_string = " ".join([pdal_exe, "pipeline", laz_json_full_filename])
+                                # log.debug(f'pdal run_string: {laz_run_string}')
+                                # co = subprocess.run(laz_run_string)
+
+                                laz_result = arcpy.conversion.ConvertLas(ept_las_full_filename, eleDir, compression = 'LAZ', las_options = None)
+                                log.debug(laz_result)
+
                                 # arcpy.Delete_management(ept_las_full_filename)
                             else:
                                 log.warning(f"{ept_las_full_filename} has very small file size; plotting extent as poly")
@@ -2015,7 +2063,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         if df.testForZero(wesm_huc12):
             prev_merged, merged_area, addOrderField = organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log)
 
-            cl2Las, geom_srOut_copy = getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eptDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir)
+            cl2Las, geom_srOut_copy = getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eptDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir, lidar_download_directory)
 
             arcpy.env.outputCoordinateSystem = srOut
 
