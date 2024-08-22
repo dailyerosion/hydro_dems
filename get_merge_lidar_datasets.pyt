@@ -42,7 +42,15 @@ class Tool(object):
             datatype="DEFeatureClass",
             parameterType='Required',
             direction="Output")
-        params = [output_ept_wesm_file]#None
+
+        param2 = arcpy.Parameter(
+            name = "procDir",
+            displayName="Local Processing Directory",
+            datatype="DEFolder",
+            parameterType='Optional',
+            direction="Input")
+        
+        params = [output_ept_wesm_file, param2]#None
         return params
 
     def isLicensed(self):
@@ -63,7 +71,7 @@ class Tool(object):
     def execute(self, parameters, messages):
         """The source code of the tool."""
         cleanup = False
-        doEPT(parameters[0].valueAsText, cleanup, messages)
+        doEPT(parameters[0].valueAsText, parameters[1].valueAsText, cleanup, messages)
         return
 
     def postExecute(self, parameters):
@@ -81,7 +89,9 @@ def download_file(url, local_filename, log):
         with open(local_filename, 'wb') as f:
             shutil.copyfileobj(r.raw, f)
 
-def doEPT(ept_wesm_file, cleanup, messages):
+def doEPT(ept_wesm_file, procDir, cleanup, messages):
+    messages = msgStub()
+
     import datetime
     import os
     import sys
@@ -95,7 +105,7 @@ def doEPT(ept_wesm_file, cleanup, messages):
 
     # if True:
     try:
-        arguments = [ept_wesm_file, cleanup]
+        arguments = [ept_wesm_file, procDir, cleanup]
 
         for a in arguments:
             if a == arguments[0]:
@@ -111,27 +121,37 @@ def doEPT(ept_wesm_file, cleanup, messages):
 
         assert ept_wesm_file.find('.gdb') != -1, "Output must be located in '.gdb' (File Geodatabase)"
 
-        eptDir = os.path.dirname(os.path.dirname(ept_wesm_file))
-        # log.debug(f"checking for dir: {eptDir}")
 
-        if not os.path.isdir(eptDir):
-            # log.debug(f"making dir: {eptDir}")
-            os.makedirs(eptDir)
+        if procDir != "":
+            if os.path.isdir(procDir):
+                log.info('nuking: ' + procDir)
+                df.nukedir(procDir)
+
+            if not os.path.isdir(procDir):
+                log.debug(f"making dir: {procDir}")
+                os.makedirs(procDir)
+
+            arcpy.env.scratchWorkspace = procDir
+
+        sfldr = arcpy.env.scratchFolder
+        sgdb = arcpy.env.scratchGDB
+        arcpy.env.scratchWorkspace = sgdb
+        arcpy.env.workspace = sgdb
+
+        eptDir = procDir#os.path.dirname(os.path.dirname(ept_wesm_file))
 
         #figure out where to create log files
         node = platform.node()
-        if 'EL3354-02' in node.upper() or 'EL3321-02' in node.upper() or 'DA214B-12' in node.upper() or 'DA214B-11' in node.upper() or 'DEP' in node.upper():
-            logProc = 'D:\\DEP_Proc'
-        elif '-M' in node.upper():
-            logProc = 'C:\\DEP_Proc'
-        else:
-            logProc = eptDir
+        logProc = df.defineLocalProc(node)
+        if not os.path.isdir(logProc):
+            logProc - eptDir
 
         if cleanup:
             log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)
         else:
             # log to file and console
             log, nowYmd, logName, startTime = df.setupLoggingNew(logProc, sys.argv[0], huc12)
+
 
         log.info("Beginning execution: " + time.asctime())
         log.info("Log file at " + logName)
@@ -286,26 +306,28 @@ def doEPT(ept_wesm_file, cleanup, messages):
     return
 
 
-# if __name__ == "__main__":
-#     import sys
+if __name__ == "__main__":
+    import sys
 
-#     if len(sys.argv) == 1:
-#         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-#         cleanup = False
+    if len(sys.argv) == 1:
+        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+        cleanup = False
 
-#         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-#     "C:/DEP/Scripts/basics/cmd_ept_wesm_processing.py",
-#     "C:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_05_22"]
+        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+	"C:/DEP/Scripts/basics/get_merge_lidar_datasets_main.pyt",
+	"//10.27.15.155/M$/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2024_07_01",
+	"C:/DEP_Proc/DEMProc/Other_dem2013_3m_090300010706"]
 
-#         for i in parameters[2:]:
-#             sys.argv.append(i)
-#     else:
-#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-#         # clean up the folder after done processing
-#         cleanup = True
+        for i in parameters[2:]:
+            sys.argv.append(i)
+    else:
+        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+        # clean up the folder after done processing
+        cleanup = True
 
-#     # ept_wesm_file = "C:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_05_20"
-#     ept_wesm_file = sys.argv[1]
-#     doEPT(ept_wesm_file, cleanup, msgStub())
+    # ept_wesm_file = "C:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_05_20"
+    ept_wesm_file = sys.argv[1]
+    procDir = sys.argv[2]
+    doEPT(ept_wesm_file, procDir, cleanup, msgStub())
 
-#     # arcpy.AddMessage("Back from doEPT!")
+    # arcpy.AddMessage("Back from doEPT!")
