@@ -1964,10 +1964,10 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
             # check to see if it follows HUC DEM naming procedure
             stem = filename_path.stem
             pattern28 = '[0-9]m'
-            if re.search(pattern28, stem):
-                log.debug(f"found match in {stem} of resolution {r}m")
-                ordered_rezes.append(r)
-                rezes.pop(r)
+            # if re.search(pattern28, stem):
+            #     log.debug(f"found match in {stem} of resolution {r}m")
+            #     ordered_rezes.append(r)
+            #     rezes.pop(r)
 
         for r in rezes:
             ordered_rezes.append(r)
