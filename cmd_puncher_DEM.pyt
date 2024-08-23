@@ -156,13 +156,25 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
 
         huc12, huc8 = df.figureItOut(input_dem)
 
+        if procDir != "":
+            if os.path.isdir(procDir):
+                # log.info('nuking: ' + procDir)
+                df.nukedir(procDir)
+
+            if not os.path.isdir(procDir):
+                os.makedirs(procDir)
+
+            arcpy.env.scratchWorkspace = procDir
+
+        sfldr = arcpy.env.scratchFolder
+        sgdb = arcpy.env.scratchGDB
+        arcpy.env.scratchWorkspace = sgdb
+        arcpy.env.workspace = sgdb
+
         #figure out where to create log files
         node = platform.node()
-        if 'EL3354-02' in node.upper() or 'EL3321-02' in node.upper() or 'DA214B-12' in node.upper() or 'DA214B-11' in node.upper() or 'DEP' in node.upper():
-            logProc = 'D:\\DEP_Proc'
-        elif '-M' in node.upper():
-            logProc = 'C:\\DEP_Proc'
-        else:
+        logProc = df.defineLocalProc(node)
+        if not os.path.isdir(logProc):
             logProc = sfldr
 
         if cleanup:

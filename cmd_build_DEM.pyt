@@ -1925,7 +1925,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         node = platform.node()
         logProc = df.defineLocalProc(node)
         if not os.path.isdir(logProc):
-            logProc - eptDir
+            logProc = sfldr#eptDir
 
         if cleanup:
             log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)
