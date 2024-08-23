@@ -156,6 +156,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
 
         huc12, huc8 = df.figureItOut(input_dem)
 
+        # control where scratchFolder and GDB are created
         if procDir != "":
             if os.path.isdir(procDir):
                 # log.info('nuking: ' + procDir)
@@ -166,6 +167,8 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
 
             arcpy.env.scratchWorkspace = procDir
 
+        # if no procDir, next step will create in users directory
+        # otherwise, previously set scratchworkspace will control location
         sfldr = arcpy.env.scratchFolder
         sgdb = arcpy.env.scratchGDB
         arcpy.env.scratchWorkspace = sgdb
@@ -203,21 +206,20 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
 
         df.create_needed_dirs_and_gdbs(output_dem, log)
 
-        # control where scratchFolder and GDB are created
-        if os.path.isdir(procDir):
-            log.warning('nuking: ' + procDir)
-            df.nukedir(procDir)
+        # if os.path.isdir(procDir):
+        #     log.warning('nuking: ' + procDir)
+        #     df.nukedir(procDir)
 
-        if not os.path.isdir(procDir):
-            os.makedirs(procDir)
+        # if not os.path.isdir(procDir):
+        #     os.makedirs(procDir)
 
-        ## Set the environments
-        arcpy.env.scratchWorkspace = procDir
+        # ## Set the environments
+        # arcpy.env.scratchWorkspace = procDir
 
-        sfldr = arcpy.env.scratchFolder
-        sgdb = arcpy.env.scratchGDB
-        arcpy.env.scratchWorkspace = sfldr#
-        arcpy.env.workspace = sgdb
+        # sfldr = arcpy.env.scratchFolder
+        # sgdb = arcpy.env.scratchGDB
+        # arcpy.env.scratchWorkspace = sfldr#
+        # arcpy.env.workspace = sgdb
 
         inm = 'in_memory'
 
