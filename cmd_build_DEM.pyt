@@ -1005,7 +1005,7 @@ def updateResolution(filepath, init_res, new_res, pattern, log):
     return updated_filepath
 
 
-def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, named_cell_size, internal_regions, lidar_metadata_info, derivative_metadata, pattern25):
+def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, named_cell_size, internal_regions, lidar_metadata_info, derivative_metadata, pattern22):
 ##def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, frMinFile, intBeMaxFile, intBeMinFile, lastReturnMinFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, int_regions, ptr):
     '''creates multiple rasters from a las dataset, including min/max intensity of
     first return and bare earth surfaces, first return max and min surface, and z_range'''
@@ -1041,7 +1041,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
             beReturnsMin = arcpy.LasDatasetToRaster_conversion(beLayer, beReturnsMinTempFile, interpolation_type = 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'FLOAT')
             beReturnsMinCm = Int(Times(beReturnsMin, 100))
             if bareEarthReturnMinFile is not None:
-                bareEarthReturnMinFile_sized = updateResolution(bareEarthReturnMinFile, named_cell_size, demList[0], pattern25, log)
+                bareEarthReturnMinFile_sized = updateResolution(bareEarthReturnMinFile, named_cell_size, demList[0], pattern22, log)
                 beReturnsMinCm.save(bareEarthReturnMinFile_sized)#locDict['bareEarthReturnMinFile'])#.replace('fr', 'be'))
                 addMetadata(bareEarthReturnMinFile_sized, paraDict, derivative_metadata, log)
 
@@ -1049,7 +1049,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
             log.debug('---Creating FR Max Intensity')
             recode_tf = False
             log.debug(f'ir.max: {internal_regions.maximum},ir.min: {internal_regions.minimum}')
-            int1rMaxFile_sized = updateResolution(int1rMaxFile, named_cell_size, demList[0], pattern25, log)
+            int1rMaxFile_sized = updateResolution(int1rMaxFile, named_cell_size, demList[0], pattern22, log)
             if internal_regions.maximum - internal_regions.minimum != 0:
                 log.info('multiple regions')
                 # int1rMaxFile_sized_temp = opj(os.path.dirname(int1rMaxFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
@@ -1080,7 +1080,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
 
             if int1rMinFile is not None:
                 log.debug('---Creating FR Min Intensity')
-                int1rMinFile_sized = updateResolution(int1rMinFile, named_cell_size, demList[0], pattern25, log)
+                int1rMinFile_sized = updateResolution(int1rMinFile, named_cell_size, demList[0], pattern22, log)
                 if recode_tf:
                     # int1rMinFile_sized_temp = opj(os.path.dirname(int1rMinFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
                     int1rMinFile_sized_temp = os.path.join(procDir, '_'.join(['tmp_frmin', str(demList[0]) + 'm', huc12, 'out.tif']))
@@ -1095,7 +1095,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
 
             if intBeMaxFile is not None:
                 log.debug('---Creating BE Max Intensity')
-                intBeMaxFile_sized = updateResolution(intBeMaxFile, named_cell_size, demList[0], pattern25, log)
+                intBeMaxFile_sized = updateResolution(intBeMaxFile, named_cell_size, demList[0], pattern22, log)
                 if recode_tf:
                     # intBeMaxFile_sized_temp = opj(os.path.dirname(intBeMaxFile_sized), 'temp_' + os.path.basename(intBeMaxFile_sized))
                     intBeMaxFile_sized_temp = os.path.join(procDir, '_'.join(['tmp_bemax', str(demList[0]) + 'm', huc12, 'out.tif']))
@@ -1109,7 +1109,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
 
         if surfaceElevFile is not None:
             log.debug('---Creating FR Max surface')
-            frMaxFile_sized = updateResolution(surfaceElevFile, named_cell_size, demList[0], pattern25, log)
+            frMaxFile_sized = updateResolution(surfaceElevFile, named_cell_size, demList[0], pattern22, log)
             allReturnsMaxTempFile = os.path.join(procDir, '_'.join(['tmp_frmax', str(demList[0]) + 'm', huc12, 'out.tif']))
             allReturnsMax = arcpy.LasDatasetToRaster_conversion(lasdAll, allReturnsMaxTempFile, interpolation_type = 'BINNING MAXIMUM SIMPLE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'FLOAT')
             allReturnsMaxCm = Int(Times(allReturnsMax, 100))
@@ -1124,7 +1124,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
 
         if cnt1rFile is not None:
             log.debug('---Counting First Returns')
-            cnt1rFile_sized = updateResolution(cnt1rFile, named_cell_size, demList[0], pattern25, log)
+            cnt1rFile_sized = updateResolution(cnt1rFile, named_cell_size, demList[0], pattern22, log)
             cfrFileTemp = 'cnt_fr_' + str(demList[0]) + "m_" + huc12 + srSfx + '.tif'
             lasdCount = arcpy.LasPointStatsAsRaster_management(lasdAll, os.path.join(procDir, cfrFileTemp), 'POINT_COUNT', 'CELLSIZE', demList[0])
             cfrFileRasterObj = clipCountRaster(lasdCount, maskRastOut, cnt1rFile_sized)
@@ -1132,7 +1132,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
 
         if cntPlsFile is not None:
             log.debug('---Counting All Returns')
-            cntPlsFile_sized = updateResolution(cntPlsFile, named_cell_size, demList[0], pattern25, log)
+            cntPlsFile_sized = updateResolution(cntPlsFile, named_cell_size, demList[0], pattern22, log)
             cntPlsFileTemp = 'cnt_pls_' + str(demList[0]) + "m_" + huc12 + srSfx + '.tif'
             lasdCount = arcpy.LasPointStatsAsRaster_management(lasdAll, os.path.join(procDir, cntPlsFileTemp), 'PULSE_COUNT', 'CELLSIZE', demList[0])
             cntPlsFileRasterObj = clipCountRaster(lasdCount, maskRastOut, cntPlsFile_sized)
@@ -1232,7 +1232,7 @@ def generateTempTerrName(procDir, window, cellsize, huc12):
     return tempTerrName
 
 
-def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procDir, fElevFile, interpDict, named_cell_size, srOutNoVCS, dem_metadata_template, lidar_metadata_info, pattern25):
+def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procDir, fElevFile, interpDict, named_cell_size, srOutNoVCS, dem_metadata_template, lidar_metadata_info, pattern22):
     '''Takes whole or partial DEMs from the demList and mosaics them together
     if there are multiple DEMs. Then pit-fills the result (fills all one cell
     sinks). Also processes 'ZMEAN' and 'ZMINMAX' (or other terrain->raster
@@ -1249,7 +1249,7 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procD
         if len(windows):
             for window in windows:
 
-                fElevFile = updateResolution(fElevFile, named_cell_size, demList[0], pattern25, log)
+                fElevFile = updateResolution(fElevFile, named_cell_size, demList[0], pattern22, log)
 
                 interpType = interpDict[window]
                 # default interpolation type is mean18
@@ -1903,6 +1903,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         pattern27 = 'e[cfpxv][0-9]m\\d{10,16}'
         pattern26 = '[0-9]m\\d{10,16}'
         pattern25 = '[0-9]m_d{10,16}'
+        pattern22 = '[+_][0-9]m[+_]'
         # huc12, huc8, named_cell_size = df.figureItOut(fElevFile)
 
         if procDir != "":
@@ -1992,10 +1993,10 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                 filename_path = Path(ras)
                 # check to see if it follows HUC DEM naming procedure
                 stem = filename_path.stem
-                if re.search(pattern25, stem):
+                if re.search(pattern22, stem):
                     if len(demLists) > 0:
                         for demList in demLists:
-                            rasRes = updateResolution(ras, init_res, demList[0], pattern25, log)
+                            rasRes = updateResolution(ras, init_res, demList[0], pattern22, log)
                             try_to_delete(rasRes, log)
                     # if str(named_cell_size) + 'm' in ras:
                     #         # updateResolution(filepath, init_res, new_res, huc12, log)
@@ -2198,13 +2199,13 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                 log.debug(f'---Processing resolution {demList}')
                 # arcpy.env.snapRaster
                 if cntBeFile is not None:
-                    cntBeFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntBeFile, init_res, pattern25)
+                    cntBeFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntBeFile, init_res, pattern22)
 
                 terrainList = createRastersFromTerrains(log, demList, procDir, terrains, huc12)
 
-                buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, init_res, internal_regions, lidar_metadata_info, derivative_metadata, pattern25)
+                buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, init_res, internal_regions, lidar_metadata_info, derivative_metadata, pattern22)
 
-                mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windowsizeMethods, procDir, fElevFile, interpDict, init_res, srOutNoVCS, flib_metadata_template, lidar_metadata_info, pattern25)
+                mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windowsizeMethods, procDir, fElevFile, interpDict, init_res, srOutNoVCS, flib_metadata_template, lidar_metadata_info, pattern22)
         else:
             log.warning('lidar data area does not exist or does not exceed build threshold; DEM was not built')
 
