@@ -153,8 +153,10 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
                 arg_str += str(a) + '\n'
 
         messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
+        print(arg_str)
 
         huc12, huc8 = df.figureItOut(input_dem)
+        print(huc12)
 
         # control where scratchFolder and GDB are created
         if procDir != "":
@@ -166,6 +168,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
                 os.makedirs(procDir)
 
             arcpy.env.scratchWorkspace = procDir
+        print(procDir)
 
         # if no procDir, next step will create in users directory
         # otherwise, previously set scratchworkspace will control location
@@ -173,12 +176,14 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         sgdb = arcpy.env.scratchGDB
         arcpy.env.scratchWorkspace = sgdb
         arcpy.env.workspace = sgdb
+        print(sfldr)
 
         #figure out where to create log files
         node = platform.node()
         logProc = df.defineLocalProc(node)
         if not os.path.isdir(logProc):
             logProc = sfldr
+        print(logProc)
 
         if cleanup:
             # log to file only
@@ -472,32 +477,32 @@ class msgStub:
     def addWarningMessage(self,text):
         arcpy.AddWarningMessage(text)
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
 
-#     if len(sys.argv) == 1:
-#         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-#         cleanup = False
+    if len(sys.argv) == 1:
+        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+        cleanup = False
 
-#         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-# 	"C:/DEP/Scripts/basics/cmd_puncher_all_steps.pyt",
-# 	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
-# 	"C:/DEP/LiDAR_Current/elev_PLib_mean18/07080105/ep3m070801050901.tif",
-# 	"C:/DEP/toolMetadata/PLib_DEMs2022_mTemplate.xml",
-# 	"C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/dprsns_mean18_dem2013_3m_070801050901",
-# 	"5.0",
-# 	"500",
-# 	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901"]
+        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+	"C:/DEP/Scripts/basics/cmd_puncher_DEM.pyt",
+	"//10.27.15.155/M$/DEP/LiDAR_Current/elev_FLib_mean18/11030011/ef_3m_110300110104.tif",
+	"//10.27.15.155/M$/DEP/LiDAR_Current/elev_PLib_mean18/11030011/ep_3m_110300110104.tif",
+	"//10.27.15.155/M$/DEP/toolMetadata/PLib_DEMs2022_mTemplate.xml",
+	"//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
+	"9.0",
+	"500",
+	"D:/DEP_Proc/DEMProc/Cut_dem2013_3m_110300110104"]
 
-#         for i in parameters[2:]:
-#             sys.argv.append(i)
-#     else:
-#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-#         # DO NOT clean up the folder after done processing - matcher needs this data
-#         cleanup = False
+        for i in parameters[2:]:
+            sys.argv.append(i)
+    else:
+        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+        # DO NOT clean up the folder after done processing - matcher needs this data
+        cleanup = False
 
-#     messages = msgStub()
+    messages = msgStub()
 
-#     input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir = [i for i in sys.argv[1:]]
+    input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir = [i for i in sys.argv[1:]]
 
-#     doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir, cleanup, messages)
-#     arcpy.AddMessage("Back from doing!")
+    doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir, cleanup, messages)
+    arcpy.AddMessage("Back from doing!")
