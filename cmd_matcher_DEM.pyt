@@ -458,7 +458,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
 
         arcpy.env.extent = fill_or_void_tif
 
-        arcpy.env.cellSize = fill_or_void_tif
+        arcpy.env.cellSize = int(arcpy.Raster(fill_or_void_tif))
         ProcSize = arcpy.env.cellSize
 
         arcpy.CheckOutExtension("Spatial")
