@@ -458,8 +458,8 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
 
         arcpy.env.extent = fill_or_void_tif
 
-        arcpy.env.cellSize = int(arcpy.Raster(fill_or_void_tif).meanCellHeight)
-        ProcSize = arcpy.env.cellSize
+        arcpy.env.cellSize = arcpy.Raster(fill_or_void_tif).meanCellHeight
+        ProcSize = float(arcpy.env.cellSize)
 
         arcpy.CheckOutExtension("Spatial")
         arcpy.env.overwriteOutput = True
@@ -672,7 +672,8 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
                 cdCutEl = Con(cutElFr0, wsCostDistance)
                 fstSum3CutEl = Con(fstCutFr1Sum >=3, cdCutEl)
 
-                cutElWsCD = Con(zsCutFr1SumMax >= 3, fstSum3CutEl, cdCutEl + ProcSize)
+                true_cut_el_ws_cd = Plus(cdCutEl, ProcSize)
+                cutElWsCD = Con(zsCutFr1SumMax >= 3, fstSum3CutEl, true_cut_el_ws_cd)
                 wsCDinCutEl = ZonalStatistics(fr0, 'value', cutElWsCD, 'MINIMUM')
 
             ## For qrtr el
@@ -684,7 +685,8 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
                 cdQrtrEl = Con(quarterDeepFr0, wsCostDistance)
                 fstSum3QrtrEl = Con(fstQrtrFr1Sum >=3, cdQrtrEl)
 
-                qrtrElWsCD = Con(zsQrtrFr1SumMax >= 3, fstSum3QrtrEl, cdQrtrEl + ProcSize)
+                true_qrtr_el_ws_cd = Plus(cdQrtrEl, ProcSize)
+                qrtrElWsCD = Con(zsQrtrFr1SumMax >= 3, fstSum3QrtrEl, true_qrtr_el_ws_cd)
                 wsCDinQrtrEl = ZonalStatistics(fr0, 'value', qrtrElWsCD, 'MINIMUM')
 
             ## Compare ratios of minimum distances and select, assuming cut el is minimum, qrtr should be about 25% less

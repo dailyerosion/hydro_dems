@@ -215,8 +215,8 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
 
         arcpy.env.snapRaster = input_dem
 
-        arcpy.env.cellSize = int(arcpy.Raster(input_dem).meanCellHeight)
-        ProcSize = arcpy.env.cellSize
+        arcpy.env.cellSize = arcpy.Raster(input_dem).meanCellHeight
+        ProcSize = float(arcpy.env.cellSize)
 
         arcpy.env.extent = input_dem
 
@@ -592,6 +592,7 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
         areaRatio = cutArea.maximum / pfArea.maximum
         try:
             assert(areaRatio >= 0.9),'VoidFixed DEM failed area data check'
+            df.create_needed_dirs_and_gdbs(output_dem, log)
             DEMwBestCuts.save(output_dem)
             log.info("COMPLETION! Succesful save of cut DEM at " + time.asctime())
             # paraDict = {
