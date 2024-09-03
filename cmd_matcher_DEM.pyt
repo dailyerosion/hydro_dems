@@ -784,7 +784,8 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
                         ## Calculate distance from upstream points that are near medians
                         ## use the minimum of this value to possibly increase search distance in these areas, if greater than minFrDistFld
         ####                df.conByList(
-                        mergedMdnsCostMax = max([r[0] for r in arcpy.da.SearchCursor(mergedMdnsFc, ['bfr_dist'])])/2.0
+                        where_no_null = 'bfr_dist IS NOT NULL'
+                        mergedMdnsCostMax = max([r[0] for r in arcpy.da.SearchCursor(mergedMdnsFc, ['bfr_dist'], where_clause= where_no_null)])/2.0
                         upPtsMergedMdnsGnt = arcpy.GenerateNearTable_analysis(upPtsCmb, mergedMdnsFc, opj(sgdb, 'up_pts_mrg_mdn' + sfx), search_radius = mergedMdnsCostMax, closest = 'ALL')
                         arcpy.JoinField_management(upPtsMergedMdnsGnt, 'NEAR_FID', mergedMdnsFc, arcpy.Describe(mergedMdnsFc).OIDFieldName, 'bfr_dist')
                         arcpy.JoinField_management(upPtsMergedMdnsGnt, 'IN_FID', upPtsCmb, arcpy.Describe(upPtsCmb).OIDFieldName, frFld)
