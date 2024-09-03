@@ -278,8 +278,9 @@ def createBasicDirectories(node, ACPFyear, uversion = ''):
     '''Creates the most basic DEP directories, ACPF directory and DEP base directory as strings'''
     # depBase - location of most DEP inputs and outputs
     # acpfBase - location of DEP/ACPF management data geodatabases
-    acpfStart = '\\\\10.27.15.155\\D$\\DEP'#\\Man_Data_ACPF\\dep_ACPF' + ACPFyear
-    depBase = '\\\\10.27.15.155\\M$\\DEP'
+    # replace 10.27.15.155 with dep2.ae.iastate.edu, 2.5 GB connection instead of 1 GB
+    acpfStart = '\\\\dep2.ae.iastate.edu\\D$\\DEP'#\\Man_Data_ACPF\\dep_ACPF' + ACPFyear
+    depBase = '\\\\dep2.ae.iastate.edu\\M$\\DEP'
     # if 'EL3354-02' in node.upper():# or 'DA214B-11' in node.upper():
     #     acpfStart = 'D:\\DEP'
     #     depBase = 'M:\\DEP'
