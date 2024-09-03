@@ -124,11 +124,11 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
 
         if procDir != "":
             if os.path.isdir(procDir):
-                log.info('nuking: ' + procDir)
+                # log.info('nuking: ' + procDir)
                 df.nukedir(procDir)
 
             if not os.path.isdir(procDir):
-                log.debug(f"making dir: {procDir}")
+                # log.debug(f"making dir: {procDir}")
                 os.makedirs(procDir)
 
             arcpy.env.scratchWorkspace = procDir
