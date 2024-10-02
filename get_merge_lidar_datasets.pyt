@@ -306,28 +306,28 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
     return
 
 
-if __name__ == "__main__":
-    import sys
+# if __name__ == "__main__":
+#     import sys
 
-    if len(sys.argv) == 1:
-        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-        cleanup = False
+#     if len(sys.argv) == 1:
+#         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+#         cleanup = False
 
-        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-	"C:/DEP/Scripts/basics/get_merge_lidar_datasets_main.pyt",
-	"//10.27.15.155/M$/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2024_07_01",
-	"C:/DEP_Proc/DEMProc/Other_dem2013_3m_090300010706"]
+#         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+# 	"C:/DEP/Scripts/basics/get_merge_lidar_datasets_main.pyt",
+# 	"//10.27.15.155/M$/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2024_07_01",
+# 	"C:/DEP_Proc/DEMProc/Other_dem2013_3m_090300010706"]
 
-        for i in parameters[2:]:
-            sys.argv.append(i)
-    else:
-        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-        # clean up the folder after done processing
-        cleanup = True
+#         for i in parameters[2:]:
+#             sys.argv.append(i)
+#     else:
+#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+#         # clean up the folder after done processing
+#         cleanup = True
 
-    # ept_wesm_file = "C:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_05_20"
-    ept_wesm_file = sys.argv[1]
-    procDir = sys.argv[2]
-    doEPT(ept_wesm_file, procDir, cleanup, msgStub())
+#     # ept_wesm_file = "C:/DEP/Elev_Base_Data/ept/ept.gdb/ept_resources_2023_05_20"
+#     ept_wesm_file = sys.argv[1]
+#     procDir = sys.argv[2]
+#     doEPT(ept_wesm_file, procDir, cleanup, msgStub())
 
-    # arcpy.AddMessage("Back from doEPT!")
+#     # arcpy.AddMessage("Back from doEPT!")
