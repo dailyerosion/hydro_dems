@@ -3,7 +3,7 @@ a variety of arcpy scripts that create digital elevation models designed for enh
 
 The .pyt scripts are designed to be run with ArcGIS Pro as Python toolboxes. They can also be run via the command line by remove the 'if __name__ == __main__' commented out lines (from there to the end). This code breaks a Python toolbox.
 
-# Start
+# First
 Start with the script 'get_merge_lidar_datasets.pyt'. This will download a couple datasets and intersect them for future work. 
 
 # Second
