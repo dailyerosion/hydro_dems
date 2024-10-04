@@ -5,6 +5,8 @@ boundaries with the EPT JSON that shows generalized boundaries and has web addre
 for the data. This dataset is then used in later programs to figure out which EPT
 datasets to request.'''
 import arcpy
+import sys
+import traceback
 # coding: utf-8
 
 class msgStub:
@@ -96,7 +98,6 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
     import os
     import sys
     import platform
-    import traceback
     import time
     import urllib.request
 
@@ -123,9 +124,9 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
 
 
         if procDir != "":
-            if os.path.isdir(procDir):
-                # log.info('nuking: ' + procDir)
-                df.nukedir(procDir)
+            # if os.path.isdir(procDir):
+            #     # log.info('nuking: ' + procDir)
+            #     df.nukedir(procDir)
 
             if not os.path.isdir(procDir):
                 # log.debug(f"making dir: {procDir}")
@@ -282,32 +283,33 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
             del icur
 
     except:
-        # Get the traceback object
-        #
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-
-        # Concatenate information together concerning the error into a message string
-        #
-        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-        msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-
-        # Print Python error messages for use in Python / Python Window
-        #
-        log.warning(pymsg)
-        log.warning(msgs)
-
-        log.warning('failure on: ' + huc12)
-        sys.exit(1)
+        dep_except(huc12, traceback, log)
 
     finally:
         log.warning("Finished at " + time.asctime())
 
     return
 
+def dep_except(huc12, traceback, log):
+    # Get the traceback object
+    #
+    tb = sys.exc_info()[2]
+    tbinfo = traceback.format_tb(tb)[0]
 
-# if __name__ == "__main__":
-#     import sys
+    # Concatenate information together concerning the error into a message string
+    #
+    pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+    msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+
+    # Print Python error messages for use in Python / Python Window
+    #
+    log.warning(pymsg)
+    log.warning(msgs)
+
+    log.warning('failure on: ' + huc12)
+    sys.exit(1)
+
+# if __name__ == "__main__":   
 
 #     if len(sys.argv) == 1:
 #         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
