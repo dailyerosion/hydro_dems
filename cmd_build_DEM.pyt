@@ -197,9 +197,9 @@ class Tool(object):
             parameterType='Optional',
             direction="Output")
 
-        param18.filter.type = "ValueList"
-        param18.filter.list = [True, False]
-        param18.value = True
+        # param18.filter.type = "ValueList"
+        # param18.filter.list = [True, False]
+        param19.value = True
                         
         params = [param0, param1, param2, param3,
                   param4, param5, param6, param7,
@@ -1874,9 +1874,6 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup, messages):
     
-    # switch a text 'True' into a real Python True
-    cleanup = True if cleanup == "True" else False
-
     arguments = [monthly_wesm_ept_mashup, dem_polygon, 
         pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
         fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
@@ -1906,10 +1903,10 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         pattern22 = '[+_][0-9]m[+_]'
         # huc12, huc8, named_cell_size = df.figureItOut(fElevFile)
 
-        if procDir != "":
-            if os.path.isdir(procDir):
-                # log.info('nuking: ' + procDir)
-                df.nukedir(procDir)
+        if procDir is not None:
+            # if os.path.isdir(procDir):
+            #     # log.info('nuking: ' + procDir)
+            #     df.nukedir(procDir)
 
             if not os.path.isdir(procDir):
                 os.makedirs(procDir)
@@ -2293,12 +2290,15 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 #         # clean up the folder after done processing
 #         # cleanup = True
 
-#     # inputs then outputs
+#     # inputs then outputs, change "" to Python None
 #     (monthly_wesm_ept_mashup, dem_polygon, 
 #          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
 #          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
 #          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup
-#         ) = [i for i in sys.argv[1:]]
+#         ) = [i if i != "" else None for i in sys.argv[1:]]
+
+#     # switch a text 'True' into a real Python True
+#     cleanup = True if cleanup == "True" else False
 
 #     messages = msgStub()
 
