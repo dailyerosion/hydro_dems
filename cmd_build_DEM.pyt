@@ -1722,6 +1722,9 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 
                         # pipeline json requires / not \ for path separator
                         ept_las_full_filename = os.altsep.join([procDir.replace(os.path.sep, os.path.altsep), ept_las_filename])
+                        # NEEDS UPDATE - check for files in lidar_download_directory as well - getting ready below
+                        # dl_ept_laz_full_filename = ept_laz_full_filename.replace(eptDir, eleDir)
+                        # dl_ept_zlas_full_filename = ept_zlas_full_filename.replace(eptDir, eleDir)
                         if os.path.isfile(ept_laz_full_filename) and not os.path.isfile(ept_las_full_filename):
                             log.info('converting laz to las')
                             log.info(f"arguments: {ept_laz_full_filename}, {procDir}")
@@ -1878,7 +1881,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
         fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
         int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup]
-
+                                                       
     for a in arguments:
         if a == arguments[0]:
             arg_str = str(a) + '\n'
@@ -1912,8 +1915,14 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                 os.makedirs(procDir)
 
             arcpy.env.scratchWorkspace = procDir
+            sfldr = arcpy.env.scratchFolder
+        else:
+            sfldr = arcpy.env.scratchFolder
+            procDir = sfldr
 
-        sfldr = arcpy.env.scratchFolder
+        if lidar_download_directory is None:
+            lidar_download_directory = procDir
+
         sgdb = arcpy.env.scratchGDB
         arcpy.env.scratchWorkspace = sgdb
         arcpy.env.workspace = sgdb
@@ -1939,6 +1948,9 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         log.info("Beginning execution: " + time.asctime())
         log.debug('sys.argv is: ' + str(sys.argv) + '\n')
         log.info("Processing HUC: " + huc12)
+
+        log.info(f"procDir: {procDir}")
+        log.info(f"lidar_download_directory: {lidar_download_directory}")
 
         fElevDesc = arcpy.da.Describe(dem_polygon)
         srOut = fElevDesc['spatialReference']
