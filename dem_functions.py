@@ -262,9 +262,9 @@ def defineLocalProc(node, uversion = ''):
     if '-M' in node.upper():
         localProc = 'C:\\DEP_Proc'
     elif 'EL3354' in node.upper() or 'EL3321' in node.upper() or 'DA214B' in node.upper():
-        localProc = 'D:\\DEP_Proc'
+        localProc = 'E:\\DEP_Proc'
     elif 'DEP' in node.upper():
-        localProc = 'D:\\DEP_Proc'
+        localProc = 'E:\\DEP_Proc'
     else:
         localProc = 'C:\\DEP_Proc'
 

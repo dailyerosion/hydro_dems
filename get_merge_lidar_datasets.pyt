@@ -139,13 +139,13 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
         arcpy.env.scratchWorkspace = sgdb
         arcpy.env.workspace = sgdb
 
-        eptDir = procDir#os.path.dirname(os.path.dirname(ept_wesm_file))
+        eptDir = os.path.dirname(os.path.dirname(ept_wesm_file))#procDir#
 
         #figure out where to create log files
         node = platform.node()
         logProc = df.defineLocalProc(node)
         if not os.path.isdir(logProc):
-            logProc - eptDir
+            logProc = procDir
 
         if cleanup:
             log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)

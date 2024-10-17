@@ -1046,6 +1046,14 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
                 addMetadata(bareEarthReturnMinFile_sized, paraDict, derivative_metadata, log)
 
         if int1rMaxFile is not None or int1rMinFile is not None or intBeMaxFile is not None:
+            if int1rMaxFile is None and int1rMinFile is not None: 
+                log.warning('Faking int1rMaxFile value due to requested int1rMinFile')
+                int1rMaxFile_faked = int1rMinFile.replace('fr_int_min', 'fr_int_max')
+                int1rMaxFile = int1rMaxFile_faked
+            elif int1rMaxFile is None and intBeMaxFile is not None:
+                log.warning('Faking int1rMaxFile value due to requested intBeMaxFile')
+                int1rMaxFile_faked = intBeMaxFile.replace('be_int_max', 'fr_int_max')
+                int1rMaxFile = int1rMaxFile_faked
             log.debug('---Creating FR Max Intensity')
             recode_tf = False
             log.debug(f'ir.max: {internal_regions.maximum},ir.min: {internal_regions.minimum}')
@@ -1495,10 +1503,10 @@ def addMetadata(outDEM, paraDict, template_file_path, log = None):
             if log is not None:
                 log.warning(msgs)
 
-def create_cl2_json_pipeline(cl2_json_filename, eptDir, all_las_file, cl2_las_full_filename):
+def create_cl2_json_pipeline(cl2_json_filename, eleDir, all_las_file, cl2_las_full_filename):
     '''Writes a json pipeline for use by pdal (point data abstraction library)'''
 
-    cl2_json_full_filename = os.altsep.join([eptDir, cl2_json_filename])
+    cl2_json_full_filename = os.altsep.join([eleDir, cl2_json_filename])
 
     json_str = '''{
 "pipeline": [
@@ -1550,10 +1558,10 @@ def create_laz_json_pipeline(laz_json_filename, saveDir, all_las_file, laz_full_
     return laz_json_full_filename
 
 
-def create_ept_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode):
+def create_ept_json_pipeline(ept_json_filename, eleDir, ept_las_full_filename, extent_request, ept_address, srOutCode):
     '''Writes a json pipeline for use by pdal (point data abstraction library)'''
 
-    ept_json_full_filename = os.altsep.join([eptDir, ept_json_filename])
+    ept_json_full_filename = os.altsep.join([eleDir, ept_json_filename])
 
     json_str = '''{
 "pipeline": [
@@ -1677,7 +1685,7 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log):#maskFc_3857, mas
     return parts, square_area
 
 
-def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eptDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir, eleDir):
+def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eleDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir):
     try:
         if df.testForZero(prev_merged):
             # requests to EPT must be in 3857
@@ -1712,12 +1720,12 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                         ept_address = url
 
                         ept_zlas_filename = "_".join(["ept", huc12, str(work_id_part) + ".zlas"])
-                        ept_zlas_full_filename = os.altsep.join([eptDir.replace(os.path.sep, os.path.altsep), ept_zlas_filename])
+                        ept_zlas_full_filename = os.altsep.join([eleDir.replace(os.path.sep, os.path.altsep), ept_zlas_filename])
 
                         ept_las_filename = ept_zlas_filename.replace(".zlas", ".las")
 
                         ept_laz_filename = ept_zlas_filename.replace(".zlas", ".laz")
-                        ept_laz_full_filename = os.altsep.join([eptDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
+                        ept_laz_full_filename = os.altsep.join([eleDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
                         local_ept_laz_full_filename = os.altsep.join([procDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
 
                         # pipeline json requires / not \ for path separator
@@ -1740,7 +1748,7 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                             ept_json_filename = "_".join(["get", "ept", huc12, str(work_id_part) + ".json"])
 
                             df.create_needed_dirs_and_gdbs(ept_las_full_filename, log)
-                            ept_json_full_filename = create_ept_json_pipeline(ept_json_filename, eptDir, ept_las_full_filename, extent_request, ept_address, srOutCode)
+                            ept_json_full_filename = create_ept_json_pipeline(ept_json_filename, eleDir, ept_las_full_filename, extent_request, ept_address, srOutCode)
                             df.create_needed_dirs_and_gdbs(ept_json_full_filename, log)
 
                             if not os.path.exists(ept_las_full_filename):
@@ -1918,11 +1926,17 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         arcpy.env.scratchWorkspace = sgdb
         arcpy.env.workspace = sgdb
 
+        if procDir is None:
+            procDir = sfldr
+
+        if lidar_download_directory is None:
+            lidar_download_directory = sfldr
+
         #figure out where to create log files
         node = platform.node()
         logProc = df.defineLocalProc(node)
         if not os.path.isdir(logProc):
-            logProc = sfldr#eptDir
+            logProc = sfldr
 
         if cleanup:
             log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)
@@ -1939,6 +1953,8 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         log.info("Beginning execution: " + time.asctime())
         log.debug('sys.argv is: ' + str(sys.argv) + '\n')
         log.info("Processing HUC: " + huc12)
+        log.info(f"procDir: {procDir}")
+        log.info(f"lidar_download_directory: {lidar_download_directory}")
 
         fElevDesc = arcpy.da.Describe(dem_polygon)
         srOut = fElevDesc['spatialReference']
@@ -2050,7 +2066,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
         allTilesList = []
 
-        eptDir = os.path.dirname(os.path.dirname(monthly_wesm_ept_mashup))
+        #eptDir = os.path.dirname(os.path.dirname(monthly_wesm_ept_mashup))
         wesm_huc12 = arcpy.analysis.Clip(monthly_wesm_ept_mashup, maskFcOut, 'wesm_' + huc12)
 
 ##----------------------------------------------------------------------
@@ -2062,7 +2078,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         if df.testForZero(wesm_huc12):
             prev_merged, merged_area, addOrderField = organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log)
 
-            cl2Las, geom_srOut_copy = getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eptDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir, lidar_download_directory)
+            cl2Las, geom_srOut_copy = getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, lidar_download_directory, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir)
 
             arcpy.env.outputCoordinateSystem = srOut
 
@@ -2127,7 +2143,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                         cl2_las_full_filename = all_tile_alt.replace('.las', '_cl2.las')
                         cl2_tiles_list.append(cl2_las_full_filename)
                         
-                        cl2_las_json = create_cl2_json_pipeline(cl2_json_filename, eptDir, all_tile_alt, cl2_las_full_filename)
+                        cl2_las_json = create_cl2_json_pipeline(cl2_json_filename, lidar_download_directory, all_tile_alt, cl2_las_full_filename)
 
                         cl2_run_string = " ".join([pdal_exe, "pipeline", cl2_las_json])
                         log.info(f"running: {cl2_run_string}")
