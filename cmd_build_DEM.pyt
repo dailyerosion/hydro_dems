@@ -590,9 +590,10 @@ def createRastersFromTerrains(log, demList, procDir, terrains, huc12):
         dem_cellSize = demList[0]
         arcpy.env.cellSize = dem_cellSize
         for terrain in terrains:
-            log.debug('---Creating Raster from Terrain for ' + str(demList[0]) + ' using ' + terrain.getInput(6))
-            tempTerrName = generateTempTerrName(procDir, terrain.getInput(6), dem_cellSize, huc12)
             pfFileTemp = os.path.join(procDir, '_'.join(['tmp_ter', terrain.getInput(6), str(demList[0]) + 'm', huc12, 'out.tif']))
+            log.debug('---Creating Raster from Terrain for ' + str(demList[0]) + ' using ' + terrain.getInput(6))
+            log.debug(f'Creating Raster from Terrain at {pfFileTemp}')
+            # tempTerrName = generateTempTerrName(procDir, terrain.getInput(6), dem_cellSize, huc12)
             demOut = arcpy.TerrainToRaster_3d(terrain, pfFileTemp, "FLOAT", interpTechnique, "CELLSIZE " + str(demList[0]), pyramidLevel)
 ####            demList.append(demOut.getOutput(0))
 
@@ -1240,7 +1241,8 @@ def generateTempTerrName(procDir, window, cellsize, huc12):
     return tempTerrName
 
 
-def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procDir, fElevFile, interpDict, named_cell_size, srOutNoVCS, dem_metadata_template, lidar_metadata_info, pattern22):
+def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procDir, fElevFile, interpDict, named_cell_size,
+                          srOutNoVCS, dem_metadata_template, lidar_metadata_info, pattern22):
     '''Takes whole or partial DEMs from the demList and mosaics them together
     if there are multiple DEMs. Then pit-fills the result (fills all one cell
     sinks). Also processes 'ZMEAN' and 'ZMINMAX' (or other terrain->raster
@@ -1256,8 +1258,10 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procD
         # windows are types of terrain (ZMEAN, ZMINMAX, etc.)
         if len(windows):
             for window in windows:
+                log.debug(f"processing window: {window}")
 
                 fElevFile = updateResolution(fElevFile, named_cell_size, demList[0], pattern22, log)
+                log.debug(f"pit filling for {fElevFile}")
 
                 interpType = interpDict[window]
                 # default interpolation type is mean18
@@ -1329,6 +1333,8 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procD
                     terrain_args_updated = terrain_args.replace('MEAN', 'MINMAX')
                 else:
                     terrain_args_updated = terrain_args
+
+                log.debug(f"terrain building args: {terrain_args_updated}")
 
                 paraDict = {
                     '\n\nACPF: DEM Generation and Pit Fill Tool     ' : '\nRun Date: %s' % nowYmd,
@@ -1985,11 +1991,11 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         rezes = gsds.split(",")
         log.info(f'Resolutions: {rezes}')
         ordered_rezes = []
-        for r in rezes:
-            filename_path = Path(fElevFile)
-            # check to see if it follows HUC DEM naming procedure
-            stem = filename_path.stem
-            pattern28 = '[0-9]m'
+        # for r in rezes:
+        #     filename_path = Path(fElevFile)
+        #     # check to see if it follows HUC DEM naming procedure
+        #     stem = filename_path.stem
+        #     pattern28 = '[0-9]m'
             # if re.search(pattern28, stem):
             #     log.debug(f"found match in {stem} of resolution {r}m")
             #     ordered_rezes.append(r)
@@ -2007,10 +2013,17 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         init_res = demLists[0][0]
         log.debug(f"init_res is {init_res}")
 
+        if init_res + 'm' not in fElevFile:
+            fElevFile = os.path.splitext(fElevFile)[0] + '_' + str(init_res) + 'm' + os.path.splitext(fElevFile)[1]
+
         ## windowsizeMethods are the criterion used to select which point(s) in the window define the terrain
         interpDict = df.loadInterpDict()
         windowsizeMethods = ['ZMEAN', 'ZMINMAX']#, 'ZMIN']
         interpType = interpDict[windowsizeMethods[0]]
+
+        if interpType not in fElevFile:
+            fElevFile = os.path.splitext(fElevFile)[0] + '_' + interpType + os.path.splitext(fElevFile)[1]
+        log.debug(f'Revised fElevFile: {fElevFile}')
 
         # delete any pre-existing inputs
         for ras in [fElevFile, cntBeFile, int1rMaxFile, int1rMinFile, cnt1rFile, firstReturnMaxFile]:
