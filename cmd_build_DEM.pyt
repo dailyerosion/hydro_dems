@@ -580,9 +580,12 @@ def buildTerrains(finalMP, FDSet, tcdFdSet, finalHb, finalHl, finalNoZHb, poorZH
 
     return terrains, tf, terrain_arguments, pyramids_arguments
 
+def terrain_args_from_inputs(terrain):
+    terrain_arguments_list = [terrain.getInput(t) for t in range(0,10)]
+    terrain_arguments = ', '.join(terrain_arguments_list)
+    return terrain_arguments
 
-
-def createRastersFromTerrains(log, demList, procDir, terrains, huc12):
+def createRastersFromTerrains(log, demList, procDir, terrains, huc12, lidar_metadata_info, pyramid_args, dem_metadata_template):
     try:
         # log.debug('snapRaster for Terrain to raster: ' + arcpy.env.snapRaster)
         interpTechnique = 'NATURAL_NEIGHBORS'
@@ -590,12 +593,40 @@ def createRastersFromTerrains(log, demList, procDir, terrains, huc12):
         dem_cellSize = demList[0]
         arcpy.env.cellSize = dem_cellSize
         for terrain in terrains:
-            pfFileTemp = os.path.join(procDir, '_'.join(['tmp_ter', terrain.getInput(6), str(demList[0]) + 'm', huc12, 'out.tif']))
-            log.debug('---Creating Raster from Terrain for ' + str(demList[0]) + ' using ' + terrain.getInput(6))
+            pfFileTemp = os.path.join(procDir, '_'.join(['tmp_ter', terrain.getInput(6), str(dem_cellSize) + 'm', huc12, 'out.tif']))
+            log.debug('---Creating Raster from Terrain for ' + str(dem_cellSize) + ' using ' + terrain.getInput(6))
             log.debug(f'Creating Raster from Terrain at {pfFileTemp}')
             # tempTerrName = generateTempTerrName(procDir, terrain.getInput(6), dem_cellSize, huc12)
-            demOut = arcpy.TerrainToRaster_3d(terrain, pfFileTemp, "FLOAT", interpTechnique, "CELLSIZE " + str(demList[0]), pyramidLevel)
+            demOut = arcpy.TerrainToRaster_3d(terrain, pfFileTemp, "FLOAT", interpTechnique, "CELLSIZE " + str(dem_cellSize), pyramidLevel)
+
+            ttr_arguments_list = [demOut.getInput(t) for t in range(0,5)]
+            ttr_args = ', '.join(ttr_arguments_list)
+            log.debug(f'TerrainToRaster args: {ttr_args}')
 ####            demList.append(demOut.getOutput(0))
+
+            nowYmd, collect_starts_min, collect_ends_max, collect_majority = [i for i in lidar_metadata_info]
+
+            terrain_args = terrain_args_from_inputs(terrain)
+
+            log.debug(f"terrain building args: {terrain_args}")
+
+            paraDict = {
+                '\n\nACPF: DEM Generation and Pit Fill Tool     ' : '\nRun Date: %s' % nowYmd,
+                # '\nUnknown Vintage Lidar Data: ' : False,#tiles_t_or_f,
+                '\nEarliest 3DEP Lidar Data: ' : collect_starts_min,
+                '\nLatest 3DEP Lidar Data: ' : collect_ends_max,
+                '\nLatest 3DEP Lidar Data: ' : collect_majority,
+                '\nOutput conditioned DEM raster: ' : pfFileTemp,#fElevFile_interp,
+                '\nTerrain Interpolation Arguments: ' : terrain_args,
+                '\nTerrain Pyramid Arguments: ' : pyramid_args,
+                '\nTerrain To Raster Arguments: ' : ttr_args
+                }
+
+            ## update metadata
+            log.debug('---Adding metadata')
+            addMetadata(pfFileTemp, paraDict, dem_metadata_template, log)
+
+
 
     except Exception as e:
         print('handling as exception')
@@ -1021,7 +1052,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
 ##        lastReturnMinFile_sized = updateResolution(lastReturnMinFile, named_cell_size, demList[0], huc12, log)
 
 
-        terrain_args, nowYmd, collect_starts_min, collect_ends_max, collect_majority, pyramid_args = [i for i in lidar_metadata_info]
+        nowYmd, collect_starts_min, collect_ends_max, collect_majority = [i for i in lidar_metadata_info]
 
         paraDict = {
                 '\n\nACPF: DEM Generation and Pit Fill Tool     ' : '\nRun Date: %s' % nowYmd,
@@ -1241,8 +1272,8 @@ def generateTempTerrName(procDir, window, cellsize, huc12):
     return tempTerrName
 
 
-def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procDir, fElevFile, interpDict, named_cell_size,
-                          srOutNoVCS, dem_metadata_template, lidar_metadata_info, pattern22):
+def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, terrains, procDir, fElevFile, interpDict, named_cell_size,
+                          srOutNoVCS, dem_metadata_template, lidar_metadata_info, pattern22, pyramid_args):
     '''Takes whole or partial DEMs from the demList and mosaics them together
     if there are multiple DEMs. Then pit-fills the result (fills all one cell
     sinks). Also processes 'ZMEAN' and 'ZMINMAX' (or other terrain->raster
@@ -1256,100 +1287,93 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windows, procD
         log.debug('noLASdem (if present) is: ' + str(noLASdem))
 
         # windows are types of terrain (ZMEAN, ZMINMAX, etc.)
-        if len(windows):
-            for window in windows:
-                log.debug(f"processing window: {window}")
+        # if len(windows):
+        for terrain in terrains:#window in windows:
+            window = terrain.getInput(6)
+            log.debug(f"processing window: {window}")
 
-                fElevFile = updateResolution(fElevFile, named_cell_size, demList[0], pattern22, log)
-                log.debug(f"pit filling for {fElevFile}")
+            fElevFile = updateResolution(fElevFile, named_cell_size, demList[0], pattern22, log)
+            log.debug(f"pit filling for {fElevFile}")
 
-                interpType = interpDict[window]
-                # default interpolation type is mean18
-                if interpType != 'mean18':
-                    fElevFile_interp = fElevFile.replace('mean18', interpType)
-                else:
-                    fElevFile_interp = fElevFile
+            interpType = interpDict[window]
+            # default interpolation type is mean18
+            if interpType != 'mean18':
+                fElevFile_interp = fElevFile.replace('mean18', interpType)
+            else:
+                fElevFile_interp = fElevFile
 
-                tempTerrName = generateTempTerrName(procDir, window, demList[0], huc12)
-                # get rasters created from Terrain, should only be one
-                arcpy.env.workspace = os.path.dirname(tempTerrName)
-                rastrList = arcpy.ListRasters(os.path.basename(tempTerrName))#[0]
+            tempTerrName = generateTempTerrName(procDir, window, demList[0], huc12)
+            # get rasters created from Terrain, should only be one
+            arcpy.env.workspace = os.path.dirname(tempTerrName)
+            rastrList = arcpy.ListRasters(os.path.basename(tempTerrName))#[0]
 
-                # if len(noLASdem) > 0:
-                #     mosaicList = rastrList + noLASdem
-                #     if True:#len(mosaicList) > 1:
-                #         log.debug('resampling method for mosaic to new raster: ' + arcpy.env.resamplingMethod)
-                #         log.debug('cellsize for mosaic to new raster: ' + arcpy.env.cellSize)
-                #         log.debug('---Mosaicing DEMs for ' + str(demList[0]) + ')
-                #         mosDEM = arcpy.MosaicToNewRaster_management(mosaicList, procDir, 'mos_' + str(demList[0]) + 'm_' + huc12 + '.tif', number_of_bands = '1', pixel_type = '32_BIT_FLOAT', mosaic_method = 'MINIMUM')
-                #         maskedDEM = Con(Plus(maskRastOut, 2), mosDEM)
-                #         maskedDEMintPre = Int(maskedDEM*100)
+            # if len(noLASdem) > 0:
+            #     mosaicList = rastrList + noLASdem
+            #     if True:#len(mosaicList) > 1:
+            #         log.debug('resampling method for mosaic to new raster: ' + arcpy.env.resamplingMethod)
+            #         log.debug('cellsize for mosaic to new raster: ' + arcpy.env.cellSize)
+            #         log.debug('---Mosaicing DEMs for ' + str(demList[0]) + ')
+            #         mosDEM = arcpy.MosaicToNewRaster_management(mosaicList, procDir, 'mos_' + str(demList[0]) + 'm_' + huc12 + '.tif', number_of_bands = '1', pixel_type = '32_BIT_FLOAT', mosaic_method = 'MINIMUM')
+            #         maskedDEM = Con(Plus(maskRastOut, 2), mosDEM)
+            #         maskedDEMintPre = Int(maskedDEM*100)
 
-                #         # filter any null values in mask (buffered HUC12) using Nibble
-                #         isnCmDemInt = IsNull(maskedDEM)
-                #         ndToNibble = SetNull(isnCmDemInt == 1, 1)
-                #         cmDEMintNoNulls = Con(isnCmDemInt == 0, maskedDEMintPre, 1)
-                #         nibbleInt = Nibble(cmDEMintNoNulls, ndToNibble)
-                #         maskedDEMint = Con(Plus(maskRastOut, 2), nibbleInt)
+            #         # filter any null values in mask (buffered HUC12) using Nibble
+            #         isnCmDemInt = IsNull(maskedDEM)
+            #         ndToNibble = SetNull(isnCmDemInt == 1, 1)
+            #         cmDEMintNoNulls = Con(isnCmDemInt == 0, maskedDEMintPre, 1)
+            #         nibbleInt = Nibble(cmDEMintNoNulls, ndToNibble)
+            #         maskedDEMint = Con(Plus(maskRastOut, 2), nibbleInt)
 
-                #     else:
-                #         log.debug('resampling method for Resample: ' + arcpy.env.resamplingMethod)
-                #         log.debug('cellsize for resample: ' + arcpy.env.cellSize)
-                #         log.debug('---Resampling DEMs for ' + str(demList[0]) + ')
-                #         mosDEM = arcpy.Resample_management(mosaicList[0], os.path.join(procDir, 'mos_' + str(demList[0]) + 'm_' + huc12 + '.tif'), cell_size = arcpy.env.cellSize, resampling_type = arcpy.env.resamplingMethod)
-                #         maskedDEM = Con(Plus(maskRastOut, 2), mosDEM)
-                #         maskedDEMintPre = Int(maskedDEM*100)
+            #     else:
+            #         log.debug('resampling method for Resample: ' + arcpy.env.resamplingMethod)
+            #         log.debug('cellsize for resample: ' + arcpy.env.cellSize)
+            #         log.debug('---Resampling DEMs for ' + str(demList[0]) + ')
+            #         mosDEM = arcpy.Resample_management(mosaicList[0], os.path.join(procDir, 'mos_' + str(demList[0]) + 'm_' + huc12 + '.tif'), cell_size = arcpy.env.cellSize, resampling_type = arcpy.env.resamplingMethod)
+            #         maskedDEM = Con(Plus(maskRastOut, 2), mosDEM)
+            #         maskedDEMintPre = Int(maskedDEM*100)
 
-                #         # filter any null values in mask (buffered HUC12) using Nibble
-                #         isnCmDemInt = IsNull(maskedDEM)
-                #         ndToNibble = SetNull(isnCmDemInt == 1, 1)
-                #         cmDEMintNoNulls = Con(isnCmDemInt == 0, maskedDEMintPre, 1)
-                #         nibbleInt = Nibble(cmDEMintNoNulls, ndToNibble)
-                #         maskedDEMint = Con(Plus(maskRastOut, 2), nibbleInt)
+            #         # filter any null values in mask (buffered HUC12) using Nibble
+            #         isnCmDemInt = IsNull(maskedDEM)
+            #         ndToNibble = SetNull(isnCmDemInt == 1, 1)
+            #         cmDEMintNoNulls = Con(isnCmDemInt == 0, maskedDEMintPre, 1)
+            #         nibbleInt = Nibble(cmDEMintNoNulls, ndToNibble)
+            #         maskedDEMint = Con(Plus(maskRastOut, 2), nibbleInt)
 
-                # else:
-                rastr = rastrList[0]
-                mosDEM = Raster(rastr)
-                intCmDEM = Int(mosDEM*100)
-                maskedDEMint = ExtractByMask(intCmDEM, maskRastOut)
+            # else:
+            rastr = rastrList[0]
+            mosDEM = Raster(rastr)
+            intCmDEM = Int(mosDEM*100)
+            maskedDEMint = ExtractByMask(intCmDEM, maskRastOut)
 
-                # clear output VCS from here on out, creating centimeter rasters
-                arcpy.env.outputCoordinateSystem = None
-                arcpy.env.outputCoordinateSystem = srOutNoVCS
+            # clear output VCS from here on out, creating centimeter rasters
+            arcpy.env.outputCoordinateSystem = None
+            arcpy.env.outputCoordinateSystem = srOutNoVCS
 
-                log.debug('msk_dem to be saved now')
-                maskedDEMint.save('msk_dem_' + str(demList[0]) + 'm_' + huc12 + '.tif')
+            log.debug('msk_dem to be saved now')
+            maskedDEMint.save('msk_dem_' + str(demList[0]) + 'm_' + huc12 + '.tif')
 
 
-                cmDEMnocs, cmDEMsinks = fillOCSinks(maskedDEMint)
-                log.debug('pfFile name will be ' + fElevFile_interp)#paths['fElevFile'])
-                cmDEMnocs.save(fElevFile_interp)#paths['fElevFile'])
-                log.debug('Saved DEM for ' + str(demList[0]))# + ' at ' + str(time.clock()))
-                arcpy.BuildPyramids_management(cmDEMnocs)
+            cmDEMnocs, cmDEMsinks = fillOCSinks(maskedDEMint)
+            log.debug('pfFile name will be ' + fElevFile_interp)#paths['fElevFile'])
+            cmDEMnocs.save(fElevFile_interp)#paths['fElevFile'])
+            log.debug('Saved DEM for ' + str(demList[0]))# + ' at ' + str(time.clock()))
+            arcpy.BuildPyramids_management(cmDEMnocs)
 
-                terrain_args, nowYmd, collect_starts_min, collect_ends_max, collect_majority, pyramid_args = [i for i in lidar_metadata_info]
+            f_dict = {}
+            sep = ': '
+            f_metadata = md.Metadata(rastr)
+            if f_metadata.summary is not None and f_metadata.summary != '':
+                f_met_split = f_metadata.summary.split('\n')
+                for i in f_met_split[2:]:
+                    key, value = i.split(sep, 1)
+                    print(f'key {key} and value {value}')
+                    f_dict.update({key: value})
 
-                if 'ZMINMAX'.lower() in fElevFile_interp:
-                    terrain_args_updated = terrain_args.replace('MEAN', 'MINMAX')
-                else:
-                    terrain_args_updated = terrain_args
+            log.debug(f"terrain building args: {f_dict}")
 
-                log.debug(f"terrain building args: {terrain_args_updated}")
-
-                paraDict = {
-                    '\n\nACPF: DEM Generation and Pit Fill Tool     ' : '\nRun Date: %s' % nowYmd,
-                    # '\nUnknown Vintage Lidar Data: ' : False,#tiles_t_or_f,
-                    '\nEarliest 3DEP Lidar Data: ' : collect_starts_min,
-                    '\nLatest 3DEP Lidar Data: ' : collect_ends_max,
-                    '\nLatest 3DEP Lidar Data: ' : collect_majority,
-                    '\nOutput conditioned DEM raster: ' : fElevFile_interp,
-                    '\nTerrain Interpolation Arguments: ' : terrain_args_updated,
-                    '\nTerrain Pyramid Arguments: ' : pyramid_args
-                    }
-
-                ## update metadata
-                log.debug('---Adding metadata')
-                addMetadata(fElevFile_interp, paraDict, dem_metadata_template, log)
+            ## update metadata
+            log.debug('---Adding metadata')
+            addMetadata(fElevFile_interp, f_dict, dem_metadata_template, log)
 
     except Exception as e:
         print('handling as exception')
@@ -2183,7 +2207,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
                     collect_ends_max, collect_starts_min, collect_majority = getLidarTimeframes(prev_merged)#merged_copy)#, tilesClip_local)
 
-                    lidar_metadata_info = [terrain_args, nowYmd, collect_starts_min, collect_ends_max, collect_majority, pyramid_args]
+                    lidar_metadata_info = [nowYmd, collect_starts_min, collect_ends_max, collect_majority]
 
                     lasdAll = arcpy.CreateLasDataset_management(allTilesList, os.path.join(procDir, 'huc_all.lasd'), spatial_reference = arcpy.SpatialReference(int(srOutCode)))
                     # ## Following code runs slowly at times and is not being used further 2023.12.21
@@ -2239,11 +2263,11 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                 if cntBeFile is not None:
                     cntBeFileRasterObj = createCountsFromMultipoints(sgdb, maskRastBase, demList, huc12, finalMPinm, finalMP, log, cntBeFile, init_res, pattern22)
 
-                terrainList = createRastersFromTerrains(log, demList, procDir, terrains, huc12)
+                terrainList = createRastersFromTerrains(log, demList, procDir, terrains, huc12, lidar_metadata_info, pyramid_args, flib_metadata_template)
 
                 buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, init_res, internal_regions, lidar_metadata_info, derivative_metadata, pattern22)
 
-                mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, windowsizeMethods, procDir, fElevFile, interpDict, init_res, srOutNoVCS, flib_metadata_template, lidar_metadata_info, pattern22)
+                mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, terrains, procDir, fElevFile, interpDict, init_res, srOutNoVCS, flib_metadata_template, lidar_metadata_info, pattern22, pyramid_args)
         else:
             log.warning('lidar data area does not exist or does not exceed build threshold; DEM was not built')
 
