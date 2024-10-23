@@ -1,0 +1,6 @@
+*.pyc
+*.pyt.xml
+*.code-workspace
+
+ # Byte-compiled / optimized / DLL files
+__pycache__/

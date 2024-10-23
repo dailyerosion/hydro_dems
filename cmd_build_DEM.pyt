@@ -1367,7 +1367,7 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, terrains, proc
                 for i in f_met_split[2:]:
                     key, value = i.split(sep, 1)
                     print(f'key {key} and value {value}')
-                    f_dict.update({key: value})
+                    f_dict.update({key + sep: value})
 
             log.debug(f"terrain building args: {f_dict}")
 
