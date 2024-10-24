@@ -199,7 +199,7 @@ class Tool(object):
 
         # param18.filter.type = "ValueList"
         # param18.filter.list = [True, False]
-        param19.value = True
+        # param19.value = True
                         
         params = [param0, param1, param2, param3,
                   param4, param5, param6, param7,
