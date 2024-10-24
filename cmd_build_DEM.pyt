@@ -1803,17 +1803,17 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                             # archive as zlas for use later in this script and re-use
                             stats = os.stat(ept_las_full_filename)
                             if stats.st_size > las_size_threshold:
-                                # log.info('converting las to zlas for archive')
-                                # zlas_result = arcpy.conversion.ConvertLas(ept_las_full_filename, ele, compression = 'ZLAS', las_options = None)
-                                # log.info(zlas_result)
-
-                                # log.debug('converting las to laz for archive')
-                                # laz_json_full_filename = create_laz_json_pipeline(ept_laz_filename, procDir, ept_las_full_filename, ept_laz_full_filename)
-                                # laz_run_string = " ".join([pdal_exe, "pipeline", laz_json_full_filename])
-                                # log.debug(f'pdal run_string: {laz_run_string}')
-                                # co = subprocess.run(laz_run_string)
-
                                 if not os.path.isfile(ept_las_full_filename):
+                                    # log.info('converting las to zlas for archive')
+                                    # zlas_result = arcpy.conversion.ConvertLas(ept_las_full_filename, ele, compression = 'ZLAS', las_options = None)
+                                    # log.info(zlas_result)
+
+                                    # log.debug('converting las to laz for archive')
+                                    # laz_json_full_filename = create_laz_json_pipeline(ept_laz_filename, procDir, ept_las_full_filename, ept_laz_full_filename)
+                                    # laz_run_string = " ".join([pdal_exe, "pipeline", laz_json_full_filename])
+                                    # log.debug(f'pdal run_string: {laz_run_string}')
+                                    # co = subprocess.run(laz_run_string)
+
                                     laz_result = arcpy.conversion.ConvertLas(ept_las_full_filename, eleDir, compression = 'LAZ', las_options = None)
                                     log.debug(laz_result)
 
