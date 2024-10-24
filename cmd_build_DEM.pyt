@@ -1450,10 +1450,13 @@ def copy_md_summary_args(md_item):
     f_metadata = md.Metadata(md_item)
     if f_metadata.summary is not None and f_metadata.summary != '':
         f_met_split = f_metadata.summary.split('\n')
-        for i in f_met_split[1:]:
+        for i in f_met_split[2:]:
             key, value = i.split(sep, 1)
-            print(f'key {key} and value {value}')
-            f_dict.update({'\n' + key + sep: value})
+            # print(f'key {key} and value {value}')
+            if i == f_met_split[2]: #prev row (f_met_split[1]) was \n
+                f_dict.update({'\n\n' + key + sep: value})
+            else:
+                f_dict.update({'\n' + key + sep: value})
     return f_dict
 
 def addMetadata(outDEM, paraDict, template_file_path, log = None):
