@@ -1359,17 +1359,7 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, terrains, proc
             log.debug('Saved DEM for ' + str(demList[0]))# + ' at ' + str(time.clock()))
             arcpy.BuildPyramids_management(cmDEMnocs)
 
-            f_dict = {}
-            sep = ': '
-            f_metadata = md.Metadata(rastr)
-            if f_metadata.summary is not None and f_metadata.summary != '':
-                f_met_split = f_metadata.summary.split('\n')
-                for i in f_met_split[2:]:
-                    key, value = i.split(sep, 1)
-                    print(f'key {key} and value {value}')
-                    f_dict.update({key + sep: value})
-
-            log.debug(f"terrain building args: {f_dict}")
+            f_dict = copy_md_summary_args(rastr)
 
             ## update metadata
             log.debug('---Adding metadata')
@@ -1448,6 +1438,23 @@ def dismantleTerrains(terrainList, finalHb, finalNoZHb, badHb, finalHl, tcdFdSet
 ##            arcpy.RemoveFeatureClassFromTerrain_3d(terrain, 'LASmerge_emb')
 ##            arcpy.Delete_management(terrain)
 
+def copy_md_summary_args(md_item):
+    """
+    Copy an ACPF formatted metadata dictionary from one raster to another.
+    Designed for use copying inputs from a pre-pitfilled DEM to a pit-filled one.
+    md_item - dataset with metadata summary
+    f_dict - dictionary with line breaks (as ACPF style) and arguments
+    """    
+    f_dict = {}
+    sep = ': '
+    f_metadata = md.Metadata(md_item)
+    if f_metadata.summary is not None and f_metadata.summary != '':
+        f_met_split = f_metadata.summary.split('\n')
+        for i in f_met_split[1:]:
+            key, value = i.split(sep, 1)
+            print(f'key {key} and value {value}')
+            f_dict.update({'\n' + key + sep: value})
+    return f_dict
 
 def addMetadata(outDEM, paraDict, template_file_path, log = None):
     # Set the standard-format metadata XML file's path
@@ -1806,8 +1813,9 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                                 # log.debug(f'pdal run_string: {laz_run_string}')
                                 # co = subprocess.run(laz_run_string)
 
-                                laz_result = arcpy.conversion.ConvertLas(ept_las_full_filename, eleDir, compression = 'LAZ', las_options = None)
-                                log.debug(laz_result)
+                                if not os.path.isfile(ept_las_full_filename):
+                                    laz_result = arcpy.conversion.ConvertLas(ept_las_full_filename, eleDir, compression = 'LAZ', las_options = None)
+                                    log.debug(laz_result)
 
                                 # arcpy.Delete_management(ept_las_full_filename)
                             else:
