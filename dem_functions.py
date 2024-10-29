@@ -713,6 +713,7 @@ def loadVariablesDictNew(node, ACPFyear, huc12, outEPSG, interpType, cellSize, n
         
         locationsDict.update({
         "irrigationMap" : opj(otherBaseNoVersion, 'lanid2011-2017', 'lanid2017.tif'),
+        "statsgo2Map" : opj(otherBaseNoVersion, 'wss_gsmsoil_US', 'spatial', 'gsmsoilmu_a_us.shp'),
         "canopyCoverMap" : opj(otherBaseNoVersion, 'Forest_Cover', 'LF2022_CC_220_CONUS', 'Tif', 'LC22_CC_220.tif'),
         "mnResidueMap" : mnResidueMap,
         "geeResidueMap" : geeResidueMap,
