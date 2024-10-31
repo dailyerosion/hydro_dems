@@ -1144,10 +1144,11 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         elif int(ACPFyear) == 2022:
             mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage_final_w_flood_mask_out.tif')
         elif int(ACPFyear) == 2023:
-            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage_final_w_flood_mask_out.tif')
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', '2023_minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforagex.tif')
         
         locationsDict.update({
         "irrigationMap" : opj(otherBaseNoVersion, 'lanid2011-2017', 'lanid2017.tif'),
+        "statsgo2Map" : opj(otherBaseNoVersion, 'wss_gsmsoil_US', 'spatial', 'gsmsoilmu_a_us.shp'),
         "canopyCoverMap" : opj(otherBaseNoVersion, 'Forest_Cover', 'LF2022_CC_220_CONUS', 'Tif', 'LC22_CC_220.tif'),
         "mnResidueMap" : mnResidueMap,
         "geeResidueMap" : geeResidueMap,
