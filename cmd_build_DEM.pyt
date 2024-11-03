@@ -1361,6 +1361,12 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, terrains, proc
 
             f_dict = copy_md_summary_args(rastr)
 
+            ## update the metadata to reflect the output DEM just created
+            sep = ': '
+            key = "Output conditioned DEM raster"
+            # '\nOutput conditioned DEM raster: ' : pfFileTemp,fElevFile_interp,
+            f_dict.update({'\n' + key + sep: fElevFile_interp})
+
             ## update metadata
             log.debug('---Adding metadata')
             addMetadata(fElevFile_interp, f_dict, dem_metadata_template, log)
