@@ -325,7 +325,7 @@ def loadBasicVariablesDict(node, ACPFyear, uversion = ''):
         MWHUC12_ACPF = 'MW_HUC12_v2023'
         MWHUC8_ACPF = 'MW_HUC8_v2023'
         MWHUC2_ACPF = 'MW_HUC2_v2022'
-    if int(ACPFyear) > 2021:
+    elif int(ACPFyear) > 2021:
         MWHUC12_ACPF = 'MW_HUC12_v2022'
         MWHUC8_ACPF = 'MW_HUC8_v2022'
         MWHUC2_ACPF = 'MW_HUC2_v2022'
