@@ -321,6 +321,10 @@ def loadBasicVariablesDict(node, ACPFyear, uversion = ''):
 
     acpfBase, depBase, basedataDir, otherBase, acpfStart = createBasicDirectories(node, ACPFyear, uversion)
 
+    if int(ACPFyear) > 2022:
+        MWHUC12_ACPF = 'MW_HUC12_v2023'
+        MWHUC8_ACPF = 'MW_HUC8_v2023'
+        MWHUC2_ACPF = 'MW_HUC2_v2022'
     if int(ACPFyear) > 2021:
         MWHUC12_ACPF = 'MW_HUC12_v2022'
         MWHUC8_ACPF = 'MW_HUC8_v2022'
