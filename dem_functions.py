@@ -1524,7 +1524,10 @@ def figureItOut(inputRaster):
     fillbaseNoExt = os.path.splitext(basename)[0]
 
     if ('ef' in basename or 'ep' in basename or 'ec' in basename or 'ev' in basename or 'ex' in basename) and len(fillbaseNoExt) >= 14:
-        huc12 = fillbaseNoExt[-12:]
+        if fillbaseNoExt.find('_') >= 0:
+            huc12 = fillbaseNoExt.split('_')[-1]
+        else:
+            huc12 = fillbaseNoExt[-12:]
         huc8 = huc12[:8]
 
         # assume name format like 'ef' or 'ep' or 'ec'
