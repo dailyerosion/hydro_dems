@@ -1813,7 +1813,8 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                             # archive as zlas for use later in this script and re-use
                             stats = os.stat(ept_las_full_filename)
                             if stats.st_size > las_size_threshold:
-                                if not os.path.isfile(ept_laz_full_filename):
+                                if not os.path.isfile(ept_laz_full_filename) and not os.path.isfile(ept_zlas_full_filename):
+                                    # takes too long, laz is much faster to create
                                     # log.info('converting las to zlas for archive')
                                     # zlas_result = arcpy.conversion.ConvertLas(ept_las_full_filename, ele, compression = 'ZLAS', las_options = None)
                                     # log.info(zlas_result)
