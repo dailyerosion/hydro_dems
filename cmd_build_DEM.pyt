@@ -1828,6 +1828,7 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                                     co = subprocess.run(laz_run_string)
                                     log.debug(f'ran pdal run_string')
 
+                                    # ADD CODE to do local then copy, SLOW on network drives 
                                     # laz_result = arcpy.conversion.ConvertLas(ept_las_full_filename, eleDir, compression = 'LAZ', las_options = None)
                                     # log.debug(laz_result)
 
