@@ -999,6 +999,7 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
 ####        "wShed" : opj(ACPFDir, "WShed" + huc12 + uversion + uinterpType + dem_year),
 
         "fieldBoundaries" : opj(ACPFDir, "FB" + huc12),
+        "forestUnits" : opj(ACPFDir, "FU" + huc12),
         "LU6" : opj(ACPFDir, "LU6_" + huc12),
         "SSURGO" : opj(ACPFDir, 'gSSURGO'),
         # "rc_table" : opj(ACPFDir, "ResCover_" + huc12),
