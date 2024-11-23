@@ -1807,7 +1807,8 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                                 m2_per_sec = 1175.2*1000**2/len(parts)/2200
                                 log.debug(f'pdal run_string: {run_string}')
                                 log.info(f'Estimated pdal download time (for QL2 lidar): {round(square_area/(m2_per_sec * len(parts) * 60), 2)} minutes for {ept_json_filename}')
-                                co = subprocess.call(run_string, creationflags=CREATE_NO_WINDOW)
+                                # co = subprocess.call(run_string, creationflags=CREATE_NO_WINDOW)
+                                co = subprocess.run(run_string)
                                 log.debug(f'completed pdal run_string')
 
                             # archive as zlas for use later in this script and re-use
@@ -1823,7 +1824,9 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                                     laz_json_full_filename = create_laz_json_pipeline(ept_laz_filename, procDir, ept_las_full_filename, ept_laz_full_filename)
                                     laz_run_string = " ".join([pdal_exe, "pipeline", laz_json_full_filename])
                                     log.debug(f'pdal run_string: {laz_run_string}')
-                                    co = subprocess.call(laz_run_string, creationflags=CREATE_NO_WINDOW)
+                                    # co = subprocess.call(laz_run_string, creationflags=CREATE_NO_WINDOW)
+                                    co = subprocess.run(laz_run_string)
+                                    log.debug(f'ran pdal run_string')
 
                                     # laz_result = arcpy.conversion.ConvertLas(ept_las_full_filename, eleDir, compression = 'LAZ', las_options = None)
                                     # log.debug(laz_result)
