@@ -1807,7 +1807,7 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                                 m2_per_sec = 1175.2*1000**2/len(parts)/2200
                                 log.debug(f'pdal run_string: {run_string}')
                                 log.info(f'Estimated pdal download time (for QL2 lidar): {round(square_area/(m2_per_sec * len(parts) * 60), 2)} minutes for {ept_json_filename}')
-                                co = subprocess.run(run_string)
+                                co = subprocess.call(run_string, creationflags=CREATE_NO_WINDOW)
                                 log.debug(f'completed pdal run_string')
 
                             # archive as zlas for use later in this script and re-use
@@ -1820,13 +1820,13 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                                     # log.info(zlas_result)
 
                                     log.debug('converting las to laz for archive')
-                                    # laz_json_full_filename = create_laz_json_pipeline(ept_laz_filename, procDir, ept_las_full_filename, ept_laz_full_filename)
-                                    # laz_run_string = " ".join([pdal_exe, "pipeline", laz_json_full_filename])
-                                    # log.debug(f'pdal run_string: {laz_run_string}')
-                                    # co = subprocess.run(laz_run_string)
+                                    laz_json_full_filename = create_laz_json_pipeline(ept_laz_filename, procDir, ept_las_full_filename, ept_laz_full_filename)
+                                    laz_run_string = " ".join([pdal_exe, "pipeline", laz_json_full_filename])
+                                    log.debug(f'pdal run_string: {laz_run_string}')
+                                    co = subprocess.call(laz_run_string, creationflags=CREATE_NO_WINDOW)
 
-                                    laz_result = arcpy.conversion.ConvertLas(ept_las_full_filename, eleDir, compression = 'LAZ', las_options = None)
-                                    log.debug(laz_result)
+                                    # laz_result = arcpy.conversion.ConvertLas(ept_las_full_filename, eleDir, compression = 'LAZ', las_options = None)
+                                    # log.debug(laz_result)
 
                                 # arcpy.Delete_management(ept_las_full_filename)
                             else:
@@ -2336,59 +2336,59 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
 
 
-if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        #Paste arguments into here for use within Python Window
-        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-        # cleanup = False
+# if __name__ == "__main__":
+#     if len(sys.argv) == 1:
+#         #Paste arguments into here for use within Python Window
+#         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+#         # cleanup = False
 
-        parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-    "C:/DEP/Scripts/basics/cmd_build_DEM_main.pyt",
-    "//dep2.ae.iastate.edu/D$/DEP/Elevation_databases/ept.gdb/ept_resources_2024_09_01",
-    "//dep2.ae.iastate.edu/D$/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050307.gdb/buf_070801050307",
-    "C:/Users/bkgelder/.conda/envs/pdal/Library/bin/pdal.exe",
-    "5,3,2,1",
-    "D:/DEP_Proc/DEMProc/LAS_dem2013_2m_070801050307",
-    "//dep2.ae.iastate.edu/D$/DEP/Basedata_Summaries/Basedata_26915.gdb/Snap1m",
-    "",
-    "",
-    "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef_2m_070801050307.tif",
-    "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/surf_el_Lib/07080105/be_min_2m_070801050307.tif",
-    "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/surf_el_Lib/07080105/fr_max_2m_070801050307.tif",
-    "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/count_Lib/07080105/cnt_be_2m_070801050307.tif",
-    "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/count_Lib/07080105/cnt_fr_2m_070801050307.tif",
-    "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/count_Lib/07080105/cnt_pls_2m_070801050307.tif",
-    "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/int_Lib/07080105/fr_int_min_2m_070801050307.tif",
-    "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/int_Lib/07080105/fr_int_max_2m_070801050307.tif",
-    "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/int_Lib/07080105/be_int_max_2m_070801050307.tif",
-    "//dep2.ae.iastate.edu/D$/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050307.gdb/wesm_ept_resources_2024_09_01_070801050307",
-    "//dep2.ae.iastate.edu/M$/DEP/Elev_Base_Data",
-    "True"]
-        for i in parameters[2:]:
-            sys.argv.append(i)
+#         parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+#     "C:/DEP/Scripts/basics/cmd_build_DEM_main.pyt",
+#     "//dep2.ae.iastate.edu/D$/DEP/Elevation_databases/ept.gdb/ept_resources_2024_09_01",
+#     "//dep2.ae.iastate.edu/D$/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050307.gdb/buf_070801050307",
+#     "C:/Users/bkgelder/.conda/envs/pdal/Library/bin/pdal.exe",
+#     "5,3,2,1",
+#     "D:/DEP_Proc/DEMProc/LAS_dem2013_2m_070801050307",
+#     "//dep2.ae.iastate.edu/D$/DEP/Basedata_Summaries/Basedata_26915.gdb/Snap1m",
+#     "",
+#     "",
+#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef_2m_070801050307.tif",
+#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/surf_el_Lib/07080105/be_min_2m_070801050307.tif",
+#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/surf_el_Lib/07080105/fr_max_2m_070801050307.tif",
+#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/count_Lib/07080105/cnt_be_2m_070801050307.tif",
+#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/count_Lib/07080105/cnt_fr_2m_070801050307.tif",
+#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/count_Lib/07080105/cnt_pls_2m_070801050307.tif",
+#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/int_Lib/07080105/fr_int_min_2m_070801050307.tif",
+#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/int_Lib/07080105/fr_int_max_2m_070801050307.tif",
+#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/int_Lib/07080105/be_int_max_2m_070801050307.tif",
+#     "//dep2.ae.iastate.edu/D$/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050307.gdb/wesm_ept_resources_2024_09_01_070801050307",
+#     "//dep2.ae.iastate.edu/M$/DEP/Elev_Base_Data",
+#     "True"]
+#         for i in parameters[2:]:
+#             sys.argv.append(i)
 
-    else:
-        #For use via Windows Command Line
-        #above 'parameters' come in via command line arguments, nothing else needed
-        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-        # clean up the folder after done processing
-        # cleanup = True
+#     else:
+#         #For use via Windows Command Line
+#         #above 'parameters' come in via command line arguments, nothing else needed
+#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+#         # clean up the folder after done processing
+#         # cleanup = True
 
-    # inputs then outputs, change "" to Python None
-    (monthly_wesm_ept_mashup, dem_polygon, 
-         pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-         fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-         int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup
-        ) = [i if i != "" else None for i in sys.argv[1:]]
+#     # inputs then outputs, change "" to Python None
+#     (monthly_wesm_ept_mashup, dem_polygon, 
+#          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
+#          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+#          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup
+#         ) = [i if i != "" else None for i in sys.argv[1:]]
 
-    # switch a text 'True' into a real Python True
-    cleanup = True if cleanup == "True" else False
+#     # switch a text 'True' into a real Python True
+#     cleanup = True if cleanup == "True" else False
 
-    messages = msgStub()
+#     messages = msgStub()
 
-    doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon, 
-         pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-         fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-         int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup, messages)#msgStub())
+#     doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon, 
+#          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
+#          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+#          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup, messages)#msgStub())
 
-    arcpy.AddMessage("Back from doEPT!")
+#     arcpy.AddMessage("Back from doEPT!")
