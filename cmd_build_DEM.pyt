@@ -25,7 +25,8 @@ sys.path.append("C:\\DEP\\Scripts\\basics")
 
 import dem_functions as df
 
-
+#https://stackoverflow.com/questions/7006238/how-do-i-hide-the-console-when-i-use-os-system-or-subprocess-call
+CREATE_NO_WINDOW = 0x08000000
 
 class msgStub:
     def addMessage(self,text):
@@ -1807,8 +1808,8 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                                 m2_per_sec = 1175.2*1000**2/len(parts)/2200
                                 log.debug(f'pdal run_string: {run_string}')
                                 log.info(f'Estimated pdal download time (for QL2 lidar): {round(square_area/(m2_per_sec * len(parts) * 60), 2)} minutes for {ept_json_filename}')
-                                # co = subprocess.call(run_string, creationflags=CREATE_NO_WINDOW)
-                                co = subprocess.run(run_string)
+                                co = subprocess.call(run_string, creationflags=CREATE_NO_WINDOW)
+                                # co = subprocess.run(run_string)
                                 log.debug(f'completed pdal run_string')
 
                             # archive as zlas for use later in this script and re-use
@@ -1821,11 +1822,12 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                                     # log.info(zlas_result)
 
                                     log.debug('converting las to laz for archive')
-                                    laz_json_full_filename = create_laz_json_pipeline(ept_laz_filename, procDir, ept_las_full_filename, ept_laz_full_filename)
+                                    laz_json_filename = "_".join(["laz", "ept", huc12, str(work_id_part) + ".json"])
+                                    laz_json_full_filename = create_laz_json_pipeline(laz_json_filename, eleDir, ept_las_full_filename, ept_laz_full_filename)
                                     laz_run_string = " ".join([pdal_exe, "pipeline", laz_json_full_filename])
                                     log.debug(f'pdal run_string: {laz_run_string}')
-                                    # co = subprocess.call(laz_run_string, creationflags=CREATE_NO_WINDOW)
-                                    co = subprocess.run(laz_run_string)
+                                    co = subprocess.call(laz_run_string, creationflags=CREATE_NO_WINDOW)
+                                    # co = subprocess.run(laz_run_string)
                                     log.debug(f'ran pdal run_string')
 
                                     # ADD CODE to do local then copy, SLOW on network drives 
@@ -2219,7 +2221,8 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
                         cl2_run_string = " ".join([pdal_exe, "pipeline", cl2_las_json])
                         log.info(f"running: {cl2_run_string}")
-                        co = subprocess.run(cl2_run_string)
+                        co = subprocess.call(cl2_run_string, creationflags=CREATE_NO_WINDOW)
+                        # co = subprocess.run(cl2_run_string)
                         if co.returncode != 0:
                             log.warning(f"Failed on {cl2_run_string}")
 
