@@ -2223,8 +2223,8 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                         log.info(f"running: {cl2_run_string}")
                         co = subprocess.call(cl2_run_string, creationflags=CREATE_NO_WINDOW)
                         # co = subprocess.run(cl2_run_string)
-                        if co.returncode != 0:
-                            log.warning(f"Failed on {cl2_run_string}")
+                        # if co.returncode != 0:
+                        log.info(f"completed: {cl2_run_string}")
 
                     log.debug(f"cl2_tiles_list: {cl2_tiles_list}")
                     # assume lidar data in same spatial reference as output, ExtractLAS should handle that
