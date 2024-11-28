@@ -242,23 +242,27 @@ class Tool(object):
 ##----------------------------------------------------------------------
 ## Set environments and begin
 
-def fillOCSinks(inDEM):
+def fillOCSinks(inDEM, log):
     # Return a raster will all one-cell-sinks filled
 ##    arcpy.AddMessage("-----Find Pits...")
+    log.info('finding pits')
     sinkFDir = FlowDirection(inDEM)
     allSinks = Sink(sinkFDir)
     arcpy.BuildRasterAttributeTable_management(allSinks)
-##    log.warning('sinks for ' + str(inDEM) + ' is ' + str(int(arcpy.GetCount_management(allSinks).getOutput(0))))
+    log.info('sinks for ' + str(inDEM) + ' is ' + str(int(arcpy.GetCount_management(allSinks).getOutput(0))))
 ##    arcpy.AddMessage("-----Fill everything else...")
 
     ## Make a No-one-cell-sink DEM
     AllButSinks_DEM = Con(IsNull(allSinks), inDEM)
 
+    log.info('filling pits')
     ## Fill the No-one-cell-sink DEM
     absDEM_fill = Fill(AllButSinks_DEM)
+    log.info('filled DEM')
 
     ## Add the Original 'real' sinks back into the filled DEM
     fill_DEM = Con(IsNull(absDEM_fill), inDEM, absDEM_fill)
+    log.info('fixed pits')
 
     return(fill_DEM, allSinks)
 
@@ -1355,7 +1359,7 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, terrains, proc
             maskedDEMint.save('msk_dem_' + str(demList[0]) + 'm_' + huc12 + '.tif')
             log.debug('msk_dem was saved')
 
-            cmDEMnocs, cmDEMsinks = fillOCSinks(maskedDEMint)
+            cmDEMnocs, cmDEMsinks = fillOCSinks(maskedDEMint, log)
             log.debug('pfFile name will be ' + fElevFile_interp)#paths['fElevFile'])
             cmDEMnocs.save(fElevFile_interp)#paths['fElevFile'])
             log.debug('Saved DEM for ' + str(demList[0]))# + ' at ' + str(time.clock()))
