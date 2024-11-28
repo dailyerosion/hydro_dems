@@ -1,7 +1,13 @@
 # hydro_dems
 a variety of arcpy scripts that create digital elevation models designed for enhancing surface water flow
 
-The .pyt scripts are designed to be run with ArcGIS Pro as Python toolboxes. They can also be run via the command line by removing the comments from the 'if __name__ == __main__' code block (from there to the end). This code breaks a Python toolbox.
+The .pyt scripts are designed to be run with ArcGIS Pro as Python toolboxes. You can add a Python Toolbox to AG Pro following these directions:
+https://pro.arcgis.com/en/pro-app/latest/help/projects/connect-to-a-toolbox.htm
+
+Or use it in arcpy this way:
+https://pro.arcgis.com/en/pro-app/latest/arcpy/geoprocessing_and_python/adding-and-removing-toolboxes.htm
+
+They can also be run via the command line by removing the comments from the 'if __name__ == __main__' code block (from there to the end). This code breaks a Python toolbox but it is how I generally run them.
 
 # Prep work
 Download the 'dem_functions.py' file into the same directory you will use for the following pyt (Python Toolbox) locations.
