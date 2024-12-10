@@ -245,14 +245,16 @@ class Tool(object):
 def fillOCSinks(inDEM, log):
     # Return a raster will all one-cell-sinks filled
 ##    arcpy.AddMessage("-----Find Pits...")
-    log.info('finding pits')
+    log.info('finding flow direction')
     sinkFDir = FlowDirection(inDEM)
+    log.info('finding sinks')
     allSinks = Sink(sinkFDir)
-    arcpy.BuildRasterAttributeTable_management(allSinks)
-    log.info('sinks for ' + str(inDEM) + ' is ' + str(int(arcpy.GetCount_management(allSinks).getOutput(0))))
+    # arcpy.BuildRasterAttributeTable_management(allSinks)
+    # log.info('sinks for ' + str(inDEM) + ' is ' + str(int(arcpy.GetCount_management(allSinks).getOutput(0))))
 ##    arcpy.AddMessage("-----Fill everything else...")
 
     ## Make a No-one-cell-sink DEM
+    log.info('finding all but sinks')
     AllButSinks_DEM = Con(IsNull(allSinks), inDEM)
 
     log.info('filling pits')
