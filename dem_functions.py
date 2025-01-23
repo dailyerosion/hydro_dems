@@ -698,7 +698,7 @@ def loadVariablesDictNew(node, ACPFyear, huc12, outEPSG, interpType, cellSize, n
         "projRasterDir" : opj(depBase, 'proj_rasters')})
 
 
-        if int(ACPFyear) <= 2015:
+        if int(ACPFyear) <= 2013:
             geeResidueMap = opj(otherBaseNoVersion, 'Iowa_RC.gdb', 'huc' + huc8 + '_ACPF2017')
         elif int(ACPFyear) <= 2021:
             geeResidueMap = opj(otherBaseNoVersion, 'GEE_residue_cover', 'residue_cover_' + ACPFyear + '.tif')
@@ -1134,7 +1134,7 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         "projRasterDir" : opj(depBase, 'proj_rasters')})
 
 
-        if int(ACPFyear) <= 2015:
+        if int(ACPFyear) <= 2013:
             geeResidueMap = opj(otherBaseNoVersion, 'Iowa_RC.gdb', 'huc' + huc8 + '_ACPF2017')
         elif int(ACPFyear) <= 2021:
             geeResidueMap = opj(otherBaseNoVersion, 'GEE_residue_cover', 'residue_cover_' + ACPFyear + '.tif')
