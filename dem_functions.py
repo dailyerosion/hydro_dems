@@ -570,7 +570,7 @@ def loadVariablesDictNew(node, ACPFyear, huc12, outEPSG, interpType, cellSize, n
         "manField" : 'Management_CY_' + ACPFyear,
         "rotField" : 'CropRotatn_CY_' + ACPFyear,
         "tillField": 'Till_code_CY_' + ACPFyear,
-        "resCoverField": 'Adj_RC_CY_' + ACPFyear,
+        "resCoverField": 'ResCover_CY_' + ACPFyear,
 
             # for running cutter
         "watershedBoundaries" : opj(ACPFDir, "bnd" + huc12),
@@ -1006,7 +1006,7 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         "manField" : 'Management_CY_' + ACPFyear,
         "rotField" : 'CropRotatn_CY_' + ACPFyear,
         "tillField": 'Till_code_CY_' + ACPFyear,
-        "resCoverField": 'Adj_RC_CY_' + ACPFyear,
+        "resCoverField": 'ResCover_CY_' + ACPFyear,
 
             # for running cutter
         "watershedBoundaries" : opj(ACPFDir, "bnd" + huc12),
@@ -1231,7 +1231,7 @@ def loadFieldNames(ACPFyear):
     "manField" : 'Management_CY_' + ACPFyear,
     "rotField" : 'CropRotatn_CY_' + ACPFyear,
     "tillField": 'Till_code_CY_' + ACPFyear,
-    "resCoverField": 'Adj_RC_CY_' + ACPFyear}
+    "resCoverField": 'ResCover_CY_' + ACPFyear}
     return fieldNames
 
     
