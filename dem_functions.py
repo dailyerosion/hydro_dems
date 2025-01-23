@@ -713,7 +713,7 @@ def loadVariablesDictNew(node, ACPFyear, huc12, outEPSG, interpType, cellSize, n
         elif int(ACPFyear) == 2022:
             mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage_final_w_flood_mask_out.tif')
         elif int(ACPFyear) == 2023:
-            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage_final_w_flood_mask_out.tif')
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', '2023_minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforagex.img')
         
         locationsDict.update({
         "irrigationMap" : opj(otherBaseNoVersion, 'lanid2011-2017', 'lanid2017.tif'),
@@ -1149,7 +1149,7 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         elif int(ACPFyear) == 2022:
             mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage_final_w_flood_mask_out.tif')
         elif int(ACPFyear) == 2023:
-            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', '2023_minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforagex.tif')
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', '2023_minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforagex.img')
         
         locationsDict.update({
         "irrigationMap" : opj(otherBaseNoVersion, 'lanid2011-2017', 'lanid2017.tif'),
