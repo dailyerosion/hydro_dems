@@ -1809,7 +1809,13 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
 
                         ept_laz_filename = ept_zlas_filename.replace(".zlas", ".laz")
                         ept_laz_full_filename = os.altsep.join([eleDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
-                        local_ept_laz_full_filename = os.altsep.join([procDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
+                        ept_laz_path = Path(ept_laz_full_filename)
+                        # check for a local backup copy, if exists, update path to avoid re-downloading
+                        alt_ept_laz_full_filename = ept_laz_path._replace(anchor = 'M:')
+                        if os.path.isfile(alt_ept_laz_full_filename):
+                            log.debug(f'using alt laz file {alt_ept_laz_full_filename}')
+                            ept_laz_full_filename = str(alt_ept_laz_full_filename)
+                        # local_ept_laz_full_filename = os.altsep.join([procDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
 
                         # pipeline json requires / not \ for path separator
                         ept_las_full_filename = os.altsep.join([procDir.replace(os.path.sep, os.path.altsep), ept_las_filename])
@@ -2183,7 +2189,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
 ##----------------------------------------------------------------------
         work_id_name = 'workunit_id'
-        build_threshold = 0.9999
+        build_threshold = 0.99#99 - reduced to 0.99 for Lake Erie at Toledo (04100009)
         if df.testForZero(wesm_huc12):
             prev_merged, merged_area, addOrderField = organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log)
 
