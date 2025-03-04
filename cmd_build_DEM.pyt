@@ -1811,7 +1811,8 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                         ept_laz_full_filename = os.altsep.join([eleDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
                         ept_laz_path = Path(ept_laz_full_filename)
                         # check for a local backup copy, if exists, update path to avoid re-downloading
-                        alt_ept_laz_full_filename = ept_laz_path._replace(anchor = 'M:')
+                        new_path = Path('M:/', *ept_laz_path.parts[1:])
+                        alt_ept_laz_full_filename = new_path#ept_laz_path.replace(anchor = 'M:')
                         if os.path.isfile(alt_ept_laz_full_filename):
                             log.debug(f'using alt laz file {alt_ept_laz_full_filename}')
                             ept_laz_full_filename = str(alt_ept_laz_full_filename)
