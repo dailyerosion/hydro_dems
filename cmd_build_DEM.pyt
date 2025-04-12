@@ -2184,6 +2184,10 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
         #eptDir = os.path.dirname(os.path.dirname(monthly_wesm_ept_mashup))
         wesm_huc12 = arcpy.analysis.Clip(monthly_wesm_ept_mashup, maskFcOut, 'wesm_' + huc12)
+        select_ql0_ql1 = arcpy.Select_analysis(wesm_huc12, where_clause = "ql = 'QL 1' OR ql = 'QL 0'")
+        count_ql0_ql1 = int(str(arcpy.GetCount_management(select_ql0_ql1)))
+        # code fails on QL1 data for 071200030402, downloaded LAS for 79951 work id was 143 GB and caused ExtractLas to fail
+        assert count_ql0_ql1 < 1, 'DEM builder not yet configured for QL1 or QL0 density data, email bkgelder@iastate.edu to request upgrade'
 
 ##----------------------------------------------------------------------
 
