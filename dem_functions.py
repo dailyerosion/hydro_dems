@@ -281,7 +281,7 @@ def createBasicDirectories(node, ACPFyear, uversion = ''):
     # replace 10.27.15.155 with dep2.ae.iastate.edu, 2.5 GB connection instead of 1 GB
     # acpfStart = '\\\\dep2.ae.iastate.edu\\D$\\DEP'#\\Man_Data_ACPF\\dep_ACPF' + ACPFyear
     # depBase = '\\\\dep2.ae.iastate.edu\\M$\\DEP'
-    acpfStart = 'D:\\DEP'# D drive points to '\\\\dep2.ae.iastate.edu\\D$\\DEP' (faster, smaller storage)
+    acpfStart = 'E:\\DEP'# D drive points to '\\\\dep2.ae.iastate.edu\\D$\\DEP' (faster, smaller storage)
     depBase = 'M:\\DEP'# M drive points to '\\\\dep2.ae.iastate.edu\\M$\\DEP' (bigger, slower storage)
     # if 'EL3354-02' in node.upper():# or 'DA214B-11' in node.upper():
     #     acpfStart = 'D:\\DEP'
