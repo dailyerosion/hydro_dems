@@ -2351,8 +2351,9 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 ##                dismantleTerrains(terrains, finalHb, finalNoZHb, poorZHb, finalHl, tcdFdSet, log)
             df.cleanupOther(procDir, log, sgdb, inm)
 
-    except AssertionError:
-        log.warning('assertion failure on: ' + huc12)
+    except AssertionError as e:
+        log.error(f'assertion failure on: {huc12}')
+        log.error(f'Assertion failed: {e}')
         sys.exit(1)
 
     except:
