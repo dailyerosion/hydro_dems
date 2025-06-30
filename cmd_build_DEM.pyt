@@ -20,6 +20,7 @@ import traceback
 import re
 from os.path import join as opj
 from pathlib import Path
+from math import ceil
 
 sys.path.append("C:\\DEP\\Scripts\\basics")
 
@@ -1709,7 +1710,7 @@ def organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshol
 
     return prev_merged, merged_area, addOrderField
 
-def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log):#maskFc_3857, maskFc_3857_desc)
+def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1):#maskFc_3857, maskFc_3857_desc)
     """Subdivide the EPT request into one or four parts based on size"""
     parts = []
         # if more than 500 sq km, split into 4
@@ -1719,46 +1720,89 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log):#maskFc_3857, mas
     log.debug(f'Square area in km^2 is: {round(square_area/pow(1000,2), 1)}')
     log.debug(f'Geometry area in km^2 is: {round(geom.area/pow(1000,2), 1)}')
 
-    if square_area / (1000**2) > 500.0:
-        splits = 4
-        # switch to do intersect/clip in 3857
-        arcpy.env.outputCoordinateSystem = 3857
-        for p in range(0,splits):
-            p_div = p // pow(splits, 0.5)
-            p_mod = p % pow(splits, 0.5)
-            x_start = geom_extent.XMin + x_range * (p_div + 0) / pow(splits, 0.5)
-            x_end = geom_extent.XMin + x_range * (p_div + 1) /pow(splits, 0.5)
-            y_start = geom_extent.YMin + y_range * (p_mod + 0) /pow(splits, 0.5)
-            y_end = geom_extent.YMin + y_range * (p_mod + 1) /pow(splits, 0.5)
-            log.debug(f'p_div: {p_div}, p_mod: {p_mod}')
-            log.debug(f'x_start: {x_start} and x_end: {x_end}')
-            log.debug(f'y_start: {y_start} and y_end: {y_end}')
-            # refine request by intersecting preliminary extent polygon with HUC12 buffered boundary - helps in NE-SW and SE-NW watersheds
-            ext1 = arcpy.Extent(x_start, y_start, x_end, y_end)
-            poly1 = ext1.polygon
+    if square_area / (1000**2) > 500.0 or ql1:
+        if ql1:
+            x_net_size = 2000
+        else:
+            x_net_size = 10000
+        y_net_size = x_net_size
 
-            maskFc_3857 = arcpy.management.Project(maskFcOut, opj(sgdb, 'maskfc_3857'), 3857)
-            maskFc_3857_desc = arcpy.da.Describe(maskFc_3857)
-            maskFc_3857_extent = maskFc_3857_desc['extent']
-            # Should always be False
-            #poly1.disjoint(maskFc_3857_extent)
-            poly1_3857_int = poly1.intersect(maskFc_3857_extent, 4)
+        maskfc_5070 = arcpy.Project_management(maskFcOut, opj(sgdb, 'maskfc_5070'), 5070)
+        mask_5070_extent = arcpy.da.Describe(maskfc_5070)['extent']
 
-            clip3 = arcpy.analysis.Clip(maskFc_3857, poly1_3857_int)
-            clip3_extent = arcpy.da.Describe(clip3)['extent']
+        origin_coords = f"{mask_5070_extent.XMin} {mask_5070_extent.YMin}"
+        y_axis_coords = f"{mask_5070_extent.XMin} {mask_5070_extent.YMin + y_net_size}"
+        rows = ceil((mask_5070_extent.YMax - mask_5070_extent.YMin) / y_net_size)
+        cols = ceil((mask_5070_extent.XMax - mask_5070_extent.XMin) / x_net_size)
 
-            x_start = clip3_extent.XMin
-            x_end = clip3_extent.XMax
-            y_start = clip3_extent.YMin
-            y_end = clip3_extent.YMax
+        # the geometry extents are coming in 5070
+        sr_5070 = arcpy.SpatialReference(5070)
+        arcpy.env.outputCoordinateSystem = sr_5070
 
-            log.debug(f'final_x_start: {x_start} and x_end: {x_end}')
-            log.debug(f'final_y_start: {y_start} and y_end: {y_end}')
-            ept_extent = str(x_start) + ', ' + str(x_end) + '], [' + str(y_start) + ', ' + str(y_end)
+        log.debug(f"fishnet args are: {opj(sgdb, 'fishnet'), [geom_extent.XMin, geom_extent.YMin], None, x_net_size, y_net_size}")
+        # fishnet = arcpy.CreateFishnet_management(opj(sgdb, 'fishnet'), origin_coord =  + str(geom_extent.XMin, geom_extent.YMin], None, x_net_size, y_net_size)
+        fishnet2 = arcpy.CreateFishnet_management(opj(sgdb, 'fishnet'), origin_coords, y_axis_coords, x_net_size, y_net_size, rows, cols, geometry_type = "POLYGON")
 
-            parts.append(['_pt' + str(p), ept_extent])
+        fishnet_int_mask = arcpy.Intersect_analysis([fishnet2, maskFcOut])
 
-        arcpy.env.outputCoordinateSystem = srOut
+        with arcpy.da.SearchCursor(fishnet_int_mask, ['OID', 'SHAPE@']) as scur:
+            for p, srow in enumerate(scur):
+                oid = srow[0]
+                geom_fish = srow[1]
+                # splits.append(parts, geom_fish)
+
+                clip3_extent = geom_fish.extent
+                x_start = clip3_extent.XMin
+                x_end = clip3_extent.XMax
+                y_start = clip3_extent.YMin
+                y_end = clip3_extent.YMax
+
+                log.debug(f'final_x_start: {x_start} and x_end: {x_end}')
+                log.debug(f'final_y_start: {y_start} and y_end: {y_end}')
+                ept_extent = str(x_start) + ', ' + str(x_end) + '], [' + str(y_start) + ', ' + str(y_end)
+
+
+                parts.append(['_pt' + str(p), ept_extent])
+
+        # # splits = 4 # for splitting manually, not fishnet
+        # # switch to do intersect/clip in 3857
+        # arcpy.env.outputCoordinateSystem = 3857
+        # for p in range(0,splits):
+        #     p_div = p // pow(splits, 0.5)
+        #     p_mod = p % pow(splits, 0.5)
+        #     x_start = geom_extent.XMin + x_range * (p_div + 0) / pow(splits, 0.5)
+        #     x_end = geom_extent.XMin + x_range * (p_div + 1) /pow(splits, 0.5)
+        #     y_start = geom_extent.YMin + y_range * (p_mod + 0) /pow(splits, 0.5)
+        #     y_end = geom_extent.YMin + y_range * (p_mod + 1) /pow(splits, 0.5)
+        #     log.debug(f'p_div: {p_div}, p_mod: {p_mod}')
+        #     log.debug(f'x_start: {x_start} and x_end: {x_end}')
+        #     log.debug(f'y_start: {y_start} and y_end: {y_end}')
+        #     # refine request by intersecting preliminary extent polygon with HUC12 buffered boundary - helps in NE-SW and SE-NW watersheds
+        #     ext1 = arcpy.Extent(x_start, y_start, x_end, y_end)
+        #     poly1 = ext1.polygon
+
+        #     maskFc_3857 = arcpy.management.Project(maskFcOut, opj(sgdb, 'maskfc_3857'), 3857)
+        #     maskFc_3857_desc = arcpy.da.Describe(maskFc_3857)
+        #     maskFc_3857_extent = maskFc_3857_desc['extent']
+        #     # Should always be False
+        #     #poly1.disjoint(maskFc_3857_extent)
+        #     poly1_3857_int = poly1.intersect(maskFc_3857_extent, 4)
+
+        #     clip3 = arcpy.analysis.Clip(maskFc_3857, poly1_3857_int)
+        #     clip3_extent = arcpy.da.Describe(clip3)['extent']
+
+        #     x_start = clip3_extent.XMin
+        #     x_end = clip3_extent.XMax
+        #     y_start = clip3_extent.YMin
+        #     y_end = clip3_extent.YMax
+
+        #     log.debug(f'final_x_start: {x_start} and x_end: {x_end}')
+        #     log.debug(f'final_y_start: {y_start} and y_end: {y_end}')
+        #     ept_extent = str(x_start) + ', ' + str(x_end) + '], [' + str(y_start) + ', ' + str(y_end)
+
+        #     parts.append(['_pt' + str(p), ept_extent])
+
+        # arcpy.env.outputCoordinateSystem =\ srOut
 
     else:
         splits = 1
@@ -1768,7 +1812,7 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log):#maskFc_3857, mas
     return parts, square_area
 
 
-def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eleDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir):
+def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eleDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir, ql1):
     try:
         if df.testForZero(prev_merged):
             # requests to EPT must be in 3857
@@ -1783,7 +1827,7 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                     geom = srow[0]
                     geom_extent = geom.extent
                     las_size_threshold = 750 #bytes, then assume .las file has points
-                    parts, square_area = queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log)#maskFc_3857, maskFc_3857_desc)
+                    parts, square_area = queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1)#maskFc_3857, maskFc_3857_desc)
 
                     arcpy.env.outputCoordinateSystem = srOut
                     for part in parts:
@@ -2186,6 +2230,10 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         wesm_huc12 = arcpy.analysis.Clip(monthly_wesm_ept_mashup, maskFcOut, 'wesm_' + huc12)
         select_ql0_ql1 = arcpy.Select_analysis(wesm_huc12, where_clause = "ql = 'QL 1' OR ql = 'QL 0'")
         count_ql0_ql1 = int(str(arcpy.GetCount_management(select_ql0_ql1)))
+        if count_ql0_ql1 > 1:
+            ql1 = True
+        else:
+            ql1 = False
         # code fails on QL1 data for 071200030402, downloaded LAS for 79951 work id was 143 GB and caused ExtractLas to fail
         assert count_ql0_ql1 < 1, 'DEM builder not yet configured for QL1 or QL0 density data, email bkgelder@iastate.edu to request upgrade'
 
@@ -2198,7 +2246,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         if df.testForZero(wesm_huc12):
             prev_merged, merged_area, addOrderField = organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log)
 
-            cl2Las, geom_srOut_copy = getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, lidar_download_directory, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir)
+            cl2Las, geom_srOut_copy = getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, lidar_download_directory, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir, ql1)
 
             arcpy.env.outputCoordinateSystem = srOut
 
@@ -2351,9 +2399,8 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 ##                dismantleTerrains(terrains, finalHb, finalNoZHb, poorZHb, finalHl, tcdFdSet, log)
             df.cleanupOther(procDir, log, sgdb, inm)
 
-    except AssertionError as e:
-        log.error(f'assertion failure on: {huc12}')
-        log.error(f'Assertion failed: {e}')
+    except AssertionError:
+        log.warning('assertion failure on: ' + huc12)
         sys.exit(1)
 
     except:
