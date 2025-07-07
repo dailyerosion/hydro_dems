@@ -2235,7 +2235,9 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         else:
             ql1 = False
         # code fails on QL1 data for 071200030402, downloaded LAS for 79951 work id was 143 GB and caused ExtractLas to fail
-        assert count_ql0_ql1 < 1, 'DEM builder not yet configured for QL1 or QL0 density data, email bkgelder@iastate.edu to request upgrade'
+        # assert count_ql0_ql1 < 1, 'DEM builder not yet configured for QL1 or QL0 density data, email bkgelder@iastate.edu to request upgrade'
+        if count_ql0_ql1 > 1:
+            log.warning('DEM builder not yet configured for QL1 or QL0 density data, email bkgelder@iastate.edu to request upgrade')
 
 ##----------------------------------------------------------------------
 
