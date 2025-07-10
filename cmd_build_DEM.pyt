@@ -1745,7 +1745,11 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1):#maskFc_3857
 
         fishnet_int_mask = arcpy.Intersect_analysis([fishnet2, maskFcOut])
 
-        with arcpy.da.SearchCursor(fishnet_int_mask, ['OID', 'SHAPE@']) as scur:
+        # # PDAL requests must be in 3857
+        # arcpy.env.outputCoordinateSystem = 3857
+        fishnet_int_mask_3857 = arcpy.management.Project(fishnet_int_mask, opj(sgdb, 'fishnet_3857'), 3857)
+
+        with arcpy.da.SearchCursor(fishnet_int_mask_3857, ['OID@', 'SHAPE@']) as scur:
             for p, srow in enumerate(scur):
                 oid = srow[0]
                 geom_fish = srow[1]
@@ -1757,6 +1761,7 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1):#maskFc_3857
                 y_start = clip3_extent.YMin
                 y_end = clip3_extent.YMax
 
+                log.debug(f'fishnet_int_mask oid: {oid}')
                 log.debug(f'final_x_start: {x_start} and x_end: {x_end}')
                 log.debug(f'final_y_start: {y_start} and y_end: {y_end}')
                 ept_extent = str(x_start) + ', ' + str(x_end) + '], [' + str(y_start) + ', ' + str(y_end)
@@ -2230,13 +2235,13 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         wesm_huc12 = arcpy.analysis.Clip(monthly_wesm_ept_mashup, maskFcOut, 'wesm_' + huc12)
         select_ql0_ql1 = arcpy.Select_analysis(wesm_huc12, where_clause = "ql = 'QL 1' OR ql = 'QL 0'")
         count_ql0_ql1 = int(str(arcpy.GetCount_management(select_ql0_ql1)))
-        if count_ql0_ql1 > 1:
+        if count_ql0_ql1 >= 1:
             ql1 = True
         else:
             ql1 = False
         # code fails on QL1 data for 071200030402, downloaded LAS for 79951 work id was 143 GB and caused ExtractLas to fail
         # assert count_ql0_ql1 < 1, 'DEM builder not yet configured for QL1 or QL0 density data, email bkgelder@iastate.edu to request upgrade'
-        if count_ql0_ql1 > 1:
+        if ql1:
             log.warning('DEM builder not yet configured for QL1 or QL0 density data, email bkgelder@iastate.edu to request upgrade')
 
 ##----------------------------------------------------------------------
