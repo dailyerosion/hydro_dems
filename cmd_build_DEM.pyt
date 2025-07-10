@@ -1720,7 +1720,7 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1):#maskFc_3857
     log.debug(f'Square area in km^2 is: {round(square_area/pow(1000,2), 1)}')
     log.debug(f'Geometry area in km^2 is: {round(geom.area/pow(1000,2), 1)}')
 
-    if square_area / (1000**2) > 500.0 or ql1:
+    if square_area / (1000**2) > 150.0 or ql1:
         if ql1:
             x_net_size = 2000
         else:
@@ -1745,14 +1745,19 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1):#maskFc_3857
 
         fishnet_int_mask = arcpy.Intersect_analysis([fishnet2, maskFcOut])
 
+        pt_field_name = 'PT_Identifier'
+        arcpy.AddField_management(fishnet_int_mask, pt_field_name, 'TEXT', field_length='10')
+        arcpy.CalculateField_management(fishnet_int_mask, pt_field_name, '!OID!', 'PYTHON3')
+
         # # PDAL requests must be in 3857
         # arcpy.env.outputCoordinateSystem = 3857
         fishnet_int_mask_3857 = arcpy.management.Project(fishnet_int_mask, opj(sgdb, 'fishnet_3857'), 3857)
 
-        with arcpy.da.SearchCursor(fishnet_int_mask_3857, ['OID@', 'SHAPE@']) as scur:
+        with arcpy.da.SearchCursor(fishnet_int_mask_3857, ['OID@', 'SHAPE@', pt_field_name]) as scur:
             for p, srow in enumerate(scur):
                 oid = srow[0]
                 geom_fish = srow[1]
+                pt_code = srow[2]
                 # splits.append(parts, geom_fish)
 
                 clip3_extent = geom_fish.extent
@@ -1767,7 +1772,7 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1):#maskFc_3857
                 ept_extent = str(x_start) + ', ' + str(x_end) + '], [' + str(y_start) + ', ' + str(y_end)
 
 
-                parts.append(['_pt' + str(p), ept_extent])
+                parts.append(['_pt' + str(pt_code), ept_extent])
 
         # # splits = 4 # for splitting manually, not fishnet
         # # switch to do intersect/clip in 3857
