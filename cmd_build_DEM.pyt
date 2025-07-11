@@ -1160,7 +1160,8 @@ def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBas
             log.debug('---Creating FR Max surface')
             frMaxFile_sized = updateResolution(surfaceElevFile, named_cell_size, demList[0], pattern22, log)
             allReturnsMaxTempFile = os.path.join(procDir, '_'.join(['tmp_frmax', str(demList[0]) + 'm', huc12, 'out.tif']))
-            allReturnsMax = arcpy.LasDatasetToRaster_conversion(lasdAll, allReturnsMaxTempFile, interpolation_type = 'BINNING MAXIMUM SIMPLE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'FLOAT')
+            # allReturnsMax = arcpy.LasDatasetToRaster_conversion(lasdAll, allReturnsMaxTempFile, interpolation_type = 'BINNING MAXIMUM SIMPLE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'FLOAT')
+            allReturnsMax = arcpy.LasDatasetToRaster_conversion(lasdAll, allReturnsMaxTempFile, interpolation_type = 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = demList[0], data_type = 'FLOAT')
             allReturnsMaxCm = Int(Times(allReturnsMax, 100))
             allReturnsMaxCm.save(frMaxFile_sized)#locDict['surfaceElevFile'])#allReturnsMaxFile)
             addMetadata(frMaxFile_sized, paraDict, derivative_metadata, log)
@@ -1724,8 +1725,9 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1):#maskFc_3857
         if ql1:
             x_net_size = 2000
         else:
-            x_net_size = 10000
+            x_net_size = 5000
         y_net_size = x_net_size
+        log.debug(f'x/y_net_size for fishnet: {x_net_size}')
 
         maskfc_5070 = arcpy.Project_management(maskFcOut, opj(sgdb, 'maskfc_5070'), 5070)
         mask_5070_extent = arcpy.da.Describe(maskfc_5070)['extent']
@@ -1739,15 +1741,16 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1):#maskFc_3857
         sr_5070 = arcpy.SpatialReference(5070)
         arcpy.env.outputCoordinateSystem = sr_5070
 
-        log.debug(f"fishnet args are: {opj(sgdb, 'fishnet'), [geom_extent.XMin, geom_extent.YMin], None, x_net_size, y_net_size}")
+        fishnet_name = opj(sgdb, 'fishnet')
+        log.debug(f"fishnet args are: {fishnet_name, [geom_extent.XMin, geom_extent.YMin], None, x_net_size, y_net_size}")
         # fishnet = arcpy.CreateFishnet_management(opj(sgdb, 'fishnet'), origin_coord =  + str(geom_extent.XMin, geom_extent.YMin], None, x_net_size, y_net_size)
-        fishnet2 = arcpy.CreateFishnet_management(opj(sgdb, 'fishnet'), origin_coords, y_axis_coords, x_net_size, y_net_size, rows, cols, geometry_type = "POLYGON")
+        fishnet2 = arcpy.CreateFishnet_management(fishnet_name, origin_coords, y_axis_coords, x_net_size, y_net_size, rows, cols, geometry_type = "POLYGON")
 
         fishnet_int_mask = arcpy.Intersect_analysis([fishnet2, maskFcOut])
 
         pt_field_name = 'PT_Identifier'
         arcpy.AddField_management(fishnet_int_mask, pt_field_name, 'TEXT', field_length='10')
-        arcpy.CalculateField_management(fishnet_int_mask, pt_field_name, '!OID!', 'PYTHON3')
+        arcpy.CalculateField_management(fishnet_int_mask, pt_field_name, '!FID_' + os.path.basename(fishnet_name) + '!', 'PYTHON3')
 
         # # PDAL requests must be in 3857
         # arcpy.env.outputCoordinateSystem = 3857
@@ -2455,28 +2458,28 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 #         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
 #         # cleanup = False
 
-#         parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-#     "C:/DEP/Scripts/basics/cmd_build_DEM_main.pyt",
-#     "//dep2.ae.iastate.edu/D$/DEP/Elevation_databases/ept.gdb/ept_resources_2024_09_01",
-#     "//dep2.ae.iastate.edu/D$/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050307.gdb/buf_070801050307",
-#     "C:/Users/bkgelder/.conda/envs/pdal/Library/bin/pdal.exe",
-#     "5,3,2,1",
-#     "D:/DEP_Proc/DEMProc/LAS_dem2013_2m_070801050307",
-#     "//dep2.ae.iastate.edu/D$/DEP/Basedata_Summaries/Basedata_26915.gdb/Snap1m",
-#     "",
-#     "",
-#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef_2m_070801050307.tif",
-#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/surf_el_Lib/07080105/be_min_2m_070801050307.tif",
-#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/surf_el_Lib/07080105/fr_max_2m_070801050307.tif",
-#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/count_Lib/07080105/cnt_be_2m_070801050307.tif",
-#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/count_Lib/07080105/cnt_fr_2m_070801050307.tif",
-#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/count_Lib/07080105/cnt_pls_2m_070801050307.tif",
-#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/int_Lib/07080105/fr_int_min_2m_070801050307.tif",
-#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/int_Lib/07080105/fr_int_max_2m_070801050307.tif",
-#     "//dep2.ae.iastate.edu/M$/DEP/LiDAR_Current/int_Lib/07080105/be_int_max_2m_070801050307.tif",
-#     "//dep2.ae.iastate.edu/D$/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050307.gdb/wesm_ept_resources_2024_09_01_070801050307",
-#     "//dep2.ae.iastate.edu/M$/DEP/Elev_Base_Data",
-#     "True"]
+    parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+    "C:/DEP/Scripts/basics/cmd_cleaner_DEM_main.pyt",
+    "E:/DEP/Elevation_databases/ept.gdb/ept_resources_2024_11_01",
+    "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100005/idepACPF071000050104.gdb/buf_071000050104",
+    "C:/Users/bkgelder/.conda/envs/pdal/Library/bin/pdal.exe",
+    "1,5,3,2",
+    "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_071000050104",
+    "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/Snap1m",
+    "",
+    "",
+    "E:/DEP_Checkout/LiDAR_Current/elev_FLib_mean18/07100005/ef_1m_071000050104.tif",
+    "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07100005/be_min_1m_071000050104.tif",
+    "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07100005/fr_max_1m_071000050104.tif",
+    "E:/DEP_Checkout/LiDAR_Current/count_Lib/07100005/cnt_be_1m_071000050104.tif",
+    "E:/DEP_Checkout/LiDAR_Current/count_Lib/07100005/cnt_fr_1m_071000050104.tif",
+    "E:/DEP_Checkout/LiDAR_Current/count_Lib/07100005/cnt_pls_1m_071000050104.tif",
+    "E:/DEP_Checkout/LiDAR_Current/int_Lib/07100005/fr_int_min_1m_071000050104.tif",
+    "E:/DEP_Checkout/LiDAR_Current/int_Lib/07100005/fr_int_max_1m_071000050104.tif",
+    "E:/DEP_Checkout/LiDAR_Current/int_Lib/07100005/be_int_max_1m_071000050104.tif",
+    "E:/DEP_Checkout/Man_Data_ACPF/dep_ACPF2023/07100005/idepACPF071000050104.gdb/wesm_ept_resources_2025_07_01_071000050104",
+    "E:/DEP_Checkout/Elev_Base_Data",
+    "True"]
 #         for i in parameters[2:]:
 #             sys.argv.append(i)
 
