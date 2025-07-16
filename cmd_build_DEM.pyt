@@ -1820,7 +1820,7 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1):#maskFc_3857
     else:
         splits = 1
         ept_extent = str(geom.extent.XMin) + ', ' + str(geom.extent.XMax) + '], [' + str(geom.extent.YMin) + ', ' + str(geom.extent.YMax)
-        parts.append(['', ept_extent])
+        parts.append(['_pt1', ept_extent])
 
     return parts, square_area
 
@@ -2320,8 +2320,9 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                         # JSON likes / not \
                         all_tile_alt = all_tile.replace(os.sep, os.altsep)
                         work_id = os.path.basename(all_tile_alt).split('_')[2]
+                        part_id = os.path.basename(all_tile_alt).split('_')[3]
 
-                        cl2_json_filename = "_".join(["filter", "fixed_cl2", huc12, work_id + ".json"])
+                        cl2_json_filename = "_".join(["filter", "fixed_cl2", huc12, work_id, part_id + ".json"])
 
                         cl2_las_full_filename = all_tile_alt.replace('.las', '_cl2.las')
                         cl2_tiles_list.append(cl2_las_full_filename)
@@ -2457,29 +2458,28 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 #         #Paste arguments into here for use within Python Window
 #         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
 #         # cleanup = False
-
-    parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-    "C:/DEP/Scripts/basics/cmd_cleaner_DEM_main.pyt",
-    "E:/DEP/Elevation_databases/ept.gdb/ept_resources_2024_11_01",
-    "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100005/idepACPF071000050104.gdb/buf_071000050104",
-    "C:/Users/bkgelder/.conda/envs/pdal/Library/bin/pdal.exe",
-    "1,5,3,2",
-    "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_071000050104",
-    "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/Snap1m",
-    "",
-    "",
-    "E:/DEP_Checkout/LiDAR_Current/elev_FLib_mean18/07100005/ef_1m_071000050104.tif",
-    "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07100005/be_min_1m_071000050104.tif",
-    "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07100005/fr_max_1m_071000050104.tif",
-    "E:/DEP_Checkout/LiDAR_Current/count_Lib/07100005/cnt_be_1m_071000050104.tif",
-    "E:/DEP_Checkout/LiDAR_Current/count_Lib/07100005/cnt_fr_1m_071000050104.tif",
-    "E:/DEP_Checkout/LiDAR_Current/count_Lib/07100005/cnt_pls_1m_071000050104.tif",
-    "E:/DEP_Checkout/LiDAR_Current/int_Lib/07100005/fr_int_min_1m_071000050104.tif",
-    "E:/DEP_Checkout/LiDAR_Current/int_Lib/07100005/fr_int_max_1m_071000050104.tif",
-    "E:/DEP_Checkout/LiDAR_Current/int_Lib/07100005/be_int_max_1m_071000050104.tif",
-    "E:/DEP_Checkout/Man_Data_ACPF/dep_ACPF2023/07100005/idepACPF071000050104.gdb/wesm_ept_resources_2025_07_01_071000050104",
-    "E:/DEP_Checkout/Elev_Base_Data",
-    "True"]
+#         parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+#         "C:/DEP/Scripts/basics/cmd_cleaner_DEM_main.pyt",
+#         "E:/DEP/Elevation_databases/ept.gdb/ept_resources_2024_11_01",
+#         "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100005/idepACPF071000050104.gdb/buf_071000050104",
+#         "C:/Users/bkgelder/.conda/envs/pdal/Library/bin/pdal.exe",
+#         "1,5,3,2",
+#         "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_071000050104",
+#         "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/Snap1m",
+#         "",
+#         "",
+#         "E:/DEP_Checkout/LiDAR_Current/elev_FLib_mean18/07100005/ef_1m_071000050104.tif",
+#         "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07100005/be_min_1m_071000050104.tif",
+#         "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07100005/fr_max_1m_071000050104.tif",
+#         "E:/DEP_Checkout/LiDAR_Current/count_Lib/07100005/cnt_be_1m_071000050104.tif",
+#         "E:/DEP_Checkout/LiDAR_Current/count_Lib/07100005/cnt_fr_1m_071000050104.tif",
+#         "E:/DEP_Checkout/LiDAR_Current/count_Lib/07100005/cnt_pls_1m_071000050104.tif",
+#         "E:/DEP_Checkout/LiDAR_Current/int_Lib/07100005/fr_int_min_1m_071000050104.tif",
+#         "E:/DEP_Checkout/LiDAR_Current/int_Lib/07100005/fr_int_max_1m_071000050104.tif",
+#         "E:/DEP_Checkout/LiDAR_Current/int_Lib/07100005/be_int_max_1m_071000050104.tif",
+#         "E:/DEP_Checkout/Man_Data_ACPF/dep_ACPF2023/07100005/idepACPF071000050104.gdb/wesm_ept_resources_2025_07_01_071000050104",
+#         "E:/DEP_Checkout/Elev_Base_Data",
+#         "True"]
 #         for i in parameters[2:]:
 #             sys.argv.append(i)
 
