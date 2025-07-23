@@ -313,42 +313,179 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
 
         messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 
+        arcpy.env.overwriteOutput = True
+
+        arcpy.CheckOutExtension("Spatial")
+        arcpy.CheckOutExtension("3D")
+
+        arcpy.env.ZResolution = "0.01"
+
         huc12, huc8 = df.figureItOut(fillTif)
+        # the DEP huc DEM naming convention
+        pattern22 = '[+_][0-9]m[+_]'
+
+        procDir = voidProc
+
+        if procDir is not None:
+            if not os.path.isdir(procDir):
+                os.makedirs(procDir)
+
+            arcpy.env.scratchWorkspace = procDir
+            sfldr = arcpy.env.scratchFolder
+        else:
+            sfldr = arcpy.env.scratchFolder
+            procDir = sfldr
+
+        sgdb = arcpy.env.scratchGDB
+        arcpy.env.scratchWorkspace = sgdb
+        arcpy.env.workspace = sgdb
+
+        if procDir is None:
+            procDir = sfldr
+
+        #figure out where to create log files
+        node = platform.node()
+        logProc = df.defineLocalProc(node)
+        if not os.path.isdir(logProc):
+            logProc = sfldr
 
         if cleanup:
-            # log to file only
-            log, nowYmd, logName, startTime = df.setupLoggingNoCh(platform.node(), sys.argv[0], huc12)
+            log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)
+            arcpy.SetLogHistory = False
         else:
             # log to file and console
-            log, nowYmd, logName, startTime = df.setupLoggingNew(platform.node(), sys.argv[0], huc12)
+            log, nowYmd, logName, startTime = df.setupLoggingNew(logProc, sys.argv[0], huc12)
+            arcpy.SetLogHistory = True
 
-            
-        if not os.path.isdir(voidProc):
-            os.makedirs(voidProc)
-
-        for j in [voidFixTif, bigNoDataAreas, mediumNoDataAreas]:
-            jdir = os.path.dirname(j)
-            if not os.path.isdir(jdir):
-                os.makedirs(jdir)
-
-        startTime = time.time()
+        # if not os.path.isfile(flib_metadata_template):
+        #     log.warning('flib_metadata does not exist')
+        # if not os.path.isfile(derivative_metadata):
+        #     log.warning('derivative_metadata does not exist')
         log.info("Beginning execution: " + time.asctime())
-        log.info("Tool: Executing with parameters:\n" + arg_str)
+        log.debug('sys.argv is: ' + str(sys.argv) + '\n')
+        log.info("Processing HUC: " + huc12)
+        log.info(f"procDir: {procDir}")
+
+        fElevDesc = arcpy.da.Describe(fillTif)#dem_polygon)
+        srOut = fElevDesc['spatialReference']
+        srOutCode = srOut.PCSCode
+
+        assert srOutCode < 32768, "EPSG spatial reference code too large, PDAL will not recognize"
+
+        log.info("Output will be in EPSG Code (spatial reference): " + str(srOutCode))#sys.argv[9])
+        log.info("Log file at " + logName)
         messages.addMessage("Log file at " + logName)
 
-    ## Set the environments
-        arcpy.env.overwriteOutput = True
-        arcpy.env.scratchWorkspace = voidProc
+        # vlib_metadata_template, derivative_metadata = df.getMetadata(['vlib', 'deriv'], procDir, log)
 
-        sfldr = arcpy.env.scratchFolder
-        sgdb = arcpy.env.scratchGDB
-        arcpy.env.scratchWorkspace = sgdb#sfldr#
-        arcpy.env.workspace = sgdb
+        # ## store a list of all DEMs (lidar based, others) that must be joined to create HUC12
+        # ## Now a list of lists to facilitate creating two DEM resolutions easily (2 and 3 meter)
+        # rezes = gsds.split(",")
+        # log.info(f'Resolutions: {rezes}')
+        # ordered_rezes = []
+        # # for r in rezes:
+        # #     filename_path = Path(fElevFile)
+        # #     # check to see if it follows HUC DEM naming procedure
+        # #     stem = filename_path.stem
+        # #     pattern28 = '[0-9]m'
+        #     # if re.search(pattern28, stem):
+        #     #     log.debug(f"found match in {stem} of resolution {r}m")
+        #     #     ordered_rezes.append(r)
+        #     #     rezes.pop(r)
+
+        # for r in rezes:
+        #     ordered_rezes.append(r)
+        # log.debug(f"ordered_rezes is {ordered_rezes}")
+
+        # # do lower to higher resolution
+        # # rezes.sort(reverse = True)
+        # demLists = [r for r in ordered_rezes]
+        # log.debug(f"demLists is {demLists}")
+        # # named_cell_size = demLists[0]
+        # init_res = demLists[0][0]
+        # log.debug(f"init_res is {init_res}")
+
+        # if init_res + 'm' not in fElevFile:
+        #     fElevFile = os.path.splitext(fElevFile)[0] + '_' + str(init_res) + 'm' + os.path.splitext(fElevFile)[1]
+
+        # ## windowsizeMethods are the criterion used to select which point(s) in the window define the terrain
+        # interpDict = df.loadInterpDict()
+        # windowsizeMethods = ['ZMEAN', 'ZMINMAX']#, 'ZMIN']
+        # interpType = interpDict[windowsizeMethods[0]]
+
+        # if interpType not in fElevFile:
+        #     fElevFile = os.path.splitext(fElevFile)[0] + '_' + interpType + os.path.splitext(fElevFile)[1]
+        # log.debug(f'Revised fElevFile: {fElevFile}')
+
+        # # delete any pre-existing inputs
+        # for ras in [voidFixTif, bigNoDataAreas, mediumNoDataAreas]:
+        #     if ras is not None:
+        #         filename_path = Path(ras)
+        #         # check to see if it follows HUC DEM naming procedure
+        #         stem = filename_path.stem
+        #         if re.search(pattern22, stem):
+        #             if len(demLists) > 0:
+        #                 for demList in demLists:
+        #                     rasRes = updateResolution(ras, init_res, demList[0], pattern22, log)
+        #                     try_to_delete(rasRes, log)
+
+        # # create output directories
+        # for filename in [voidFixTif, bigNoDataAreas, mediumNoDataAreas]:
+        #     if filename is not None:
+        #         df.create_needed_dirs_and_gdbs(filename, log)
+
+        #     # if not os.path.isdir(os.path.dirname(filename)):
+        #     #     os.makedirs(os.path.dirname(filename))
+        #     # create directories for alternate interpolation types/windowsize methods
+        #         if interpType in filename:
+        #             for window in windowsizeMethods:
+        #                 abbrev = interpDict[window]
+        #                 if abbrev != interpType:
+        #                     altfilename = filename.replace(interpType, abbrev)
+        #                     df.create_needed_dirs_and_gdbs(altfilename, log)
+        #                     # if not os.path.isdir(os.path.dirname(altfilename)):
+        #                     #     os.makedirs(os.path.dirname(altfilename))
+
+    # ## If you set a scratch workspace first you can control where the scratchGDB or scratchFolder are created
+    # ## otherwise it defaults to a user's temp folder
+    # ## if you don't set anything it will go to 'in_memory'
+    #     inm = 'in_memory'
+    #     if snap is not None:#!= "":
+    #         arcpy.env.snapRaster = snap
+
+    #     # also set output to VCS 5703, NAVD88 Meters
+    #     srOut = arcpy.SpatialReference(int(srOutCode), 5703)
+    #     # since final output is in centimeters, create one without VCS
+    #     srOutNoVCS = arcpy.SpatialReference(int(srOutCode))
+    #     arcpy.env.outputCoordinateSystem = srOut
+    #     srSfx = '_'+str(srOutCode)
+            
+    #     if not os.path.isdir(voidProc):
+    #         os.makedirs(voidProc)
+
+    #     for j in [voidFixTif, bigNoDataAreas, mediumNoDataAreas]:
+    #         jdir = os.path.dirname(j)
+    #         if not os.path.isdir(jdir):
+    #             os.makedirs(jdir)
+
+    #     startTime = time.time()
+    #     log.info("Beginning execution: " + time.asctime())
+    #     log.info("Tool: Executing with parameters:\n" + arg_str)
+    #     messages.addMessage("Log file at " + logName)
+
+    # ## Set the environments
+    #     arcpy.env.overwriteOutput = True
+    #     arcpy.env.scratchWorkspace = voidProc
+
+    #     sfldr = arcpy.env.scratchFolder
+    #     sgdb = arcpy.env.scratchGDB
+    #     arcpy.env.scratchWorkspace = sgdb#sfldr#
+    #     arcpy.env.workspace = sgdb
 
         arcpy.env.snapRaster = fillTif#snapRaster
 
         arcpy.env.cellSize = fillTif#proc_size
-        proc_size = arcpy.env.cellSize
+        proc_size = Raster(fillTif).meanCellHeight#arcpy.env.cellSize
 
         gdb = sgdb + "\\"
         cp = voidProc + "\\"
@@ -457,8 +594,8 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                     arcpy.CopyRaster_management(ndCleanRegions, bigNoDataAreas)
 
                     
-                    pitFilledDEM_fd = FlowDirection(pitFilledDEM)
-                    pitFilledDEM_basins = Basin(pitFilledDEM_fd)
+                    # pitFilledDEM_fd = FlowDirection(pitFilledDEM)
+                    # pitFilledDEM_basins = Basin(pitFilledDEM_fd)
                     # pf_basins_rtp = arcpy.conversion.RasterToPolygon(pitFilledDEM_basins, opj(sgdb, 'pf_basins'), 'NO_SIMPLIFY')
                     # initialWs = pitFilledDEM_basins
                     # basin_min = ZonalStatistics(pitFilledDEM_basins, 'Value', pitFilledDEM, 'MINIMUM')
@@ -552,7 +689,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                                             main_stem_nd_flow_fd = FlowDirection(main_stem_nd_flow)
             ####                                main_stem_nd_flow_basins = Basin(main_stem_nd_flow_fd)
             ####                                main_stem_nd_flow_basins_rtp = arcpy.conversion.RasterToPolygon(main_stem_nd_flow_basins, opj(sgdb, 'main_stem_nd_flow_basins'), 'NO_SIMPLIFY')
-                                            main_stem_nd_basins_rtp = arcpy.conversion.RasterToPolygon(main_stem_nd_basins, opj(sgdb, 'main_stem_nd_basins'), 'NO_SIMPLIFY')
+                                            # main_stem_nd_basins_rtp = arcpy.conversion.RasterToPolygon(main_stem_nd_basins, opj(sgdb, 'main_stem_nd_basins'), 'NO_SIMPLIFY')
 
                                             basin0Deepest = ZonalStatistics(main_stem_nd_basins, 'VALUE', main_stem_nd_dem, 'MINIMUM')
                                             basin0DeepestCell = Con(basin0Deepest == main_stem_nd_dem, main_stem_nd_dem)
@@ -598,7 +735,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
 
                                             fixed_main_stem_flow = fence_and_flow_region(mainStem, fixed_main_stem_basins, fixed_main_stem_dem)
                                             fixed_main_stem_flow_fd = FlowDirection(fixed_main_stem_flow)
-                                            fixed_main_stem_flow_fa = FlowAccumulation(fixed_main_stem_flow_fd)
+                                            # fixed_main_stem_flow_fa = FlowAccumulation(fixed_main_stem_flow_fd)
 
 
                                             # clean out the main stem
@@ -623,7 +760,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                                             fixedDEM_flatter = fixByInversionByStartingPath(step_ndPlus_flatter, fence_el_flatter, invertTargetDEM, double_filtered, step_ndRcls_flatter, fixed_main_stem_dem, sl_cp_for_main_stem, log)
                                             # fixedDEM_flatter = vf.fixByInversionByStartingPath(step_ndPlus_flatter, fence_el_flatter, invertTargetDEM, double_filtered, step_ndRcls_flatter, fixed_main_stem_dem, sl_cp_for_main_stem, log)
                                             fixedDEM_flatter_fd = FlowDirection(fixedDEM_flatter)
-                                            fixedDEM_flatter_fa = FlowAccumulation(fixedDEM_flatter_fd)
+                                            # fixedDEM_flatter_fa = FlowAccumulation(fixedDEM_flatter_fd)
                                             # use nibble to replace mainstem elevation values with nearest value from cost path
                                             sl_cp_for_main_stem_dem = Con(sl_cp_for_main_stem, fixedDEM_flatter)
                                             nibble_main = Nibble(fixedDEM_flatter, sl_cp_for_main_stem_dem)
@@ -1183,6 +1320,8 @@ class msgStub:
     def addWarningMessage(self,text):
         arcpy.AddWarningMessage(text)
 
+
+#----------------------------------------------------------------------
 if __name__ == "__main__":
 ##if True:
 
@@ -1191,21 +1330,37 @@ if __name__ == "__main__":
         cleanup = False
 
         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-	"C:/DEP/Scripts/basics/cmd_flattener_DEM.pyt",
-	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
-	"C:/DEP/LiDAR_Current/count_Lib/07080105/cbe3m070801050901.tif",
-    "C:/DEP/LiDAR_Current/count_Lib/07080105/cfr3m070801050901.tif",
-	"C:/DEP/LiDAR_Current/surf_el_Lib/07080105/frmax3m070801050901.tif",
-	"C:/DEP/LiDAR_Current/int_Lib/07080105/fr_int_max3m070801050901.tif",
-	"C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/buf_070801050901",
-	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
-	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/waterways",
-	"C:/DEP/Basedata_Summaries/Basedata_26915.gdb/water",
-	"C:/DEP/LiDAR_Current/bl_Lib/07080105/breaks_07080105.gdb/break_polys_070801050901",
-	"C:/DEP_Proc/DEMProc/Void_dem2013_3m_070801050901",
-	"C:/DEP/LiDAR_Current/elev_VLib_mean18/07080105/ev3m070801050901.tif",
-	"C:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/bigvds3m070801050901.tif",
-	"C:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/medvds3m070801050901.tif"]
+    "C:/DEP/Scripts/basics/cmd_flattener_DEM.pyt",
+    "M:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef_1m_070801050901.tif",
+    "M:/DEP/LiDAR_Current/count_Lib/07080105/cnt_be_1m_070801050901.tif",
+    "M:/DEP/LiDAR_Current/count_Lib/07080105/cnt_fr_1m_070801050901.tif",
+    "M:/DEP/LiDAR_Current/surf_el_Lib/07080105/fr_max_1m_070801050901.tif",
+    "M:/DEP/LiDAR_Current/int_Lib/07080105/fr_int_max_1m_070801050901.tif",
+    "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07080105/idepACPF070801050901.gdb/buf_070801050901",
+    "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
+    "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/waterways",
+    "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/water",
+    "M:/DEP/LiDAR_Current/bl_Lib/07080105/breaks_07080105.gdb/break_polys_070801050901",
+    "E:/DEP_Proc/DEMProc/Void_dem2013_1m_070801050901",
+    "M:/DEP/LiDAR_Current/elev_VLib_mean18/07080105/ev_1m_070801050901.tif",
+    "M:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/bigvds_1m_070801050901.tif",
+    "M:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/medvds_1m_070801050901.tif"]
+    #     ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+	# "C:/DEP/Scripts/basics/cmd_flattener_DEM.pyt",
+	# "C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
+	# "C:/DEP/LiDAR_Current/count_Lib/07080105/cbe3m070801050901.tif",
+    # "C:/DEP/LiDAR_Current/count_Lib/07080105/cfr3m070801050901.tif",
+	# "C:/DEP/LiDAR_Current/surf_el_Lib/07080105/frmax3m070801050901.tif",
+	# "C:/DEP/LiDAR_Current/int_Lib/07080105/fr_int_max3m070801050901.tif",
+	# "C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/buf_070801050901",
+	# "C:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
+	# "C:/DEP/Basedata_Summaries/Basedata_26915.gdb/waterways",
+	# "C:/DEP/Basedata_Summaries/Basedata_26915.gdb/water",
+	# "C:/DEP/LiDAR_Current/bl_Lib/07080105/breaks_07080105.gdb/break_polys_070801050901",
+	# "C:/DEP_Proc/DEMProc/Void_dem2013_3m_070801050901",
+	# "C:/DEP/LiDAR_Current/elev_VLib_mean18/07080105/ev3m070801050901.tif",
+	# "C:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/bigvds3m070801050901.tif",
+	# "C:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/medvds3m070801050901.tif"]
 
         for i in parameters[2:]:
             sys.argv.append(i)
