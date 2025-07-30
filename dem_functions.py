@@ -1140,6 +1140,7 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
             geeResidueMap = opj(otherBaseNoVersion, 'GEE_residue_cover', 'residue_cover_' + ACPFyear + '.tif')
         elif int(ACPFyear) <= 2025:
             geeResidueMap = opj(otherBaseNoVersion, 'GEE_residue_cover', 'residue_cover_' + ACPFyear + '_L89.tif')
+
         if int(ACPFyear) <= 2017:
             mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', '2017_combo_agonly_recount_combo_residue_times2.img')
         elif int(ACPFyear) <= 2020:
@@ -1150,7 +1151,8 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
             mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage_final_w_flood_mask_out.tif')
         elif int(ACPFyear) == 2023:
             mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', '2023_minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforagex.img')
-        
+        elif int(ACPFyear) == 2024:
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', '2024_minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage2.img')
         locationsDict.update({
         "irrigationMap" : opj(otherBaseNoVersion, 'lanid2011-2017', 'lanid2017.tif'),
         "statsgo2Map" : opj(otherBaseNoVersion, 'wss_gsmsoil_US', 'spatial', 'gsmsoilmu_a_us.shp'),
