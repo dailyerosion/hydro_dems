@@ -190,7 +190,9 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
                 log.info('requesting wesm to ' + wesm_download_location)
                 download_file('https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/metadata/WESM.gpkg', wesm_download_location, log)
 ##                wesm_response = urllib.request.urlretrieve('https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/metadata/WESM.gpkg', wesm_download_location)
-                assert os.path.getsize(wesm_download_location) > 500000000, "Check WESM download address, should be larger than 500 MB"
+            else:
+                log.info(f'WESM geopackage found at {wesm_download_location}')
+            assert os.path.getsize(wesm_download_location) > 2500000000, "Check WESM download size, should be larger than 2.5 GB"
 
             log.info('projecting WESM to EPSG 4269 (NAD83)')
             # do WESM first so map will be in epsg 4269 (NAD83)
