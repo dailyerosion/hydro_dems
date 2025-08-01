@@ -10,6 +10,7 @@ import arcpy.metadata as md
 import time
 from os.path import join as opj
 import requests
+import re
 
 # a compendium of functions to enable DEM processing
 # written by Brian Gelder, bkgelder@iastate.edu
