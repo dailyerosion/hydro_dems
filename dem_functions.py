@@ -273,6 +273,38 @@ def defineLocalProc(node, uversion = ''):
 
     return localProc
     
+def updateResolution(filepath, init_res, new_res, pattern, log):
+    """Take a filename with a specified resolution and alter it to the current processing resolution.
+    This is done to reduce the number of arguments that are passed to the program."""
+    # try:
+    if init_res != new_res:
+        filename_path = Path(filepath)
+        # check to see if it follows HUC DEM naming procedure
+        st = filename_path.stem
+        if re.search(pattern, st):#match(pattern, st):
+            # replace within the name
+            updated_filename = str(filename_path.name).replace(str(init_res) + 'm', str(new_res) + 'm')
+            updated_filepath = str(filename_path.parent.joinpath(updated_filename))
+        else:
+            # append to the name
+            updated_filename = str(filename_path.stem + "_" + str(new_res) + 'm' + filename_path.suffix)
+            updated_filepath = str(filename_path.parent.joinpath(updated_filename))
+
+        # updated_filename = filename.replace(str(init_res) + 'm' + huc12, str(new_res) + 'm' + huc12)
+        log.debug(f"filename was: {filepath}; updated filename: {updated_filepath}")
+    else:
+        updated_filepath = filepath
+    return updated_filepath
+
+
+def try_to_delete(rasRes, log):
+    if arcpy.Exists(rasRes):
+        try:
+            arcpy.Delete_management(rasRes)
+        except arcpy.ExecuteError:
+            log.warning('could not remove using arcpy.Delete, trying os.remove')
+            os.remove(rasRes)
+
 
 def createBasicDirectories(node, ACPFyear, uversion = ''):
     '''Creates the most basic DEP directories, ACPF directory and DEP base directory as strings'''
