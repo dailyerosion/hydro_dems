@@ -354,7 +354,11 @@ def loadBasicVariablesDict(node, ACPFyear, uversion = ''):
 
     acpfBase, depBase, basedataDir, otherBase, acpfStart = createBasicDirectories(node, ACPFyear, uversion)
 
-    if int(ACPFyear) > 2022:
+    if int(ACPFyear) > 2023:
+        MWHUC12_ACPF = 'MW_HUC12_v' + ACPFyear
+        MWHUC8_ACPF = 'MW_HUC8_v' + ACPFyear
+        MWHUC2_ACPF = 'MW_HUC2_v' + ACPFyear
+    elif int(ACPFyear) > 2022:
         MWHUC12_ACPF = 'MW_HUC12_v2023'
         MWHUC8_ACPF = 'MW_HUC8_v2023'
         MWHUC2_ACPF = 'MW_HUC2_v2022'
@@ -607,7 +611,7 @@ def loadVariablesDictNew(node, ACPFyear, huc12, outEPSG, interpType, cellSize, n
 
             # for running cutter
         "watershedBoundaries" : opj(ACPFDir, "bnd" + huc12),
-        "bufferedBoundaries" : opj(ACPFDir, "buf_" + huc12),
+        "bufferedBoundaries" : opj(ACPFDir, "buf" + huc12),
         "wesm_project_boundaries" : opj(ACPFDir, "_".join(["wesm", ept_first_of_month_name, huc12])),
         "snapraster" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'Snap1m'),
         "roadsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'roads_merge'),
@@ -747,7 +751,9 @@ def loadVariablesDictNew(node, ACPFyear, huc12, outEPSG, interpType, cellSize, n
             mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', 'minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage_final_w_flood_mask_out.tif')
         elif int(ACPFyear) == 2023:
             mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', '2023_minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforagex.img')
-        
+        elif int(ACPFyear) == 2024:
+            mnResidueMap = opj(otherBaseNoVersion, 'Minnesota', '2024_minnesota_s2_boa_wgs15x_residue_times2_rowcrops_noforage2.img')
+
         locationsDict.update({
         "irrigationMap" : opj(otherBaseNoVersion, 'lanid2011-2017', 'lanid2017.tif'),
         "statsgo2Map" : opj(otherBaseNoVersion, 'wss_gsmsoil_US', 'spatial', 'gsmsoilmu_a_us.shp'),
