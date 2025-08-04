@@ -1049,7 +1049,7 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
 
             # for running cutter
         "watershedBoundaries" : opj(ACPFDir, "bnd" + huc12),
-        "bufferedBoundaries" : opj(ACPFDir, "buf_" + huc12),
+        "bufferedBoundaries" : opj(ACPFDir, "buf" + huc12),
         "wesm_project_boundaries" : opj(ACPFDir, "_".join(["wesm", ept_first_of_month_name, huc12])),
         "snapraster" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'Snap1m'),
         "roadsfc" : opj(basedataDir, 'Basedata_' + outEPSG + '.gdb', 'roads_merge'),
