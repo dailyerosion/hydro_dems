@@ -953,7 +953,7 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
 ##        copyGDB = os.path.join(copyDir, huc8, 'copies_' + huc12 + uversion + '.gdb')
         copyGDB = os.path.join(copyDir, huc8, 'copies_' + huc12 + '.gdb')
         
-        if ACPFyear <= 2023:
+        if int(ACPFyear) <= 2023:
             ACPFDir = os.path.join(acpfBase, huc8, 'idepACPF' + huc12 + '.gdb')
         else:
             ACPFDir = os.path.join(acpfBase, huc8, 'acpf' + huc12 + '.gdb')
