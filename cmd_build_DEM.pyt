@@ -2119,9 +2119,6 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         log.info(f"procDir: {procDir}")
         log.info(f"lidar_download_directory: {lidar_download_directory}")
 
-        log.info(f"procDir: {procDir}")
-        log.info(f"lidar_download_directory: {lidar_download_directory}")
-
         fElevDesc = arcpy.da.Describe(dem_polygon)
         srOut = fElevDesc['spatialReference']
         srOutCode = srOut.PCSCode
@@ -2166,30 +2163,26 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
         ## windowsizeMethods are the criterion used to select which point(s) in the window define the terrain
         interpDict = df.loadInterpDict()
-        windowsizeMethods = ['ZMEAN', 'ZMINMAX']#, 'ZMIN']
-        interpType = interpDict[windowsizeMethods[0]]
-
-        if interpType not in fElevFile:
+        keys = interpDict.keys()
+        windowsizeMethods = list(keys)[:2]# just get ['ZMEAN', 'ZMINMAX'] - extend to get 'ZMIN' and 'ZMAX'
+        vals = list(interpDict.values())
+        vals_lower = [v.lower() for v in vals]
+        for v in vals_lower:
+            print(v)
+            if v in fElevFile:
+                interpFound = True
+                interpType = v
+                break
+            else:
+                interpFound = False
+        else:
+            if not interpFound:
+                interpType = interpDict[windowsizeMethods[0]]
+            else:
+                log.warning('interpolation type not set')
+        if not interpFound:# not in fElevFile:
             fElevFile = os.path.splitext(fElevFile)[0] + '_' + interpType + os.path.splitext(fElevFile)[1]
         log.debug(f'Revised fElevFile: {fElevFile}')
-
-        # delete any pre-existing inputs
-        for ras in [fElevFile, cntBeFile, int1rMaxFile, int1rMinFile, cnt1rFile, firstReturnMaxFile]:
-            if ras is not None:
-                filename_path = Path(ras)
-                # check to see if it follows HUC DEM naming procedure
-                stem = filename_path.stem
-                if re.search(pattern22, stem):
-                    if len(demLists) > 0:
-                        for demList in demLists:
-                            rasRes = updateResolution(ras, init_res, demList[0], pattern22, log)
-                            try_to_delete(rasRes, log)
-                    # if str(named_cell_size) + 'm' in ras:
-                    #         # updateResolution(filepath, init_res, new_res, huc12, log)
-                    #         rasRes = ras.replace(str(named_cell_size) + 'm', str(demList[0]) + 'm')
-                    #         try_to_delete(rasRes, log)
-                    # else:
-                    #     try_to_delete(rasRes, log)
 
         # create output directories
         for filename in [fElevFile, cntBeFile, int1rMaxFile, firstReturnMaxFile]:
@@ -2225,17 +2218,10 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         maskRastBase = 'mask_rast_'
         maskFc, maskFc_area, maskFcOut, maskRastOut, hucRastOut, FDSet = prepPolygonBoundary(dem_polygon, log, sgdb, srOut, srSfx, maskRastBase, demLists)
         
-# Build the DEM using one of two ways
-# First see if there is any lidar LAS data (preferred)
-# Second, use lidar derived DEMs by county/tile to build out the rest
-
 ##----------------------------------------------------------------------
 
     # # check for collection change (different priorities) to restrict further data
         fixedFolder = str(arcpy.CreateFolder_management(sfldr, 'fixed'))
-        localLidarFolder = str(arcpy.CreateFolder_management(sfldr, 'localLidar'))
-        clippedFolder = str(arcpy.CreateFolder_management(sfldr, 'clipped'))
-        projectedFolder = str(arcpy.CreateFolder_management(sfldr, 'projected'))
 
         allTilesList = []
 
