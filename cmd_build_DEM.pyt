@@ -243,31 +243,31 @@ class Tool(object):
 ##----------------------------------------------------------------------
 ## Set environments and begin
 
-def fillOCSinks(inDEM, log):
-    # Return a raster will all one-cell-sinks filled
-##    arcpy.AddMessage("-----Find Pits...")
-    log.info('finding flow direction')
-    sinkFDir = FlowDirection(inDEM)
-    log.info('finding sinks')
-    allSinks = Sink(sinkFDir)
-    # arcpy.BuildRasterAttributeTable_management(allSinks)
-    # log.info('sinks for ' + str(inDEM) + ' is ' + str(int(arcpy.GetCount_management(allSinks).getOutput(0))))
-##    arcpy.AddMessage("-----Fill everything else...")
+# def fillOCSinks(inDEM, log):
+#     # Return a raster will all one-cell-sinks filled
+# ##    arcpy.AddMessage("-----Find Pits...")
+#     log.info('finding flow direction')
+#     sinkFDir = FlowDirection(inDEM)
+#     log.info('finding sinks')
+#     allSinks = Sink(sinkFDir)
+#     # arcpy.BuildRasterAttributeTable_management(allSinks)
+#     # log.info('sinks for ' + str(inDEM) + ' is ' + str(int(arcpy.GetCount_management(allSinks).getOutput(0))))
+# ##    arcpy.AddMessage("-----Fill everything else...")
 
-    ## Make a No-one-cell-sink DEM
-    log.info('finding all but sinks')
-    AllButSinks_DEM = Con(IsNull(allSinks), inDEM)
+#     ## Make a No-one-cell-sink DEM
+#     log.info('finding all but sinks')
+#     AllButSinks_DEM = Con(IsNull(allSinks), inDEM)
 
-    log.info('filling pits')
-    ## Fill the No-one-cell-sink DEM
-    absDEM_fill = Fill(AllButSinks_DEM)
-    log.info('filled DEM')
+#     log.info('filling pits')
+#     ## Fill the No-one-cell-sink DEM
+#     absDEM_fill = Fill(AllButSinks_DEM)
+#     log.info('filled DEM')
 
-    ## Add the Original 'real' sinks back into the filled DEM
-    fill_DEM = Con(IsNull(absDEM_fill), inDEM, absDEM_fill)
-    log.info('fixed pits')
+#     ## Add the Original 'real' sinks back into the filled DEM
+#     fill_DEM = Con(IsNull(absDEM_fill), inDEM, absDEM_fill)
+#     log.info('fixed pits')
 
-    return(fill_DEM, allSinks)
+#     return(fill_DEM, allSinks)
 
 
 def getfields(infc, fieldString = '', fieldType = ''):
@@ -1373,8 +1373,8 @@ def mosaicDEMsAndPitfill(demList, maskRastBase, huc12, log, sgdb, terrains, proc
             sinkFDir = FlowDirection(inDEM)
             log.info('finding sinks')
             allSinks = Sink(sinkFDir)
-            # arcpy.BuildRasterAttributeTable_management(allSinks)
-            # log.info('sinks for ' + str(inDEM) + ' is ' + str(int(arcpy.GetCount_management(allSinks).getOutput(0))))
+            arcpy.BuildRasterAttributeTable_management(allSinks)
+            log.info('sinks for ' + str(inDEM) + ' is ' + str(int(arcpy.GetCount_management(allSinks).getOutput(0))))
         ##    arcpy.AddMessage("-----Fill everything else...")
 
             ## Make a No-one-cell-sink DEM
@@ -1898,6 +1898,7 @@ def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField
                             ept_json_filename = "_".join(["get", "ept", huc12, str(work_id_part) + ".json"])
 
                             df.create_needed_dirs_and_gdbs(ept_las_full_filename, log)
+                            df.create_needed_dirs_and_gdbs(eleDir, log)
                             ept_json_full_filename = create_ept_json_pipeline(ept_json_filename, eleDir, ept_las_full_filename, extent_request, ept_address, srOutCode)
                             df.create_needed_dirs_and_gdbs(ept_json_full_filename, log)
 
@@ -2084,6 +2085,9 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
         if lidar_download_directory is None:
             lidar_download_directory = procDir
+
+        if not os.path.isdir(lidar_download_directory):
+            os.makedirs(lidar_download_directory)
 
         sgdb = arcpy.env.scratchGDB
         arcpy.env.scratchWorkspace = sgdb
