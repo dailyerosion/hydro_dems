@@ -1560,9 +1560,9 @@ def tryAddField(inFC, fld2Add, fldType):
     if fld2Add not in flds:
         arcpy.AddField_management(inFC, fld2Add, fldType)
 
-def figureItOut(inputRaster):
+def figureItOut(inputRasterOrFeature):
     '''figure out huc12 code and projected coordinate system from a formatted raster name'''
-    basename = os.path.basename(inputRaster)
+    basename = os.path.basename(inputRasterOrFeature)
     fillbaseNoExt = os.path.splitext(basename)[0]
 
     if ('ef' in basename or 'et' in basename or 'ep' in basename or 'ec' in basename or 'ev' in basename or 'ex' in basename) and len(fillbaseNoExt) >= 14:
@@ -1572,11 +1572,13 @@ def figureItOut(inputRaster):
             huc12 = fillbaseNoExt[-12:]
         huc8 = huc12[:8]
 
-        # assume name format like 'ef' or 'ep' or 'ec'
-        # end = fillbaseNoExt[2:]
-        # end = fillbaseNoExt.split('ef')[1]
-            
-        # proc_size = int(end.split('m')[0])
+    elif basename.startswith('buf'):
+        if fillbaseNoExt.find('_') >= 0:
+            huc12 = fillbaseNoExt.split('_')[-1]
+        else:
+            # huc12 = fillbaseNoExt[-12:]
+            huc12 = fillbaseNoExt[3:]#length of buf to the end
+        huc8 = huc12[:8]
 
     else:
         huc12 = fillbaseNoExt#basename#'X' * 12
