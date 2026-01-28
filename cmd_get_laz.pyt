@@ -3011,7 +3011,8 @@ if __name__ == "__main__":
                 with arcpy.da.SearchCursor(prev_merged, ['SHAPE@', work_id_name, 'lpc_link'], sql_clause=[None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:
                     for srow in scur:
                         log.debug(f'{work_id_name} is: {srow[1]} and lpc_link is: {srow[2]} ')
-                        dl_dir = os.path.join('E:\\DEP\\USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
+                        # dl_dir = os.path.join('E:\\DEP\\USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
+                        dl_dir = os.path.join(lidar_download_directory, os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
                         try:
                             download_usgs_laz(page_url = srow[2] + '/LAZ/', output_dir = dl_dir)#, log = log)
                         except:
