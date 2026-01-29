@@ -2065,6 +2065,7 @@ from time import sleep
 def download_usgs_laz(
     page_url: str,
     output_dir: str,
+    alt_output_dir: str,
     timeout: int = 60,
     max_retries: int = 5,
     retry_delay: int = 5,
@@ -2080,6 +2081,8 @@ def download_usgs_laz(
     page_url : str
         Apache directory URL containing LAZ files
     output_dir : str
+        Local directory for downloads
+    alt_output_dir : str
         Local directory for downloads
     timeout : int
         HTTP timeout (seconds)
@@ -2123,11 +2126,17 @@ def download_usgs_laz(
 
     for filename, url, expected_size in laz_files:
         out_path = os.path.join(output_dir, filename)
+        alt_out_path = os.path.join(alt_output_dir, filename.lower())
 
         # Skip valid existing file
-        if os.path.exists(out_path) and expected_size:
+        if (os.path.exists(out_path) and expected_size) or (os.path.exists(alt_out_path) and expected_size):
             if os.path.getsize(out_path) == expected_size:
                 print(f"✔ Exists (size OK): {filename}")
+                return_path = out_path
+                continue
+            elif os.path.getsize(alt_out_path) == expected_size:
+                print(f"✔ Exists (size OK): {filename}")
+                return_path = alt_out_path
                 continue
             else:
                 print(f"↺ Re-downloading (size mismatch): {filename}")
@@ -2153,6 +2162,7 @@ def download_usgs_laz(
                     )
 
                 print(f"✔ Download complete: {filename}")
+                return_path = out_path
                 success = True
                 break
 
@@ -2169,6 +2179,8 @@ def download_usgs_laz(
             print(f"✖ FAILED after {max_retries} attempts: {filename}")
 
     print("\nDone.")
+
+    return return_path
 
 
 
@@ -3013,17 +3025,21 @@ if __name__ == "__main__":
                         log.debug(f'{work_id_name} is: {srow[1]} and lpc_link is: {srow[2]} ')
                         # dl_dir = os.path.join('E:\\DEP\\USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
                         dl_dir = os.path.join(lidar_download_directory, os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
+                        alt_dl_dir = opj('M:/DEP/USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
                         try:
-                            download_usgs_laz(page_url = srow[2] + '/LAZ/', output_dir = dl_dir)#, log = log)
+                            page_url = srow[2] + '/LAZ/'
+                            return_path = download_usgs_laz(page_url = page_url, output_dir = dl_dir, alt_output_dir = alt_dl_dir)#, log = log)
                         except:
                             log.warning('failed download {page_url}')
 
-                        pkl_dir = dl_dir.replace('LAZ', 'pkl')
+                        pkl_dir = os.path.dirname(return_path).replace('LAZ', 'pkl')
+                        log.debug(f'pkl_dir is: {pkl_dir}')
+                        # pkl_dir = dl_dir.replace('LAZ', 'pkl')
                         cwd = os.getcwd()
                         os.chdir(pkl_dir)
                         lazs = glob.glob('*.laz')
-##                        for laz_file in lazs:
-##                            get_laz_bounds_and_crs(laz_file, write_pickle=True)
+                        for laz_file in lazs:
+                            get_laz_bounds_and_crs(laz_file, write_pickle=True)
                         
                         out_gdb = pkl_dir.replace('pkl', 'bounds\\laz_bounds_' + str(srow[1]) + '.gdb')
                         out_fc_name = 'laz_bounds'
