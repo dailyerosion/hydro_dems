@@ -2069,7 +2069,8 @@ def download_usgs_laz(
     timeout: int = 60,
     max_retries: int = 5,
     retry_delay: int = 5,
-    user_agent: str = "Mozilla/5.0"
+    user_agent: str = "Mozilla/5.0",
+    log=None
 ):
     """
     Download LAZ files from a USGS Apache directory listing.
@@ -2100,6 +2101,7 @@ def download_usgs_laz(
     session.headers.update({"User-Agent": user_agent})
 
     print(f"\nScanning: {page_url}")
+    log.info(f"Scanning: {page_url}")
     resp = session.get(page_url, timeout=timeout)
     resp.raise_for_status()
 
@@ -2123,6 +2125,7 @@ def download_usgs_laz(
             laz_files.append((filename, urljoin(page_url, href), expected_size))
 
     print(f"Found {len(laz_files)} LAZ files\n")
+    log.info(f"Found {len(laz_files)} LAZ files")
 
     for filename, url, expected_size in laz_files:
         out_path = os.path.join(output_dir, filename)
@@ -2132,20 +2135,24 @@ def download_usgs_laz(
         if (os.path.exists(out_path) and expected_size) or (os.path.exists(alt_out_path) and expected_size):
             if os.path.getsize(out_path) == expected_size:
                 print(f"✔ Exists (size OK): {filename}")
+                log.info(f"Exists (size OK): {filename}")
                 return_path = out_path
                 continue
             elif os.path.getsize(alt_out_path) == expected_size:
                 print(f"✔ Exists (size OK): {filename}")
+                log.info(f"Exists (size OK): {filename}")
                 return_path = alt_out_path
                 continue
             else:
                 print(f"↺ Re-downloading (size mismatch): {filename}")
+                log.info(f"Re-downloading (size mismatch): {filename}") 
 
         success = False
 
         for attempt in range(1, max_retries + 1):
             try:
                 print(f"↓ Downloading ({attempt}/{max_retries}): {filename}")
+                log.info(f"Downloading ({attempt}/{max_retries}): {filename}")  
 
                 with session.get(url, stream=True, timeout=timeout) as r:
                     r.raise_for_status()
@@ -2162,12 +2169,14 @@ def download_usgs_laz(
                     )
 
                 print(f"✔ Download complete: {filename}")
+                log.info(f"Download complete: {filename}")
                 return_path = out_path
                 success = True
                 break
 
             except Exception as e:
                 print(f"⚠ Attempt {attempt} failed: {e}")
+                log.warning(f"Attempt {attempt} failed: {e}")
 
                 if os.path.exists(out_path):
                     os.remove(out_path)
@@ -2177,6 +2186,7 @@ def download_usgs_laz(
 
         if not success:
             print(f"✖ FAILED after {max_retries} attempts: {filename}")
+            log.warning(f"FAILED after {max_retries} attempts: {filename}")
 
     print("\nDone.")
 
@@ -2191,7 +2201,7 @@ import pickle
 import pdal
 
 
-def get_laz_bounds_and_crs(laz_file, write_pickle=True):
+def get_laz_bounds_and_crs(laz_file, pkl_dir, write_pickle=True):
     """
     Extract X/Y/Z bounds and CRS from a LAZ file.
     Optionally writes results to a pickle file with the same basename.
@@ -2200,6 +2210,8 @@ def get_laz_bounds_and_crs(laz_file, write_pickle=True):
     ----------
     laz_file : str
         Path to LAS/LAZ file
+    pkl_dir : str
+        Path to pickle directory
     write_pickle : bool, optional
         If True, write results to <basename>.pkl
 
@@ -2243,13 +2255,15 @@ def get_laz_bounds_and_crs(laz_file, write_pickle=True):
     }
 
     if write_pickle:
-        base, _ = os.path.splitext(laz_file)
+        basename = os.path.basename(laz_file)
+        base, _ = os.path.splitext(basename)
         pkl_file = base + ".pkl"
+        pkl_path = os.path.join(pkl_dir, pkl_file)
 
-        with open(pkl_file, "wb") as f:
+        with open(pkl_path, "wb") as f:
             pickle.dump(result, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-        result["pickle_file"] = os.path.abspath(pkl_file)
+        result["pickle_file"] = os.path.abspath(pkl_path)
 
     return result
 
@@ -3031,22 +3045,32 @@ if __name__ == "__main__":
                             return_path = download_usgs_laz(page_url = page_url, output_dir = dl_dir, alt_output_dir = alt_dl_dir)#, log = log)
                         except:
                             log.warning('failed download {page_url}')
+                            return_path = None
 
-                        pkl_dir = os.path.dirname(return_path).replace('LAZ', 'pkl')
-                        log.debug(f'pkl_dir is: {pkl_dir}')
-                        # pkl_dir = dl_dir.replace('LAZ', 'pkl')
-                        cwd = os.getcwd()
-                        os.chdir(pkl_dir)
-                        lazs = glob.glob('*.laz')
-                        for laz_file in lazs:
-                            get_laz_bounds_and_crs(laz_file, write_pickle=True)
-                        
-                        out_gdb = pkl_dir.replace('pkl', 'bounds\\laz_bounds_' + str(srow[1]) + '.gdb')
-                        out_fc_name = 'laz_bounds'
-                        out_fc = os.path.join(out_gdb, out_fc_name)
+                        if return_path is not None:
+                            # create pkl dir and get bounds from each laz file
+                            pkl_dir = os.path.dirname(return_path).replace('LAZ', 'pkl')
+                            log.debug(f'pkl_dir is: {pkl_dir}')
+                            df.create_needed_dirs_and_gdbs(pkl_dir, log)
+                            # pkl_dir = dl_dir.replace('LAZ', 'pkl')
 
-                        build_bounds_of_pkls(pkl_dir, out_gdb, out_fc_name, out_fc, work_id_name, srow[1])
-                        bounds_list.append(out_fc)
+                            return_path_po = Path(return_path)
+                            laz_dir = return_path_po.parent
+                            cwd = os.getcwd()
+                            os.chdir(laz_dir)
+                            lazs = glob.glob('*.laz')
+                            for laz_file in lazs:
+                                get_laz_bounds_and_crs(laz_file, pkl_dir, write_pickle=True)
+                            
+                            bounds_dir = pkl_dir.replace('pkl', 'bounds')
+                            df.create_needed_dirs_and_gdbs(bounds_dir, log)
+                            out_gdb = opj(bounds_dir, 'laz_bounds_' + str(srow[1]) + '.gdb')
+                            df.create_needed_dirs_and_gdbs(out_gdb, log)
+                            out_fc_name = 'laz_bounds'
+                            out_fc = os.path.join(out_gdb, out_fc_name)
+
+                            build_bounds_of_pkls(pkl_dir, out_gdb, out_fc_name, out_fc, work_id_name, srow[1])
+                            bounds_list.append(out_fc)
 
                 out_fc_merge = arcpy.Merge_management(bounds_list, os.path.join('in_memory', 'out_fc_merge'))
 
