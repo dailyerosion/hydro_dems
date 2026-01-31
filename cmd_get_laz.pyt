@@ -2066,11 +2066,11 @@ def download_usgs_laz(
     page_url: str,
     output_dir: str,
     alt_output_dir: str,
+    log: logging.Logger,
     timeout: int = 60,
     max_retries: int = 5,
     retry_delay: int = 5,
-    user_agent: str = "Mozilla/5.0",
-    log=None
+    user_agent: str = "Mozilla/5.0"
 ):
     """
     Download LAZ files from a USGS Apache directory listing.
@@ -3040,11 +3040,11 @@ if __name__ == "__main__":
                         # dl_dir = os.path.join('E:\\DEP\\USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
                         dl_dir = os.path.join(lidar_download_directory, os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
                         alt_dl_dir = opj('M:/DEP/USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
+                        page_url = srow[2] + '/LAZ/'
                         try:
-                            page_url = srow[2] + '/LAZ/'
-                            return_path = download_usgs_laz(page_url = page_url, output_dir = dl_dir, alt_output_dir = alt_dl_dir)#, log = log)
+                            return_path = download_usgs_laz(page_url = page_url, output_dir = dl_dir, alt_output_dir = alt_dl_dir, log = log)
                         except:
-                            log.warning('failed download {page_url}')
+                            log.warning(f'failed download {page_url}')
                             return_path = None
 
                         if return_path is not None:
@@ -3066,7 +3066,7 @@ if __name__ == "__main__":
                             df.create_needed_dirs_and_gdbs(bounds_dir, log)
                             out_gdb = opj(bounds_dir, 'laz_bounds_' + str(srow[1]) + '.gdb')
                             df.create_needed_dirs_and_gdbs(out_gdb, log)
-                            out_fc_name = 'laz_bounds'
+                            out_fc_name = 'laz_bounds_' + str(srow[1])
                             out_fc = os.path.join(out_gdb, out_fc_name)
 
                             build_bounds_of_pkls(pkl_dir, out_gdb, out_fc_name, out_fc, work_id_name, srow[1])
