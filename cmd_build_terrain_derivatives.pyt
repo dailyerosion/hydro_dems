@@ -2351,7 +2351,7 @@ if __name__ == "__main__":
                     storage_laz = srow[1]
                     geom = srow[0]
 
-                    print(srow)
+                    # print(srow)
                     # ept_las_full_filename = laz
                     # handle some inconsistent paths
                     if 'DEP\\laz' in storage_laz:
@@ -2360,8 +2360,8 @@ if __name__ == "__main__":
                             log.info('found DEP\\laz in storage_laz path, replacing with DEP\\USGS_LPC')
                             ept_las = storage_laz.replace('DEP\\laz', 'DEP\\USGS_LPC')
                     elif 'E:\\DEP_Checkout' in storage_laz:
-                        log.info('found E:\\DEP_Checkout in storage_laz path, replacing with M:\\DEP\\USGS_LPC')
-                        ept_las = storage_laz.replace('E:\\DEP_Checkout', 'M:\\DEP\\USGS_LPC')
+                        log.info('found E:\\DEP_Checkout in storage_laz path, replacing with M:\\DEP')
+                        ept_las = storage_laz.replace('E:\\DEP_Checkout', 'M:\\DEP')
                     else:
                         ept_las = storage_laz
                     if os.path.exists(ept_las):#_full_filename):# and stats.st_size > las_size_threshold:
