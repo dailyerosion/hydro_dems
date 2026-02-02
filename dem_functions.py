@@ -2068,7 +2068,7 @@ def create_needed_dirs_and_gdbs(requested_location, log):
                     create_gdb_flag = False
                     # create_fd_flag = False
             else:
-                log.warning('Unanticipated GDB location, unable to proceed')
+                log.warning(f'Unanticipated GDB location, {requested_location}, unable to proceed')
                 sys.exit(1000)
             if create_gdb_flag:
                 log.debug(f"making gdb: {gdb_folder} with name: {gdb_name}")
@@ -2077,7 +2077,7 @@ def create_needed_dirs_and_gdbs(requested_location, log):
                 # FDSet = arcpy.CreateFeatureDataset_management(sgdb, "Lidar_pts", srOut)
             #     log.debug(f"no need to create: {gdb_folder}")
         elif requested_location.find('.sde') > -1:
-            log.warning('Unanticipated SDE location, unable to proceed')
+            log.warning(f'Unanticipated SDE location, {requested_location}, unable to proceed')
             sys.exit(1000)
         else:
             log.warning(f"we don't do storage in {requested_location} yet!")
