@@ -2061,6 +2061,7 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from time import sleep
+import logging
 
 def download_usgs_laz(
     page_url: str,
@@ -2201,7 +2202,7 @@ import pickle
 import pdal
 
 
-def get_laz_bounds_and_crs(laz_file, pkl_dir, write_pickle=True):
+def get_laz_bounds_and_crs(laz_file, pkl_path, write_pickle=True):
     """
     Extract X/Y/Z bounds and CRS from a LAZ file.
     Optionally writes results to a pickle file with the same basename.
@@ -2210,10 +2211,10 @@ def get_laz_bounds_and_crs(laz_file, pkl_dir, write_pickle=True):
     ----------
     laz_file : str
         Path to LAS/LAZ file
-    pkl_dir : str
-        Path to pickle directory
+    pkl_path : str
+        Path to pickle file
     write_pickle : bool, optional
-        If True, write results to <basename>.pkl
+        If True, write results to pkl_path
 
     Returns
     -------
@@ -2255,10 +2256,6 @@ def get_laz_bounds_and_crs(laz_file, pkl_dir, write_pickle=True):
     }
 
     if write_pickle:
-        basename = os.path.basename(laz_file)
-        base, _ = os.path.splitext(basename)
-        pkl_file = base + ".pkl"
-        pkl_path = os.path.join(pkl_dir, pkl_file)
 
         with open(pkl_path, "wb") as f:
             pickle.dump(result, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -3060,7 +3057,14 @@ if __name__ == "__main__":
                             os.chdir(laz_dir)
                             lazs = glob.glob('*.laz')
                             for laz_file in lazs:
-                                get_laz_bounds_and_crs(laz_file, pkl_dir, write_pickle=True)
+                                write_pickle = True
+                                basename = os.path.basename(laz_file)
+                                base, _ = os.path.splitext(basename)
+                                pkl_file = base + ".pkl"
+                                pkl_path = os.path.join(pkl_dir, pkl_file)
+                                if not os.path.isfile(pkl_path):
+                                    log.info(f'writing pickle file: {pkl_path}')
+                                    get_laz_bounds_and_crs(laz_file, pkl_path, write_pickle=write_pickle)
                             
                             bounds_dir = pkl_dir.replace('pkl', 'bounds')
                             df.create_needed_dirs_and_gdbs(bounds_dir, log)
