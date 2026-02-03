@@ -1836,211 +1836,6 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1):#maskFc_3857
     return parts, square_area
 
 
-# def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eleDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir, ql1, getEPT):
-#     try:
-#         if df.testForZero(prev_merged):
-#             if not getEPT:
-#                 geom_srOut_copy = None
-            
-#             else:
-#                 # requests to EPT must be in 3857
-#                 prev_merged_projected_3857 = arcpy.management.Project(prev_merged, 'proj_trial', 3857)
-#                 # max_area = 0
-#                 url_list = df.getfields(wesm_huc12, 'url*')
-#                 with arcpy.da.SearchCursor(prev_merged_projected_3857, ['SHAPE@', work_id_name] + url_list, sql_clause = [None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:#work_id_name, 'SHAPE@AREA', 'lpc_link']) as scur:
-#                 # with arcpy.da.SearchCursor(prev_merged_projected_3857, ['SHAPE@', work_id_name] + url_list, work_id_name + ' = -1117', sql_clause = [None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:#work_id_name, 'SHAPE@AREA', 'lpc_link']) as scur:
-#                 # with arcpy.da.SearchCursor(prev_merged_projected_3857, ['SHAPE@', work_id_name, 'SHAPE@AREA', 'lpc_link']) as scur:
-#                     for srow in scur:
-#                         log.debug(f'{work_id_name} is: {srow[1]}')
-#                         geom = srow[0]
-#                         geom_extent = geom.extent
-#                         las_size_threshold = 750 #bytes, then assume .las file has points
-#                         parts, square_area = queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1)#maskFc_3857, maskFc_3857_desc)
-
-#                         arcpy.env.outputCoordinateSystem = srOut
-#                         for part in parts:
-#                             work_id = srow[1]
-#                             work_id_part = str(srow[1]) + part[0]
-#                             extent_request = part[1]
-
-#                             geom_srOut = geom.projectAs(arcpy.SpatialReference(srOutCode))
-#                             valid_geom_name = arcpy.ValidateTableName('geom_proj_' + work_id_part, sgdb)
-#                             geom_srOut_copy = arcpy.CopyFeatures_management(geom_srOut, valid_geom_name)
-
-#                             # get the first non-None url, that will tell us address of EPT.JSON
-#                             urls = srow[1:]
-#                             for u in urls:
-#                                 if u is not None:
-#                                     url = u
-#                             ept_address = url
-
-#                             ept_zlas_filename = "_".join(["ept", huc12, str(work_id_part) + ".zlas"])
-#                             ept_zlas_full_filename = os.altsep.join([eleDir.replace(os.path.sep, os.path.altsep), ept_zlas_filename])
-
-#                             ept_las_filename = ept_zlas_filename.replace(".zlas", ".las")
-
-#                             ept_laz_filename = ept_zlas_filename.replace(".zlas", ".laz")
-#                             ept_laz_full_filename = os.altsep.join([eleDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
-#                             ept_laz_path = Path(ept_laz_full_filename)
-#                             # check for a local backup copy, if exists, update path to avoid re-downloading
-#                             new_path = Path('M:/', *ept_laz_path.parts[1:])
-#                             alt_ept_laz_full_filename = new_path#ept_laz_path.replace(anchor = 'M:')
-#                             if os.path.isfile(alt_ept_laz_full_filename):
-#                                 log.debug(f'using alt laz file {alt_ept_laz_full_filename}')
-#                                 ept_laz_full_filename = str(alt_ept_laz_full_filename)
-#                             # local_ept_laz_full_filename = os.altsep.join([procDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
-
-#                             # pipeline json requires / not \ for path separator
-#                             ept_las_full_filename = os.altsep.join([procDir.replace(os.path.sep, os.path.altsep), ept_las_filename])
-#                             # NEEDS UPDATE - check for files in lidar_download_directory as well - getting ready below
-#                             # dl_ept_laz_full_filename = ept_laz_full_filename.replace(eptDir, eleDir)
-#                             # dl_ept_zlas_full_filename = ept_zlas_full_filename.replace(eptDir, eleDir)
-#                             if os.path.isfile(ept_laz_full_filename) and not os.path.isfile(ept_las_full_filename):
-#                                 log.info('converting laz to las from archive')
-#                                 log.info(f"arguments: {ept_laz_full_filename}, {procDir}")
-#                                 las_result = arcpy.conversion.ConvertLas(ept_laz_full_filename, procDir)#, compression = 'ZLAS')
-#                                 log.info(las_result)
-#                             elif os.path.isfile(ept_zlas_full_filename) and not os.path.isfile(ept_las_full_filename):
-#                                 log.info('converting zlas to las')
-#                                 log.info(f"arguments: {ept_zlas_full_filename}, {procDir}")
-#                                 las_result = arcpy.conversion.ConvertLas(ept_zlas_full_filename, procDir)#, compression = 'ZLAS')
-#                                 log.info(las_result)
-#                             # if zlas does not exist, get las then convert to zlas
-#                             if not os.path.isfile(ept_zlas_full_filename) and not os.path.isfile(ept_laz_full_filename):
-#                                 log.info('Getting LAS from EPT')
-#                                 log.info(ept_zlas_filename)
-
-#                                 ept_json_filename = "_".join(["get", "ept", huc12, str(work_id_part) + ".json"])
-
-#                                 df.create_needed_dirs_and_gdbs(ept_las_full_filename, log)
-#                                 df.create_needed_dirs_and_gdbs(eleDir, log)
-#                                 ept_json_full_filename = create_ept_json_pipeline(ept_json_filename, eleDir, ept_las_full_filename, extent_request, ept_address, srOutCode)
-#                                 df.create_needed_dirs_and_gdbs(ept_json_full_filename, log)
-
-#                                 if not os.path.exists(ept_las_full_filename):
-#                                     run_string = " ".join([pdal_exe, "pipeline", ept_json_full_filename])
-#                                     # estimate download time based on 102500040309 (area 1175 km2) in 4 parts
-#                                     m2_per_sec = 1175.2*1000**2/len(parts)/2200
-#                                     log.debug(f'pdal run_string: {run_string}')
-#                                     log.info(f'Estimated pdal download time (for QL2 lidar): {round(square_area/(m2_per_sec * len(parts) * 60), 2)} minutes for {ept_json_filename}')
-#                                     co = subprocess.call(run_string, creationflags=CREATE_NO_WINDOW)
-#                                     # co = subprocess.run(run_string)
-#                                     log.debug(f'completed pdal run_string')
-
-#                                 # archive as zlas for use later in this script and re-use
-#                                 stats = os.stat(ept_las_full_filename)
-#                                 if stats.st_size > las_size_threshold:
-#                                     if not os.path.isfile(ept_laz_full_filename) and not os.path.isfile(ept_zlas_full_filename):
-#                                         # takes too long, laz is much faster to create
-#                                         # log.info('converting las to zlas for archive')
-#                                         # zlas_result = arcpy.conversion.ConvertLas(ept_las_full_filename, ele, compression = 'ZLAS', las_options = None)
-#                                         # log.info(zlas_result)
-
-#                                         log.debug('converting las to laz for archive')
-#                                         laz_json_filename = "_".join(["laz", "ept", huc12, str(work_id_part) + ".json"])
-#                                         laz_json_full_filename = create_laz_json_pipeline(laz_json_filename, eleDir, ept_las_full_filename, ept_laz_full_filename)
-#                                         laz_run_string = " ".join([pdal_exe, "pipeline", laz_json_full_filename])
-#                                         log.debug(f'pdal run_string: {laz_run_string}')
-#                                         co = subprocess.call(laz_run_string, creationflags=CREATE_NO_WINDOW)
-#                                         # co = subprocess.run(laz_run_string)
-#                                         log.debug(f'ran pdal run_string')
-
-#                                         # ADD CODE to do local then copy, SLOW on network drives 
-#                                         # laz_result = arcpy.conversion.ConvertLas(ept_las_full_filename, eleDir, compression = 'LAZ', las_options = None)
-#                                         # log.debug(laz_result)
-
-#                                     # arcpy.Delete_management(ept_las_full_filename)
-#                                 else:
-#                                     poly35 = geom_extent.polygon
-#                                     p35 = arcpy.management.CopyFeatures(poly35, opj(sgdb, 'failed_' + valid_geom_name))
-#                                     log.warning(f"{ept_las_full_filename} has very small file size; plotting extent as poly: {p35}")
-#                                     ## Use to get requested bounds
-#                                     # geom_extent.JSON
-#                                     # '{"xmin":-11386571.4549,"ymin":5310909.4501999989,"xmax":-11370238.307800001,"ymax":5314697.4098999985,"spatialReference":{"wkid":102100,"latestWkid":3857}}'
-
-#                                     ## Use to plot query bounds from PDAL Debug or from EPT.JSON file header
-#                                     # arcpy.env.outputCoordinateSystem = 3857
-#                                     # ept_json_extent = arcpy.Extent(-11583422,5262814,-11396830,5449406)
-#                                     # ept_json_extent_polygon = ept_json_extent.polygon
-#                                     # ept_json_polygon = arcpy.management.CopyFeatures(ept_json_extent_polygon, opj(sgdb, 'poly37'))
-#                             else:
-#                                 if os.path.isfile(ept_las_full_filename):
-#                                     stats = os.stat(ept_las_full_filename)
-#                                 else:
-#                                     log.warning("can't get good LAS data, skipping to next project")
-#                                     continue
-
-#                         # # if co.returncode == 0:
-#                         # if os.path.exists(ept_las_full_filename) and stats.st_size > las_size_threshold:
-#                         #     cl2Las = processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom_srOut, ept_las_full_filename, srOut, inm, FDSet, procDir, allTilesList, log, time, work_id)
-#                         #     #remove invalid geometry
-#                         #     if cl2Las is None:
-#                         #         log.warning('deleting ' + str(geom_srOut_copy))
-#                         #         delete = arcpy.Delete_management(geom_srOut_copy)
-#                         #         # remove from dates
-#                         #         prev_merged = arcpy.Select_analysis(prev_merged, where_clause = work_id_name + ' <> ' + str(work_id))
-#                         #     else:
-#                         #         cl2LasNotNone = cl2Las
-#                         # elif os.path.exists(ept_las_full_filename):
-#                         #     log.warning('EPT LAS file too small, no points')
-#                         #     run_string += ' --debug'
-#                         #     log.warning(f'Invalid call was {run_string}')
-
-#                         # else:
-#                         #     log.warning('No valid output from ept.json request')
-#                         #     log.warning(f'Invalid call was {run_string}')
-#                         #     sys.exit(1)
-
-#         # #revert to previous good cl2Las if last is None
-#         # if cl2Las is None:
-#         #     cl2Las = cl2LasNotNone
-
-#         # return cl2Las, geom_srOut_copy
-#         return geom_srOut_copy
-
-#     except Exception as e:
-#         print('handling as exception')
-# ##        log.debug(e.message)
-#         if sys.version_info.major == 2:
-#             arcpy.AddError(e.message)
-#             print(e.message)
-#         elif sys.version_info.major == 3:
-#             arcpy.AddError(e)
-#             print(e)
-
-#         tb = sys.exc_info()[2]
-#         tbinfo = traceback.format_tb(tb)[0]
-
-#         # Concatenate information together concerning the error into a message string
-#         pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-#         # Return python error messages for use in script tool or Python Window
-#         arcpy.AddError(pymsg)
-#         # Print Python error messages for use in Python / Python Window
-#         print(pymsg + "\n")
-
-#         if arcpy.GetMessages(2) not in pymsg:
-#             msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-#             arcpy.AddError(msgs)
-#             print(msgs)
-
-#     except:
-#         print('handling as except')
-#         # Get the traceback object
-#         tb = sys.exc_info()[2]
-#         tbinfo = traceback.format_tb(tb)[0]
-
-#         # Concatenate information together concerning the error into a message string
-#         pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-#         # Return python error messages for use in script tool or Python Window
-#         arcpy.AddError(pymsg)
-#         # Print Python error messages for use in Python / Python Window
-#         print(pymsg + "\n")
-
-#         if arcpy.GetMessages(2) not in pymsg:
-#             msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-#             arcpy.AddError(msgs)
-#             print(msgs)
-
 
 def try_to_delete(rasRes, log):
     if arcpy.Exists(rasRes):
@@ -2095,105 +1890,147 @@ def download_usgs_laz(
     user_agent : str
         HTTP user-agent
     """
+    try:
+        os.makedirs(output_dir, exist_ok=True)
 
-    os.makedirs(output_dir, exist_ok=True)
+        session = requests.Session()
+        session.headers.update({"User-Agent": user_agent})
 
-    session = requests.Session()
-    session.headers.update({"User-Agent": user_agent})
+        log.info(f"Scanning: {page_url}")
+        resp = session.get(page_url, timeout=timeout)
+        resp.raise_for_status()
 
-    print(f"\nScanning: {page_url}")
-    log.info(f"Scanning: {page_url}")
-    resp = session.get(page_url, timeout=timeout)
-    resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
 
-    soup = BeautifulSoup(resp.text, "html.parser")
+        laz_files = []
 
-    laz_files = []
+        for link in soup.find_all("a", href=True):
+            href = link["href"]
+            if href.lower().endswith(".laz"):
+                filename = os.path.basename(urlparse(href).path)
 
-    for link in soup.find_all("a", href=True):
-        href = link["href"]
-        if href.lower().endswith(".laz"):
-            filename = os.path.basename(urlparse(href).path)
+                # Extract file size from Apache listing line
+                line_text = link.parent.get_text(" ", strip=True)
+                size_match = re.search(
+                    rf"{re.escape(filename)}\s+\d+\-\w+\-\d+\s+\d+:\d+\s+(\d+)",
+                    line_text
+                )
 
-            # Extract file size from Apache listing line
-            line_text = link.parent.get_text(" ", strip=True)
-            size_match = re.search(
-                rf"{re.escape(filename)}\s+\d+\-\w+\-\d+\s+\d+:\d+\s+(\d+)",
-                line_text
-            )
+                expected_size = int(size_match.group(1)) if size_match else None
+                laz_files.append((filename, urljoin(page_url, href), expected_size))
 
-            expected_size = int(size_match.group(1)) if size_match else None
-            laz_files.append((filename, urljoin(page_url, href), expected_size))
+        log.info(f"Found {len(laz_files)} LAZ files")
 
-    print(f"Found {len(laz_files)} LAZ files\n")
-    log.info(f"Found {len(laz_files)} LAZ files")
+        for filename, url, expected_size in laz_files:
+            out_path = os.path.join(output_dir, filename)
+            alt_out_path = os.path.join(alt_output_dir, filename.lower())
 
-    for filename, url, expected_size in laz_files:
-        out_path = os.path.join(output_dir, filename)
-        alt_out_path = os.path.join(alt_output_dir, filename.lower())
+            # Skip valid existing file
+            if (os.path.exists(out_path) and expected_size) or (os.path.exists(alt_out_path) and expected_size):
+                if os.path.getsize(out_path) == expected_size:
+                    log.info(f"Exists (size OK): {filename}")
+                    return_path = out_path
+                    continue
+                elif os.path.getsize(alt_out_path) == expected_size:
+                    log.info(f"Exists (size OK): {filename}")
+                    return_path = alt_out_path
+                    continue
+                else:
+                    log.info(f"Re-downloading (size mismatch): {filename}") 
 
-        # Skip valid existing file
-        if (os.path.exists(out_path) and expected_size) or (os.path.exists(alt_out_path) and expected_size):
-            if os.path.getsize(out_path) == expected_size:
-                print(f"✔ Exists (size OK): {filename}")
-                log.info(f"Exists (size OK): {filename}")
-                return_path = out_path
-                continue
-            elif os.path.getsize(alt_out_path) == expected_size:
-                print(f"✔ Exists (size OK): {filename}")
-                log.info(f"Exists (size OK): {filename}")
-                return_path = alt_out_path
-                continue
-            else:
-                print(f"↺ Re-downloading (size mismatch): {filename}")
-                log.info(f"Re-downloading (size mismatch): {filename}") 
+            success = False
 
-        success = False
+            for attempt in range(1, max_retries + 1):
+                try:
+                    log.info(f"Downloading ({attempt}/{max_retries}): {filename}")  
 
-        for attempt in range(1, max_retries + 1):
-            try:
-                print(f"↓ Downloading ({attempt}/{max_retries}): {filename}")
-                log.info(f"Downloading ({attempt}/{max_retries}): {filename}")  
+                    with session.get(url, stream=True, timeout=timeout) as r:
+                        r.raise_for_status()
+                        with open(out_path, "wb") as f:
+                            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                                if chunk:
+                                    f.write(chunk)
 
-                with session.get(url, stream=True, timeout=timeout) as r:
-                    r.raise_for_status()
-                    with open(out_path, "wb") as f:
-                        for chunk in r.iter_content(chunk_size=1024 * 1024):
-                            if chunk:
-                                f.write(chunk)
+                    downloaded_size = os.path.getsize(out_path)
 
-                downloaded_size = os.path.getsize(out_path)
+                    if expected_size and downloaded_size != expected_size:
+                        raise ValueError(
+                            f"Size mismatch (expected {expected_size}, got {downloaded_size})"
+                        )
 
-                if expected_size and downloaded_size != expected_size:
-                    raise ValueError(
-                        f"Size mismatch (expected {expected_size}, got {downloaded_size})"
-                    )
+                    log.info(f"Download complete: {filename}")
+                    return_path = out_path
+                    success = True
+                    break
 
-                print(f"✔ Download complete: {filename}")
-                log.info(f"Download complete: {filename}")
-                return_path = out_path
-                success = True
-                break
+                except Exception as e:
+                    log.warning(f"Attempt {attempt} failed: {e}")
 
-            except Exception as e:
-                print(f"⚠ Attempt {attempt} failed: {e}")
-                log.warning(f"Attempt {attempt} failed: {e}")
+                    if os.path.exists(out_path):
+                        os.remove(out_path)
 
-                if os.path.exists(out_path):
-                    os.remove(out_path)
+                    if attempt < max_retries:
+                        sleep(retry_delay)
 
-                if attempt < max_retries:
-                    sleep(retry_delay)
+            if not success:
+                log.warning(f"FAILED after {max_retries} attempts: {filename}")
 
-        if not success:
-            print(f"✖ FAILED after {max_retries} attempts: {filename}")
-            log.warning(f"FAILED after {max_retries} attempts: {filename}")
+    except TypeError as e:
+        print('handling as exception')
+##        log.debug(e.message)
+        if sys.version_info.major == 2:
+            arcpy.AddError(e.message)
+            print(e.message)
+            log.warning(e.message)
+        elif sys.version_info.major == 3:
+            arcpy.AddError(e)
+            print(e)
+            if log is not None:
+                log.warning(e)
 
-    print("\nDone.")
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
 
-    return return_path
+        # Concatenate information together concerning the error into a message string
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        # Return python error messages for use in script tool or Python Window
+        arcpy.AddError(pymsg)
+        # Print Python error messages for use in Python / Python Window
+        print(pymsg + "\n")
+        if log is not None:
+            log.warning(pymsg)
 
+        if arcpy.GetMessages(2) not in pymsg:
+            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+            arcpy.AddError(msgs)
+            print(msgs)
+            if log is not None:
+                log.warning(msgs)
 
+    except:
+        print('handling as except')
+        # Get the traceback object
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+
+        # Concatenate information together concerning the error into a message string
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        # Return python error messages for use in script tool or Python Window
+        arcpy.AddError(pymsg)
+        # Print Python error messages for use in Python / Python Window
+        print(pymsg + "\n")
+        if log is not None:
+            log.warning(pymsg)
+
+        if arcpy.GetMessages(2) not in pymsg:
+            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+            arcpy.AddError(msgs)
+            print(msgs)
+            if log is not None:
+                log.warning(msgs)
+
+    finally:
+        return return_path
 
 
 import json
