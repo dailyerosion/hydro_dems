@@ -1927,14 +1927,16 @@ def download_usgs_laz(
 
             # Skip valid existing file
             if (os.path.exists(out_path) and expected_size) or (os.path.exists(alt_out_path) and expected_size):
-                if os.path.getsize(out_path) == expected_size:
-                    log.info(f"Exists (size OK): {filename}")
-                    return_path = out_path
-                    continue
-                elif os.path.getsize(alt_out_path) == expected_size:
-                    log.info(f"Exists (size OK): {filename}")
-                    return_path = alt_out_path
-                    continue
+                if os.path.exists(out_path):
+                    if os.path.getsize(out_path) == expected_size:
+                        log.info(f"Exists (size OK): {filename}")
+                        return_path = out_path
+                        continue
+                elif os.path.exists(alt_out_path):
+                    if os.path.getsize(alt_out_path) == expected_size:
+                        log.info(f"Exists (size OK): {filename}")
+                        return_path = alt_out_path
+                        continue
                 else:
                     log.info(f"Re-downloading (size mismatch): {filename}") 
 
