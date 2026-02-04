@@ -2911,8 +2911,8 @@ if __name__ == "__main__":
                             out_fc_name = 'laz_bounds_' + str(srow[1])
                             out_fc = os.path.join(out_gdb, out_fc_name)
                             df.create_needed_dirs_and_gdbs(out_fc, log)
-
-                            build_bounds_of_pkls(pkl_dir, out_gdb, out_fc_name, out_fc, work_id_name, srow[1])
+                            if not arcpy.Exists(out_fc):
+                                build_bounds_of_pkls(pkl_dir, out_gdb, out_fc_name, out_fc, work_id_name, srow[1])
                             bounds_list.append(out_fc)
 
                 out_fc_merge = arcpy.Merge_management(bounds_list, os.path.join('in_memory', 'out_fc_merge'))
