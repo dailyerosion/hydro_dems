@@ -2906,9 +2906,9 @@ if __name__ == "__main__":
                             bounds_dir = pkl_dir.replace('pkl', 'bounds')
                             df.create_needed_dirs_and_gdbs(bounds_dir, log)
                             out_gdb = opj(bounds_dir, 'laz_bounds_' + str(srow[1]) + '.gdb')
-                            df.create_needed_dirs_and_gdbs(out_gdb, log)
                             out_fc_name = 'laz_bounds_' + str(srow[1])
                             out_fc = os.path.join(out_gdb, out_fc_name)
+                            df.create_needed_dirs_and_gdbs(out_fc, log)
 
                             build_bounds_of_pkls(pkl_dir, out_gdb, out_fc_name, out_fc, work_id_name, srow[1])
                             bounds_list.append(out_fc)
@@ -2925,6 +2925,8 @@ if __name__ == "__main__":
                 with arcpy.da.SearchCursor(out_fc_clip, ['OBJECTID', 'laz_file']) as scur:
                     for srow in scur:
                         laz_file = srow[1].replace('\\laz\\', '\\USGS_LPC\\')
+                        if not os.path.isfile(laz_file):
+                            laz_file = laz_file.replace('E:\\DEP\\USGS_LPC', 'M:\\DEP\\USGS_LPC')
                         po_laz_file = Path(laz_file)
                         dest = po_all_laz_dir.joinpath(po_laz_file.name)
                         if not os.path.isfile(dest):
