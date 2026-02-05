@@ -2067,9 +2067,24 @@ def create_needed_dirs_and_gdbs(requested_location, log):
                 else:
                     create_gdb_flag = False
                     # create_fd_flag = False
+            elif requested_fc_or_file.name.find('.gdb') > -1:
+                # above assumed to be FGDB
+                gdb_path = requested_fc_or_file.parent
+                gdb_folder = str(gdb_path)
+                if not gdb_path.exists():
+                    gdb_path.mkdir(parents=True, exist_ok=True)
+                gdb_name = str(requested_fc_or_file.name)
+                # fd_name = str(requested_fc_or_file.parent.name)
+                log.debug(f"gdb_folder: {gdb_folder} with name: {gdb_name}")# and fd: {fd_name}")
+                if not arcpy.Exists(str(requested_fc_or_file.parent)):
+                    create_gdb_flag = True
+                    # create_fd_flag = True
+                else:
+                    create_gdb_flag = False
+                    # create_fd_flag = False
             else:
                 log.warning(f'Unanticipated GDB location, {requested_location}, unable to proceed')
-                sys.exit(1000)
+                sys.exit(1001)
             if create_gdb_flag:
                 log.debug(f"making gdb: {gdb_folder} with name: {gdb_name}")
                 gdb_result = arcpy.CreateFileGDB_management(gdb_folder, gdb_name)
@@ -2078,10 +2093,10 @@ def create_needed_dirs_and_gdbs(requested_location, log):
             #     log.debug(f"no need to create: {gdb_folder}")
         elif requested_location.find('.sde') > -1:
             log.warning(f'Unanticipated SDE location, {requested_location}, unable to proceed')
-            sys.exit(1000)
+            sys.exit(1002)
         else:
             log.warning(f"we don't do storage in {requested_location} yet!")
-            sys.exit(1000)
+            sys.exit(1003)
 
     except:
         print('handling as except')
