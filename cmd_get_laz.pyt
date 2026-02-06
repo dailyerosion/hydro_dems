@@ -1188,28 +1188,36 @@ def download_usgs_laz(
                 )
 
                 expected_size = int(size_match.group(1)) if size_match else None
+##                expected_size = extract_size_from_line(link)
+                
                 laz_files.append((filename, urljoin(page_url, href), expected_size))
 
         log.info(f"Found {len(laz_files)} LAZ files")
 
         for filename, url, expected_size in laz_files:
             out_path = os.path.join(output_dir, filename)
-            alt_out_path = os.path.join(alt_output_dir, filename.lower())
+##            alt_out_path = os.path.join(alt_output_dir, filename.lower())
 
+            if expected_size == None:#error in regex code reading expected size from USGS website
             # Skip valid existing file
-            if (os.path.exists(out_path) and expected_size) or (os.path.exists(alt_out_path) and expected_size):
                 if os.path.exists(out_path):
+                    log.warning(f"Exists (no size information extracted from soup): {filename}")
+                    return_path = out_path
+                    continue
+
+            elif os.path.exists(out_path) and expected_size:# or (os.path.exists(alt_out_path) and expected_size):
+##                if os.path.exists(out_path):
                     if os.path.getsize(out_path) == expected_size:
                         log.info(f"Exists (size OK): {filename}")
                         return_path = out_path
                         continue
-                elif os.path.exists(alt_out_path):
-                    if os.path.getsize(alt_out_path) == expected_size:
-                        log.info(f"Exists (size OK): {filename}")
-                        return_path = alt_out_path
-                        continue
-                else:
-                    log.info(f"Re-downloading (size mismatch): {filename}") 
+##                elif os.path.exists(alt_out_path):
+##                    if os.path.getsize(alt_out_path) == expected_size:
+##                        log.info(f"Exists (size OK): {filename}")
+##                        return_path = alt_out_path
+##                        continue
+            else:
+                log.info(f"Re-downloading (size mismatch): {filename}") 
 
             success = False
 
@@ -2004,7 +2012,7 @@ if __name__ == "__main__":
     "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07080105/idepACPF0708010509010101.gdb/buf0708010509010101",
     "C:/Users/bkgelder/.conda/envs/pdal/Library/bin/pdal.exe",
     "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_0708010509010101",
-    "get_USGS_LAZ"#alternative - "get_PDAL_LAZ",
+    "get_USGS_LAZ",#alternative - "get_PDAL_LAZ",
     "E:/DEP_Checkout/Man_Data_ACPF/dep_ACPF2023/07080105/idepACPF0708010509010101.gdb/wesm_ept_resources_2026_01_01_0708010509010101",
     "E:/DEP_Checkout/Man_Data_ACPF/dep_ACPF2023/07080105/idepACPF0708010509010101.gdb/wesm_tiles_2026_01_23_0708010509010101",
     "E:/DEP_Checkout/USGS_LPC",
@@ -2306,7 +2314,7 @@ if __name__ == "__main__":
 
                 log.info('processing EPT lidar feature classes into unioned polygon feature class')
                 ept_lidar_fcs = arcpy.ListFeatureClasses(os.path.basename(geom_srOut_copy.getOutput(0))[:10] + '*')
-                wesm_huc12_tiles = arcpy.Union_analysis(ept_lidar_fcs)
+                wesm_huc12_tiles = arcpy.Union_analysis(ept_lidar_fcs, wesm_huc12_tiles)
 
             df.joinDict(wesm_huc12_tiles, work_id_name, wesm_huc12, work_id_name, ['collect_start', 'collect_end'])
 
