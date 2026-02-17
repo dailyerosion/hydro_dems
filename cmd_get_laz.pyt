@@ -1262,7 +1262,7 @@ def create_metadata_json(out_path, pdal_exe, log):
 def download_usgs_laz(
     page_url: str,
     output_dir: str,
-    alt_output_dir: str,
+    # alt_output_dir: str,
     log: logging.Logger,
     timeout: int = 60,
     max_retries: int = 5,
@@ -1332,7 +1332,7 @@ def download_usgs_laz(
 
         for filename, url, expected_size in laz_files:
             out_path = os.path.join(output_dir, filename)
-            alt_out_path = os.path.join(alt_output_dir, filename)
+            # alt_out_path = os.path.join(alt_output_dir, filename)
 
             # Skip valid existing file
             if (os.path.exists(out_path) and expected_size):# or (os.path.exists(alt_out_path) and expected_size):
@@ -1344,15 +1344,15 @@ def download_usgs_laz(
                     continue
                 else:
                     log.info(f"Re-downloading (size mismatch): {filename}") 
-            elif (os.path.exists(alt_out_path) and expected_size):
-                # elif os.path.exists(alt_out_path):
-                if os.path.getsize(alt_out_path) == expected_size:
-                    log.info(f"Alt Path Exists (size OK): {alt_out_path}")
-                    return_path = alt_out_path
-                    create_metadata_json(out_path, pdal_exe, log)
-                    continue
-                else:
-                    log.info(f"Re-downloading (size mismatch): {filename}") 
+            # elif (os.path.exists(alt_out_path) and expected_size):
+            #     # elif os.path.exists(alt_out_path):
+            #     if os.path.getsize(alt_out_path) == expected_size:
+            #         log.info(f"Alt Path Exists (size OK): {alt_out_path}")
+            #         return_path = alt_out_path
+            #         create_metadata_json(out_path, pdal_exe, log)
+            #         continue
+            #     else:
+            #         log.info(f"Re-downloading (size mismatch): {filename}") 
 
             success = False
 
@@ -1612,6 +1612,8 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         log.info("Processing HUC: " + huc12)
         log.info(f"procDir: {procDir}")
         log.info(f"lidar_download_directory: {lidar_download_directory}")
+
+        assert os.path.isfile(pdal_exe), f"PDAL executable not found: {pdal_exe}"
 
         fElevDesc = arcpy.da.Describe(dem_polygon)
         srOut = fElevDesc['spatialReference']
@@ -2614,7 +2616,7 @@ if __name__ == "__main__":
                         log.debug(f'{work_id_name} is: {srow[1]} and lpc_link is: {srow[2]} ')
                         # dl_dir = os.path.join('E:\\DEP\\USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
                         dl_dir = os.path.join(lidar_download_directory, os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
-                        alt_dl_dir = opj('M:/DEP/USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
+                        # alt_dl_dir = opj('M:/DEP/USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
 
                         json_dir = dl_dir.replace('LAZ', 'json')
                         df.create_needed_dirs_and_gdbs(json_dir, log)
@@ -2628,7 +2630,7 @@ if __name__ == "__main__":
                         if not arcpy.Exists(out_fc):
                             page_url = srow[2] + '/LAZ/'
                             try:
-                                return_path = download_usgs_laz(page_url = page_url, output_dir = dl_dir, alt_output_dir = alt_dl_dir, log = log)
+                                return_path = download_usgs_laz(page_url = page_url, output_dir = dl_dir, log = log)
                             except:
                                 log.warning(f'failed download {page_url}')
                                 return_path = None
