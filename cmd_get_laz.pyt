@@ -2616,9 +2616,11 @@ if __name__ == "__main__":
                         dl_dir = os.path.join(lidar_download_directory, os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
                         alt_dl_dir = opj('M:/DEP/USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
 
+                        json_dir = dl_dir.replace('LAZ', 'json')
+                        df.create_needed_dirs_and_gdbs(json_dir, log)
+
                         bounds_dir = dl_dir.replace('LAZ', 'bounds')
                         df.create_needed_dirs_and_gdbs(bounds_dir, log)
-                        json_dir = dl_dir.replace('LAZ', 'json')
                         out_gdb = opj(bounds_dir, 'laz_bounds_' + str(srow[1]) + '.gdb')
                         out_fc_name = 'laz_bounds_' + str(srow[1])
                         out_fc = os.path.join(out_gdb, out_fc_name)
