@@ -230,7 +230,7 @@ class Tool(object):
     def execute(self, parameters, messages):
         """The source code of the tool."""
         cleanup = False
-        doLidarDEMs(parameters[0].valueAsText, parameters[1].valueAsText, parameters[2].valueAsText, parameters[3].valueAsText, parameters[4].valueAsText, 
+        doLazDownloadCopy(parameters[0].valueAsText, parameters[1].valueAsText, parameters[2].valueAsText, parameters[3].valueAsText, parameters[4].valueAsText, 
                     parameters[5].valueAsText, parameters[6].valueAsText, parameters[7].valueAsText, parameters[8].valueAsText, parameters[9].valueAsText, 
                     parameters[10].valueAsText, parameters[11].valueAsText, parameters[12].valueAsText, parameters[13].valueAsText, parameters[14].valueAsText, 
                     parameters[15].valueAsText, parameters[16].valueAsText, parameters[17].valueAsText, parameters[18].valueAsText, parameters[19].valueAsText, messages)
@@ -1526,15 +1526,12 @@ def get_laz_bounds_and_crs(laz_file, pkl_path, write_pickle=True):
 
 
 
-def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon, 
+def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon, 
          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
          tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup, messages):
     
-    arguments = [monthly_wesm_ept_mashup, dem_polygon, 
-        pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-        tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-        int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup]
+    arguments =     arguments = [monthly_wesm_ept_mashup, dem_polygon, pdal_exe, procDir, get_lidar_method, ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup]
                                                        
     for a in arguments:
         if a == arguments[0]:
@@ -1552,7 +1549,7 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
     arcpy.env.ZResolution = "0.01"
 
     try:
-        huc12, huc8 = df.figureItOut(tElevFile)
+        huc12, huc8 = df.figureItOut(dem_polygon)#tElevFile)
         # the DEP huc DEM naming convention
         pattern27 = 'e[cfpxv][0-9]m\\d{10,16}'
         pattern26 = '[0-9]m\\d{10,16}'
@@ -1585,6 +1582,12 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
 
         if procDir is None:
             procDir = sfldr
+
+        # create export directory for just huc12 laz files, if doesn't exist
+        po_procDir = Path(procDir)
+        po_all_laz_dir = po_procDir.joinpath('laz_for_huc12')
+        if not os.path.isdir(po_all_laz_dir):
+            os.makedirs(po_all_laz_dir)
 
         if lidar_download_directory is None:
             lidar_download_directory = sfldr
@@ -1625,68 +1628,6 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         log.info("Log file at " + logName)
         messages.addMessage("Log file at " + logName)
 
-        flib_metadata_template, derivative_metadata = df.getMetadata(['flib', 'deriv'], procDir, log)
-
-        ## store a list of all DEMs (lidar based, others) that must be joined to create HUC12
-        ## Now a list of lists to facilitate creating two DEM resolutions easily (2 and 3 meter)
-        rezes = gsds.split(",")
-        log.info(f'Resolutions: {rezes}')
-        ordered_rezes = []
-
-        for r in rezes:
-            ordered_rezes.append(r)
-        log.debug(f"ordered_rezes is {ordered_rezes}")
-
-        # do lower to higher resolution
-        # rezes.sort(reverse = True)
-        demLists = [r for r in ordered_rezes]
-        log.debug(f"demLists is {demLists}")
-        # named_cell_size = demLists[0]
-        init_res = demLists[0][0]
-        log.debug(f"init_res is {init_res}")
-
-        if init_res + 'm' not in tElevFile:
-            tElevFile = os.path.splitext(tElevFile)[0] + '_' + str(init_res) + 'm' + os.path.splitext(tElevFile)[1]
-
-        ## windowsizeMethods are the criterion used to select which point(s) in the window define the terrain
-        interpDict = df.loadInterpDict()
-        keys = interpDict.keys()
-        windowsizeMethods = list(keys)[:2]# just get ['ZMEAN', 'ZMINMAX'] - extend to get 'ZMIN' and 'ZMAX'
-        vals = list(interpDict.values())
-        vals_lower = [v.lower() for v in vals]
-        for v in vals_lower:
-            print(v)
-            if v in tElevFile:
-                interpFound = True
-                interpType = v
-                break
-            else:
-                interpFound = False
-        else:
-            if not interpFound:
-                interpType = interpDict[windowsizeMethods[0]]
-            else:
-                log.warning('interpolation type not set')
-        if not interpFound:# not in fElevFile:
-            tElevFile = os.path.splitext(tElevFile)[0] + '_' + interpType + os.path.splitext(tElevFile)[1]
-        log.debug(f'Revised tElevFile: {tElevFile}')
-
-        # create output directories
-        for filename in [tElevFile, cntBeFile, int1rMaxFile, firstReturnMaxFile]:
-            if filename is not None:
-                df.create_needed_dirs_and_gdbs(filename, log)
-
-            # if not os.path.isdir(os.path.dirname(filename)):
-            #     os.makedirs(os.path.dirname(filename))
-            # create directories for alternate interpolation types/windowsize methods
-                if interpType in filename:
-                    for window in windowsizeMethods:
-                        abbrev = interpDict[window]
-                        if abbrev != interpType:
-                            altfilename = filename.replace(interpType, abbrev)
-                            df.create_needed_dirs_and_gdbs(altfilename, log)
-                            # if not os.path.isdir(os.path.dirname(altfilename)):
-                            #     os.makedirs(os.path.dirname(altfilename))
 
     ## If you set a scratch workspace first you can control where the scratchGDB or scratchFolder are created
     ## otherwise it defaults to a user's temp folder
@@ -1702,8 +1643,22 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
         arcpy.env.outputCoordinateSystem = srOut
         srSfx = '_'+str(srOutCode)
 
-        maskRastBase = 'mask_rast_'
-        maskFc, maskFc_area, maskFcOut, maskRastOut, hucRastOut, FDSet = prepPolygonBoundary(dem_polygon, log, sgdb, srOut, srSfx, maskRastBase, demLists)
+        assert int(arcpy.GetCount_management(dem_polygon).getOutput(0)) < 2, 'multiple features in polygon feature class'
+        assert int(arcpy.GetCount_management(dem_polygon).getOutput(0)) > 0, 'no features in polygon feature class'
+        maskFc = arcpy.CopyFeatures_management(dem_polygon)
+        maskFc_area = [s[0] for s in arcpy.da.SearchCursor(maskFc, ['SHAPE@AREA'])][0]
+
+        if 'id' not in df.getfields(maskFc):
+            arcpy.AddField_management(maskFc, 'id', 'LONG')
+            arcpy.CalculateField_management(maskFc, 'id', 1, 'PYTHON')
+
+        log.info("maskFcPrelim complete at: " + time.asctime())
+
+        # ## Set up geodatabase to store the multipoint files and terrains (necessary all inputs be in feature dataset
+        # # Vertical units are in meters (float) so use a meter-based reference
+        # FDSet = arcpy.CreateFeatureDataset_management(sgdb, "Lidar_pts", srOut)
+        maskFcOut = projIfNeeded(maskFc, os.path.join(str(sgdb), 'get_laz_bnds' + srSfx), srOut)
+        log.info("maskFcOut complete at: " + time.asctime())
         
 ##----------------------------------------------------------------------
 
@@ -1736,34 +1691,72 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
             prev_merged, merged_area, addOrderField = organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log)
 
         if df.testForZero(prev_merged):
-            get_USGS_LAZ = True # otherwise use PDAL to get data via EPT 
-            if get_USGS_LAZ:
+            if get_lidar_method == "get_USGS_LAZ":
+            # if get_USGS_LAZ:
+                bounds_list = []
                 with arcpy.da.SearchCursor(prev_merged, ['SHAPE@', work_id_name, 'lpc_link'] + url_list, sql_clause = [None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:
                     for srow in scur:
                         log.debug(f'{work_id_name} is: {srow[1]} and lpc_link is: {srow[2]} ')
-                
-##            geom_srOut_copy = getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, lidar_download_directory, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir, ql1, getEPT)
-##
-##def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eleDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir, ql1, getEPT):
-##    try:
-##            if not getEPT:
-##                geom_srOut_copy = None
-            
-            else:
+                        # dl_dir = os.path.join('E:\\DEP\\USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
+                        dl_dir = os.path.join(lidar_download_directory, os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
+                        # alt_dl_dir = opj('M:/DEP/USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
+
+                        json_dir = dl_dir.replace('LAZ', 'json')
+                        df.create_needed_dirs_and_gdbs(json_dir, log)
+
+                        bounds_dir = dl_dir.replace('LAZ', 'bounds')
+                        df.create_needed_dirs_and_gdbs(bounds_dir, log)
+                        out_gdb = opj(bounds_dir, 'laz_bounds_' + str(srow[1]) + '.gdb')
+                        out_fc_name = 'laz_bounds_' + str(srow[1])
+                        out_fc = os.path.join(out_gdb, out_fc_name)
+
+                        if not arcpy.Exists(out_fc):
+                            page_url = srow[2] + '/LAZ/'
+                            try:
+                                return_path = download_usgs_laz(page_url = page_url, output_dir = dl_dir, log = log)
+                            except:
+                                log.warning(f'failed download {page_url}')
+                                return_path = None
+
+                            create_bounds_from_json(json_dir, out_gdb, out_fc_name, work_id_name, srow[1], create_gdb=True)
+
+                        bounds_list.append(out_fc)
+
+                log.info(f'bounds_list: {bounds_list}')
+                out_fc_merge = arcpy.Merge_management(bounds_list, os.path.join('in_memory', 'out_fc_merge'))
+
+                out_fc_clip = arcpy.Clip_analysis(out_fc_merge, maskFc)
+
+                # copy the HUC12 laz files to a single directory for easier access in future processing
+                with arcpy.da.SearchCursor(out_fc_clip, ['OBJECTID', 'laz_file']) as scur:
+                    for srow in scur:
+                        laz_file = srow[1].replace('\\laz\\', '\\USGS_LPC\\')
+                        if not os.path.isfile(laz_file):
+                            laz_file = laz_file.replace('E:\\DEP\\USGS_LPC', 'M:\\DEP\\USGS_LPC')
+                        po_laz_file = Path(laz_file)
+                        dest = po_all_laz_dir.joinpath(po_laz_file.name)
+                        if not os.path.isfile(dest):
+                            shutil.copy(po_laz_file, dest)
+
+                df.create_needed_dirs_and_gdbs(wesm_huc12_tiles, log)
+                wesm_huc12_tiles = arcpy.CopyFeatures_management(out_fc_clip, wesm_huc12_tiles)
+                                
+
+                        
+            elif get_lidar_method == "get_PDAL_LAZ":
                 eleDir = lidar_download_directory
                 # requests to EPT must be in 3857
                 prev_merged_projected_3857 = arcpy.management.Project(prev_merged, 'proj_trial', 3857)
                 # max_area = 0
                 url_list = df.getfields(wesm_huc12, 'url*')
-                with arcpy.da.SearchCursor(prev_merged_projected_3857, ['SHAPE@', work_id_name] + url_list, sql_clause = [None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:#work_id_name, 'SHAPE@AREA', 'lpc_link']) as scur:
-                # with arcpy.da.SearchCursor(prev_merged_projected_3857, ['SHAPE@', work_id_name] + url_list, work_id_name + ' = -1117', sql_clause = [None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:#work_id_name, 'SHAPE@AREA', 'lpc_link']) as scur:
-                # with arcpy.da.SearchCursor(prev_merged_projected_3857, ['SHAPE@', work_id_name, 'SHAPE@AREA', 'lpc_link']) as scur:
+                fishnet_tiles_list = []
+                with arcpy.da.SearchCursor(prev_merged_projected_3857, ['SHAPE@', work_id_name] + url_list, sql_clause=[None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:
                     for srow in scur:
                         log.debug(f'{work_id_name} is: {srow[1]}')
                         geom = srow[0]
                         geom_extent = geom.extent
-                        las_size_threshold = 750 #bytes, then assume .las file has points
-                        parts, square_area = queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1)#maskFc_3857, maskFc_3857_desc)
+                        las_size_threshold = 750
+                        parts, square_area, fishnet_tiles, pt_field_name = queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1)
 
                         arcpy.env.outputCoordinateSystem = srOut
                         for part in parts:
@@ -1774,6 +1767,8 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                             geom_srOut = geom.projectAs(arcpy.SpatialReference(srOutCode))
                             valid_geom_name = arcpy.ValidateTableName('geom_proj_' + work_id_part, sgdb)
                             geom_srOut_copy = arcpy.CopyFeatures_management(geom_srOut, valid_geom_name)
+                            arcpy.management.AddField(geom_srOut_copy, work_id_name, "LONG")
+                            arcpy.management.CalculateField(geom_srOut_copy, work_id_name, work_id, "PYTHON")
 
                             # get the first non-None url, that will tell us address of EPT.JSON
                             urls = srow[1:]
@@ -1871,151 +1866,69 @@ def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon,
                                     # ept_json_extent = arcpy.Extent(-11583422,5262814,-11396830,5449406)
                                     # ept_json_extent_polygon = ept_json_extent.polygon
                                     # ept_json_polygon = arcpy.management.CopyFeatures(ept_json_extent_polygon, opj(sgdb, 'poly37'))
+                            elif os.path.isfile(ept_las_full_filename):
+                                stats = os.stat(ept_las_full_filename)
                             else:
-                                if os.path.isfile(ept_las_full_filename):
-                                    stats = os.stat(ept_las_full_filename)
-                                else:
-                                    log.warning("can't get good LAS data, skipping to next project")
-                                    continue
+                                log.warning("can't get good LAS data, skipping to next project")
+                                continue
 
-                        # # if co.returncode == 0:
-                        # if os.path.exists(ept_las_full_filename) and stats.st_size > las_size_threshold:
-                        #     cl2Las = processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom_srOut, ept_las_full_filename, srOut, inm, FDSet, procDir, allTilesList, log, time, work_id)
-                        #     #remove invalid geometry
-                        #     if cl2Las is None:
-                        #         log.warning('deleting ' + str(geom_srOut_copy))
-                        #         delete = arcpy.Delete_management(geom_srOut_copy)
-                        #         # remove from dates
-                        #         prev_merged = arcpy.Select_analysis(prev_merged, where_clause = work_id_name + ' <> ' + str(work_id))
-                        #     else:
-                        #         cl2LasNotNone = cl2Las
-                        # elif os.path.exists(ept_las_full_filename):
-                        #     log.warning('EPT LAS file too small, no points')
-                        #     run_string += ' --debug'
-                        #     log.warning(f'Invalid call was {run_string}')
+                        # copy the laz files to a single directory for easier access in future processing
+                        cur_cwd = os.getcwd()
+                        os.chdir(eleDir)
+                        lazs = glob.glob(ept_laz_filename[:16] + '*.laz')
+                        for laz_file in lazs:
+                            po_ele_dir = Path(eleDir)
+                            po_laz_file = po_ele_dir.joinpath(laz_file)
+                            dest = po_all_laz_dir.joinpath(laz_file)
+                            if not os.path.isfile(dest):
+                                shutil.copy(po_laz_file, dest)
+                        os.chdir(cur_cwd)
 
-                        # else:
-                        #     log.warning('No valid output from ept.json request')
-                        #     log.warning(f'Invalid call was {run_string}')
-                        #     sys.exit(1)
+                        # add the laz file paths to the attribute table of the fishnet tiles
+                        arcpy.management.AddField(fishnet_tiles, "laz_file", "TEXT", field_length=200)
+                        arcpy.management.AddField(fishnet_tiles, work_id_name, "LONG")
+                        with arcpy.da.UpdateCursor(fishnet_tiles, ['SHAPE@', 'laz_file', work_id_name, pt_field_name]) as ucur:
+                            for urow in ucur:
+                                baselaz = '_'.join(['ept', huc12, str(work_id_part), 'pt' + urow[-1] + '.laz'])
+                                laz_path = os.path.join(eleDir, baselaz)
+                                urow[1] = laz_path
+                                urow[2] = work_id_part
+                                ucur.updateRow(urow)
 
-        # #revert to previous good cl2Las if last is None
-        # if cl2Las is None:
-        #     cl2Las = cl2LasNotNone
+                        fishnet_tiles_list.append(fishnet_tiles)
 
-        # return cl2Las, geom_srOut_copy
-##        return geom_srOut_copy
-##
-##    except Exception as e:
-##        print('handling as exception')
-####        log.debug(e.message)
-##        if sys.version_info.major == 2:
-##            arcpy.AddError(e.message)
-##            print(e.message)
-##        elif sys.version_info.major == 3:
-##            arcpy.AddError(e)
-##            print(e)
-##
-##        tb = sys.exc_info()[2]
-##        tbinfo = traceback.format_tb(tb)[0]
-##
-##        # Concatenate information together concerning the error into a message string
-##        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-##        # Return python error messages for use in script tool or Python Window
-##        arcpy.AddError(pymsg)
-##        # Print Python error messages for use in Python / Python Window
-##        print(pymsg + "\n")
-##
-##        if arcpy.GetMessages(2) not in pymsg:
-##            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-##            arcpy.AddError(msgs)
-##            print(msgs)
-##
-##    except:
-##        print('handling as except')
-##        # Get the traceback object
-##        tb = sys.exc_info()[2]
-##        tbinfo = traceback.format_tb(tb)[0]
-##
-##        # Concatenate information together concerning the error into a message string
-##        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-##        # Return python error messages for use in script tool or Python Window
-##        arcpy.AddError(pymsg)
-##        # Print Python error messages for use in Python / Python Window
-##        print(pymsg + "\n")
-##
-##        if arcpy.GetMessages(2) not in pymsg:
-##            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-##            arcpy.AddError(msgs)
-##            print(msgs)
+                log.info('processing EPT lidar feature classes into unioned polygon feature class')
+                ept_lidar_fcs = arcpy.ListFeatureClasses(os.path.basename(geom_srOut_copy.getOutput(0))[:10] + '*')
+                # wesm_huc12_tiles = arcpy.Union_analysis(ept_lidar_fcs, wesm_huc12_tiles)
+                # wesm_huc12_tiles2 = arcpy.Merge_management(ept_lidar_fcs, wesm_huc12_tiles + '_merge')
+                wesm_huc12_tiles = arcpy.Merge_management(fishnet_tiles_list, wesm_huc12_tiles)# + '_list_merge')
 
 
-            arcpy.env.outputCoordinateSystem = srOut
+##----------------------------------------------------------------------
+            # add collection start and end dates to the attribute table of the fishnet tiles for any projects that meet the build threshold, so we can use that info later in the processing to determine which tiles to prioritize for processing and which to maybe skip or process last based on how recent the data is
+            df.joinDict(wesm_huc12, work_id_name, monthly_wesm_ept_mashup, work_id_name, ['collect_start', 'collect_end'])
+            df.joinDict(wesm_huc12_tiles, work_id_name, monthly_wesm_ept_mashup, work_id_name, ['collect_start', 'collect_end'])
 
-            log.debug('tileList is ' + str(allTilesList))
-            # save the merged wesm_las_dates
-
-            arcpy.AddField_management(prev_merged, 'area_field', 'DOUBLE')
-            arcpy.CalculateField_management(prev_merged, 'area_field', '!shape.area!', 'Python 3')
-
-            ptr = arcpy.conversion.PolygonToRaster(prev_merged, work_id_name, opj(sgdb, 'ptr'))
-            int_ptr = Int(ptr)
-            fs1 = FocalStatistics(int_ptr, NbrRectangle(5,5), 'RANGE')
-            internal_regions = Con(fs1 == 0, int_ptr)
-            internal_regions.save(opj(sgdb, 'intrnl_rgns'))
             
-            if ept_wesm_project_file is not None:
-                #assume not in a feature dataset...
-                df.create_needed_dirs_and_gdbs(ept_wesm_project_file, log)
-                # ept_wesm_project_gdb = os.path.dirname(ept_wesm_project_file)
-                # if not arcpy.Exists(ept_wesm_project_gdb):
-                #     if not os.path.isdir(os.path.dirname(ept_wesm_project_gdb)):
-                #         os.makedirs(os.path.dirname(ept_wesm_project_gdb))
-                #     log.debug(f"making gdb: {ept_wesm_project_gdb}")
-                #     ept_gdb = arcpy.CreateFileGDB_management(os.path.dirname(ept_wesm_project_gdb), os.path.basename(ept_wesm_project_gdb))
-                merged_copy = arcpy.CopyFeatures_management(prev_merged, ept_wesm_project_file)
-
-            ept_lidar_fcs = arcpy.ListFeatureClasses(os.path.basename(geom_srOut_copy.getOutput(0))[:10] + '*')
-            tcdFdSet_ept = arcpy.Union_analysis(ept_lidar_fcs)
-
-        # indicate there are no datasets to process further
-        else:
-            prev_merged = None
-            merged_area = 0.00
-
-
     except AssertionError:
         log.warning('assertion failure on: ' + huc12)
         sys.exit(1)
-
     except:
-        # Get the traceback object
-        #
         tb = sys.exc_info()[2]
         tbinfo = traceback.format_tb(tb)[0]
-
-        # Concatenate information together concerning the error into a message string
-        #
-        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-        msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-
-        # Print Python error messages for use in Python / Python Window
-        #
+        pymsg = 'PYTHON ERRORS:\nTraceback info:\n' + tbinfo + '\nError Info:\n' + str(sys.exc_info()[1])
+        msgs = 'ArcPy ERRORS:\n' + arcpy.GetMessages(2) + '\n'
         log.warning(pymsg)
         log.warning(msgs)
-
         log.warning('failure on: ' + huc12)
         sys.exit(1)
-
     finally:
-        log.warning("Finished at " + time.asctime())
+        log.warning('Finished at ' + time.asctime())
         handlers = log.handlers
         for h in handlers:
             log.info('shutting it down!')
             log.removeHandler(h)
             h.close()
-
-    return tElevFile
 
 
 
@@ -2363,501 +2276,46 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
         return None
 
 
-# def batch_process_json_directories(parent_directory, output_gdb, fc_prefix="laz_bounds", create_gdb=True):
-#     """
-#     Process multiple subdirectories containing JSON files and create separate
-#     feature classes for each directory.
-    
-#     Parameters:
-#     -----------
-#     parent_directory : str
-#         Parent directory containing subdirectories with JSON files
-#     output_gdb : str
-#         Path to output geodatabase (will be created if it doesn't exist)
-#     fc_prefix : str, optional
-#         Prefix for feature class names (default: "laz_bounds")
-#     create_gdb : bool, optional
-#         If True, creates the geodatabase if it doesn't exist (default: True)
-#     """
-    
-#     # Check if geodatabase exists, create if needed
-#     if not arcpy.Exists(output_gdb):
-#         if create_gdb:
-#             gdb_path = os.path.dirname(output_gdb)
-#             gdb_name = os.path.basename(output_gdb)
-            
-#             print(f"Geodatabase does not exist. Creating: {output_gdb}")
-#             arcpy.CreateFileGDB_management(gdb_path, gdb_name)
-#             print(f"  ✓ Created geodatabase: {gdb_name}")
-#             print("=" * 60)
-#         else:
-#             print(f"Error: Geodatabase does not exist: {output_gdb}")
-#             print("Set create_gdb=True to create it automatically.")
-#             return
-    
-#     # Get all subdirectories
-#     subdirs = [d for d in os.listdir(parent_directory) 
-#                if os.path.isdir(os.path.join(parent_directory, d))]
-    
-#     if not subdirs:
-#         print(f"No subdirectories found in {parent_directory}")
-#         return
-    
-#     print(f"Found {len(subdirs)} subdirectories to process")
-#     print("=" * 60)
-    
-#     for subdir in subdirs:
-#         subdir_path = os.path.join(parent_directory, subdir)
-        
-#         # Check if directory contains JSON files
-#         json_files = [f for f in os.listdir(subdir_path) 
-#                      if f.lower().endswith('.json')]
-        
-#         if not json_files:
-#             print(f"Skipping {subdir} - no JSON files found")
-#             continue
-        
-#         # Create feature class name from directory name
-#         fc_name = f"{fc_prefix}_{subdir}"
-#         # Clean name to be geodatabase compliant
-#         fc_name = arcpy.ValidateTableName(fc_name, output_gdb)
-        
-#         print(f"\nProcessing directory: {subdir}")
-#         print(f"Feature class: {fc_name}")
-#         print("-" * 60)
-        
-#         create_bounds_from_json(subdir_path, output_gdb, fc_name, work_id_field_name, work_id_field_value, create_gdb=False)
-        
-#         print("=" * 60)
 
-
-# # Example usage
 # if __name__ == "__main__":
-    
-#     # Example 1: Process a single directory of JSON files
-#     # The geodatabase will be created automatically if it doesn't exist
-#     json_dir = r"C:\Path\To\JSON\Files"
-#     output_geodatabase = r"C:\Path\To\Output.gdb"
-#     fc_name = "laz_bounds_2013"
-    
-#     # Create feature class from JSON files (creates GDB if needed)
-#     result_fc = create_bounds_from_json(json_dir, output_geodatabase, fc_name)
-    
-#     # Example 2: Don't create geodatabase automatically
-#     # Uncomment to use:
-#     # result_fc = create_bounds_from_json(json_dir, output_geodatabase, fc_name, create_gdb=False)
-    
-#     # Example 3: Process multiple directories (batch mode)
-#     # Uncomment to use:
-#     # parent_dir = r"C:\Path\To\Parent\Directory"
-#     # batch_process_json_directories(parent_dir, output_geodatabase, fc_prefix="laz_bounds")
-    
-#     # Example 4: Specify a custom spatial reference
-#     # Uncomment to use:
-#     # custom_sr = arcpy.SpatialReference(26915)  # NAD83 UTM Zone 15N
-#     # result_fc = create_bounds_from_json(json_dir, output_geodatabase, fc_name, spatial_reference=custom_sr)
+#     if len(sys.argv) == 1:
+#         #Paste arguments into here for use within Python Window
+#         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+#         # cleanup = False
+#         parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+#     "C:/Users/bkgelder/Documents/hydro_dems/cmd_get_laz.pyt",
+#     "M:/DEP/Elevation_databases/ept.gdb/ept_resources_2026_01_01",
+#     "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100008/idepACPF071000080502.gdb/buf071000080502",
+#     "C:/Users/bkgelder/.conda/envs/pdal_python/Library/bin/pdal.exe",
+#     "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_071000080502",
+#     "get_USGS_LAZ",
+#     "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100008/idepACPF071000080502.gdb/wesm_ept_resources_2026_02_01_071000080502",
+#     "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100008/idepACPF071000080502.gdb/wesm_tiles_2026_02_16_071000080502",
+#     "M:/DEP/USGS_LPC",
+#     "False"]
+#         for i in parameters[2:]:
+#             sys.argv.append(i)
 
-if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        #Paste arguments into here for use within Python Window
-        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-        # cleanup = False
-        parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-    "C:/Users/bkgelder/Documents/hydro_dems/cmd_get_laz.pyt",
-    "M:/DEP/Elevation_databases/ept.gdb/ept_resources_2026_01_01",
-    "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100008/idepACPF071000080502.gdb/buf071000080502",
-    "C:/Users/bkgelder/.conda/envs/pdal_python/Library/bin/pdal.exe",
-    "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_071000080502",
-    "get_USGS_LAZ",
-    "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100008/idepACPF071000080502.gdb/wesm_ept_resources_2026_02_01_071000080502",
-    "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100008/idepACPF071000080502.gdb/wesm_tiles_2026_02_16_071000080502",
-    "E:/DEP/USGS_LPC",
-    "False"]
-        for i in parameters[2:]:
-            sys.argv.append(i)
+#     else:
+#         #For use via Windows Command Line
+#         #above 'parameters' come in via command line arguments, nothing else needed
+#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+#         # clean up the folder after done processing
+#         # cleanup = True
 
-    else:
-        #For use via Windows Command Line
-        #above 'parameters' come in via command line arguments, nothing else needed
-        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-        # clean up the folder after done processing
-        # cleanup = True
+#     # inputs then outputs, change "" to Python None
+#     (monthly_wesm_ept_mashup, dem_polygon, 
+#          pdal_exe, procDir, get_lidar_method,
+#          ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup
+#         ) = [i if i != "" else None for i in sys.argv[1:]]
 
-    # inputs then outputs, change "" to Python None
-    (monthly_wesm_ept_mashup, dem_polygon, 
-         pdal_exe, procDir, get_lidar_method,
-         ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup
-        ) = [i if i != "" else None for i in sys.argv[1:]]
+#     # switch a text 'True' into a real Python True
+#     cleanup = True if cleanup == "True" else False
 
-    # switch a text 'True' into a real Python True
-    cleanup = True if cleanup == "True" else False
+#     messages = msgStub()
 
-    messages = msgStub()
+#     doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon, 
+#          pdal_exe, procDir, get_lidar_method,
+#          ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup, messages)#msgStub())
 
-    arguments = [monthly_wesm_ept_mashup, dem_polygon, pdal_exe, procDir, get_lidar_method, ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup]
-    for a in arguments:
-        if a == arguments[0]:
-            arg_str = str(a) + '\n'
-        else:
-            arg_str += str(a) + '\n'
-    messages.addMessage('Tool: Executing with parameters:\n' + arg_str)
-    arcpy.env.overwriteOutput = True
-    arcpy.CheckOutExtension('Spatial')
-    arcpy.CheckOutExtension('3D')
-    arcpy.env.ZResolution = '0.01'
-    try:
-        huc12, huc8 = df.figureItOut(dem_polygon)#tElevFile)
-        pattern27 = 'e[cfpxv][0-9]m\\d{10,16}'
-        pattern26 = '[0-9]m\\d{10,16}'
-        pattern25 = '[0-9]m_d{10,16}'
-        pattern22 = '[+_][0-9]m[+_]'
-        if procDir is not None:
-            if not os.path.isdir(procDir):
-                os.makedirs(procDir)
-            arcpy.env.scratchWorkspace = procDir
-            sfldr = arcpy.env.scratchFolder
-        else:
-            sfldr = arcpy.env.scratchFolder
-            procDir = sfldr
-        if lidar_download_directory is None:
-            lidar_download_directory = procDir
-        if not os.path.isdir(lidar_download_directory):
-            os.makedirs(lidar_download_directory)
-        sgdb = arcpy.env.scratchGDB
-        arcpy.env.scratchWorkspace = sgdb
-        arcpy.env.workspace = sgdb
-        if procDir is None:
-            procDir = sfldr
-        # create export directory for just huc12 laz files, if doesn't exist
-        po_procDir = Path(procDir)
-        po_all_laz_dir = po_procDir.joinpath('laz_for_huc12')
-        if not os.path.isdir(po_all_laz_dir):
-            os.makedirs(po_all_laz_dir)
-
-        if lidar_download_directory is None:
-            lidar_download_directory = sfldr
-        node = platform.node()
-        logProc = df.defineLocalProc(node)
-        if not os.path.isdir(logProc):
-            logProc = sfldr
-        if cleanup:
-            log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)
-            arcpy.SetLogHistory = False
-        else:
-            log, nowYmd, logName, startTime = df.setupLoggingNew(logProc, sys.argv[0], huc12)
-            arcpy.SetLogHistory = True
-        log.info('Beginning execution: ' + time.asctime())
-        log.debug('sys.argv is: ' + str(sys.argv) + '\n')
-        log.info('Processing HUC: ' + huc12)
-        log.info(f'procDir: {procDir}')
-        log.info(f'lidar_download_directory: {lidar_download_directory}')
-        fElevDesc = arcpy.da.Describe(dem_polygon)
-        srOut = fElevDesc['spatialReference']
-        srOutCode = srOut.PCSCode
-        assert srOutCode < 32768, 'EPSG spatial reference code too large, PDAL will not recognize'
-        log.info('Output will be in EPSG Code (spatial reference): ' + str(srOutCode))
-        log.info('Log file at ' + logName)
-        messages.addMessage('Log file at ' + logName)
-        flib_metadata_template, derivative_metadata = df.getMetadata(['flib', 'deriv'], procDir, log)
-        inm = 'in_memory'
-        srOut = arcpy.SpatialReference(int(srOutCode), 5703)
-        srOutNoVCS = arcpy.SpatialReference(int(srOutCode))
-        arcpy.env.outputCoordinateSystem = srOut
-        srSfx = '_' + str(srOutCode)
-        # maskRastBase = 'mask_rast_'
-        # maskFc, maskFc_area, maskFcOut, maskRastOut, hucRastOut, FDSet = prepPolygonBoundary(dem_polygon, log, sgdb, srOut, srSfx, maskRastBase, demLists)
-
-        assert int(arcpy.GetCount_management(dem_polygon).getOutput(0)) < 2, 'multiple features in polygon feature class'
-        assert int(arcpy.GetCount_management(dem_polygon).getOutput(0)) > 0, 'no features in polygon feature class'
-        maskFc = arcpy.CopyFeatures_management(dem_polygon)
-        maskFc_area = [s[0] for s in arcpy.da.SearchCursor(maskFc, ['SHAPE@AREA'])][0]
-
-        # # geom_copy = arcpy.management.CopyFeatures(huc12fc, opj(sgdb, 'huc' + huc12))
-        # geom_copy = arcpy.Buffer_analysis(maskFc, buffer_distance_or_field = '-1000 METERS')
-        # if df.testForZero(geom_copy):
-        #     geom_copy = arcpy.Buffer_analysis(maskFc, buffer_distance_or_field = '-500 METERS')
-        #     if df.testForZero(geom_copy):
-        #         geom_copy = arcpy.CopyFeatures_management(dem_polygon)
-
-        if 'id' not in df.getfields(maskFc):
-            arcpy.AddField_management(maskFc, 'id', 'LONG')
-            arcpy.CalculateField_management(maskFc, 'id', 1, 'PYTHON')
-
-        log.info("maskFcPrelim complete at: " + time.asctime())
-
-        # ## Set up geodatabase to store the multipoint files and terrains (necessary all inputs be in feature dataset
-        # # Vertical units are in meters (float) so use a meter-based reference
-        # FDSet = arcpy.CreateFeatureDataset_management(sgdb, "Lidar_pts", srOut)
-        maskFcOut = projIfNeeded(maskFc, os.path.join(str(sgdb), 'get_laz_bnds' + srSfx), srOut)
-        log.info("maskFcOut complete at: " + time.asctime())
-
-        fixedFolder = str(arcpy.CreateFolder_management(sfldr, 'fixed'))
-        allTilesList = []
-        wesm_huc12_all = arcpy.analysis.Clip(monthly_wesm_ept_mashup, maskFcOut, opj('in_memory', 'meets_3dep'))
-        wesm_huc12 = arcpy.Select_analysis(wesm_huc12_all, 'wesm_' + huc12, where_clause="lpc_category = 'Meets'")
-        select_ql0_ql1 = arcpy.Select_analysis(wesm_huc12, where_clause="ql = 'QL 1' OR ql = 'QL 0'")
-        count_ql0_ql1 = int(str(arcpy.GetCount_management(select_ql0_ql1)))
-        if count_ql0_ql1 >= 1:
-            ql1 = True
-        else:
-            ql1 = False
-        if ql1:
-            log.warning('DEM builder not yet configured for QL1 or QL0 density data, email bkgelder@iastate.edu to request upgrade')
-        work_id_name = 'workunit_id'
-        build_threshold = 0.99
-        if df.testForZero(wesm_huc12):
-            prev_merged, merged_area, addOrderField = organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log)
-        if df.testForZero(prev_merged):
-            if get_lidar_method == "get_USGS_LAZ":
-            # if get_USGS_LAZ:
-                bounds_list = []
-                with arcpy.da.SearchCursor(prev_merged, ['SHAPE@', work_id_name, 'lpc_link'], sql_clause=[None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:
-                    for srow in scur:
-                        log.debug(f'{work_id_name} is: {srow[1]} and lpc_link is: {srow[2]} ')
-                        # dl_dir = os.path.join('E:\\DEP\\USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
-                        dl_dir = os.path.join(lidar_download_directory, os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
-                        # alt_dl_dir = opj('M:/DEP/USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
-
-                        json_dir = dl_dir.replace('LAZ', 'json')
-                        df.create_needed_dirs_and_gdbs(json_dir, log)
-
-                        bounds_dir = dl_dir.replace('LAZ', 'bounds')
-                        df.create_needed_dirs_and_gdbs(bounds_dir, log)
-                        out_gdb = opj(bounds_dir, 'laz_bounds_' + str(srow[1]) + '.gdb')
-                        out_fc_name = 'laz_bounds_' + str(srow[1])
-                        out_fc = os.path.join(out_gdb, out_fc_name)
-
-                        if not arcpy.Exists(out_fc):
-                            page_url = srow[2] + '/LAZ/'
-                            try:
-                                return_path = download_usgs_laz(page_url = page_url, output_dir = dl_dir, log = log)
-                            except:
-                                log.warning(f'failed download {page_url}')
-                                return_path = None
-
-                            # if return_path is not None:
-                            #     # create pkl dir and get bounds from each laz file
-                            #     log.debug(f'json_dir is: {json_dir}')
-                            #     df.create_needed_dirs_and_gdbs(json_dir, log)
-                            #     # pkl_dir = dl_dir.replace('LAZ', 'pkl')
-
-                            create_bounds_from_json(json_dir, out_gdb, out_fc_name, work_id_name, srow[1], create_gdb=True)
-
-                                # batch_process_json_directories(json_dir, out_gdb, out_fc_name)
-
-                                # return_path_po = Path(return_path)
-                                # laz_dir = return_path_po.parent
-                                # cur_cwd = os.getcwd()
-                                # os.chdir(laz_dir)
-                                # lazs = glob.glob('*.laz')
-                                # for laz_file in lazs:
-                                #     json_file = os.path.join(json_dir, os.path.basename(laz_file).replace('.laz', '.json'))
-                                #     if not os.path.isfile(json_file):
-                                #         pdal_call = pdal_exe + ' info --metadata ' + laz_file + ' > ' + json_file
-                                #         # the > means redirect the output to a file instead of the console, so we don't need to capture it in Python and write it out ourselves
-                                #         subprocess.Popen(pdal_call, shell=True, creationflags=CREATE_NO_WINDOW)
-                                    # alternative - capture the subprocess output in a file
-                                    # with open(json_file, "w") as f:
-                                    #     subprocess.run(
-                                    #         [pdal_exe, "info", "--metadata", laz_file],
-                                    #         stdout=f,
-                                    #         stderr=subprocess.PIPE,
-                                    #         check=True
-                                    #     )
-
-                                #     write_pickle = True
-                                #     basename = os.path.basename(laz_file)
-                                #     base, _ = os.path.splitext(basename)
-                                #     pkl_file = base + ".pkl"
-                                #     pkl_path = os.path.join(pkl_dir, pkl_file)
-                                #     if not os.path.isfile(pkl_path):
-                                #         log.info(f'writing pickle file: {pkl_path}')
-                                #         get_laz_bounds_and_crs(laz_file, pkl_path, write_pickle=write_pickle)
-                                # os.chdir(cur_cwd)
-
-                                # bounds_dir = pkl_dir.replace('pkl', 'bounds')
-                                # df.create_needed_dirs_and_gdbs(bounds_dir, log)
-                                # out_gdb = opj(bounds_dir, 'laz_bounds_' + str(srow[1]) + '.gdb')
-                                # out_fc_name = 'laz_bounds_' + str(srow[1])
-                                # out_fc = os.path.join(out_gdb, out_fc_name)
-                                # df.create_needed_dirs_and_gdbs(out_fc, log)
-                                # if not arcpy.Exists(out_fc):
-                                #     build_bounds_of_pkls(pkl_dir, out_gdb, out_fc_name, out_fc, work_id_name, srow[1])
-                        bounds_list.append(out_fc)
-
-                log.info(f'bounds_list: {bounds_list}')
-                out_fc_merge = arcpy.Merge_management(bounds_list, os.path.join('in_memory', 'out_fc_merge'))
-
-                out_fc_clip = arcpy.Clip_analysis(out_fc_merge, maskFc)
-
-
-                with arcpy.da.SearchCursor(out_fc_clip, ['OBJECTID', 'laz_file']) as scur:
-                    for srow in scur:
-                        laz_file = srow[1].replace('\\laz\\', '\\USGS_LPC\\')
-                        if not os.path.isfile(laz_file):
-                            laz_file = laz_file.replace('E:\\DEP\\USGS_LPC', 'M:\\DEP\\USGS_LPC')
-                        po_laz_file = Path(laz_file)
-                        dest = po_all_laz_dir.joinpath(po_laz_file.name)
-                        if not os.path.isfile(dest):
-                            shutil.copy(po_laz_file, dest)
-
-                df.create_needed_dirs_and_gdbs(wesm_huc12_tiles, log)
-                wesm_huc12_tiles = arcpy.CopyFeatures_management(out_fc_clip, wesm_huc12_tiles)
-                                
-
-##                        if not os.path.isfile(ept_laz_full_filename) and (not os.path.isfile(ept_zlas_full_filename)):
-##                            log.debug('converting las to laz for archive')
-##                            laz_json_filename = '_'.join(['laz', 'ept', huc12, str(work_id_part) + '.json'])
-##                            laz_json_full_filename = create_laz_json_pipeline(laz_json_filename, eleDir, ept_las_full_filename, ept_laz_full_filename)
-##                            laz_run_string = ' '.join([pdal_exe, 'pipeline', laz_json_full_filename])
-##                            log.debug(f'pdal run_string: {laz_run_string}')
-##                            co = subprocess.call(laz_run_string, creationflags=CREATE_NO_WINDOW)
-##                            log.debug(f'ran pdal run_string')
-
-
-
-                        
-            elif get_lidar_method == "get_PDAL_LAZ":
-                eleDir = lidar_download_directory
-                prev_merged_projected_3857 = arcpy.management.Project(prev_merged, 'proj_trial', 3857)
-                url_list = df.getfields(wesm_huc12, 'url*')
-                fishnet_tiles_list = []
-                with arcpy.da.SearchCursor(prev_merged_projected_3857, ['SHAPE@', work_id_name] + url_list, sql_clause=[None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:
-                    for srow in scur:
-                        log.debug(f'{work_id_name} is: {srow[1]}')
-                        geom = srow[0]
-                        geom_extent = geom.extent
-                        las_size_threshold = 750
-                        parts, square_area, fishnet_tiles, pt_field_name = queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1)
-                        arcpy.env.outputCoordinateSystem = srOut
-                        for part in parts:
-                            work_id = srow[1]
-                            work_id_part = str(srow[1]) + part[0]
-                            extent_request = part[1]
-                            geom_srOut = geom.projectAs(arcpy.SpatialReference(srOutCode))
-                            valid_geom_name = arcpy.ValidateTableName('geom_proj_' + work_id_part, sgdb)
-                            geom_srOut_copy = arcpy.CopyFeatures_management(geom_srOut, valid_geom_name)
-                            arcpy.management.AddField(geom_srOut_copy, work_id_name, "LONG")
-                            arcpy.management.CalculateField(geom_srOut_copy, work_id_name, work_id, "PYTHON")
-                            urls = srow[1:]
-                            for u in urls:
-                                if u is not None:
-                                    url = u
-                            ept_address = url
-                            ept_zlas_filename = '_'.join(['ept', huc12, str(work_id_part) + '.zlas'])
-                            ept_zlas_full_filename = os.altsep.join([eleDir.replace(os.path.sep, os.path.altsep), ept_zlas_filename])
-                            ept_las_filename = ept_zlas_filename.replace('.zlas', '.las')
-                            ept_laz_filename = ept_zlas_filename.replace('.zlas', '.laz')
-                            ept_laz_full_filename = os.altsep.join([eleDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
-                            ept_laz_path = Path(ept_laz_full_filename)
-                            new_path = Path('M:/', *ept_laz_path.parts[1:])
-                            alt_ept_laz_full_filename = new_path
-                            if os.path.isfile(alt_ept_laz_full_filename):
-                                log.debug(f'using alt laz file {alt_ept_laz_full_filename}')
-                                ept_laz_full_filename = str(alt_ept_laz_full_filename)
-                            ept_las_full_filename = os.altsep.join([procDir.replace(os.path.sep, os.path.altsep), ept_las_filename])
-                            if os.path.isfile(ept_laz_full_filename) and (not os.path.isfile(ept_las_full_filename)):
-                                log.info('converting laz to las from archive')
-                                log.info(f'arguments: {ept_laz_full_filename}, {procDir}')
-                                las_result = arcpy.conversion.ConvertLas(ept_laz_full_filename, procDir)
-                                log.info(las_result)
-                            elif os.path.isfile(ept_zlas_full_filename) and (not os.path.isfile(ept_las_full_filename)):
-                                log.info('converting zlas to las')
-                                log.info(f'arguments: {ept_zlas_full_filename}, {procDir}')
-                                las_result = arcpy.conversion.ConvertLas(ept_zlas_full_filename, procDir)
-                                log.info(las_result)
-                            if not os.path.isfile(ept_zlas_full_filename) and (not os.path.isfile(ept_laz_full_filename)):
-                                log.info('Getting LAS from EPT')
-                                log.info(ept_zlas_filename)
-                                ept_json_filename = '_'.join(['get', 'ept', huc12, str(work_id_part) + '.json'])
-                                df.create_needed_dirs_and_gdbs(ept_las_full_filename, log)
-                                df.create_needed_dirs_and_gdbs(eleDir, log)
-                                ept_json_full_filename = create_ept_json_pipeline(ept_json_filename, eleDir, ept_las_full_filename, extent_request, ept_address, srOutCode)
-                                df.create_needed_dirs_and_gdbs(ept_json_full_filename, log)
-                                if not os.path.exists(ept_las_full_filename):
-                                    run_string = ' '.join([pdal_exe, 'pipeline', ept_json_full_filename])
-                                    m2_per_sec = 1175.2 * 1000 ** 2 / len(parts) / 2200
-                                    log.debug(f'pdal run_string: {run_string}')
-                                    log.info(f'Estimated pdal download time (for QL2 lidar): {round(square_area / (m2_per_sec * len(parts) * 60), 2)} minutes for {ept_json_filename}')
-                                    co = subprocess.call(run_string, creationflags=CREATE_NO_WINDOW)
-                                    log.debug(f'completed pdal run_string')
-                                stats = os.stat(ept_las_full_filename)
-                                if stats.st_size > las_size_threshold:
-                                    if not os.path.isfile(ept_laz_full_filename) and (not os.path.isfile(ept_zlas_full_filename)):
-                                        log.debug('converting las to laz for archive')
-                                        laz_json_filename = '_'.join(['laz', 'ept', huc12, str(work_id_part) + '.json'])
-                                        laz_json_full_filename = create_laz_json_pipeline(laz_json_filename, eleDir, ept_las_full_filename, ept_laz_full_filename)
-                                        laz_run_string = ' '.join([pdal_exe, 'pipeline', laz_json_full_filename])
-                                        log.debug(f'pdal run_string: {laz_run_string}')
-                                        co = subprocess.call(laz_run_string, creationflags=CREATE_NO_WINDOW)
-                                        log.debug(f'ran pdal run_string')
-                                else:
-                                    poly35 = geom_extent.polygon
-                                    p35 = arcpy.management.CopyFeatures(poly35, opj(sgdb, 'failed_' + valid_geom_name))
-                                    log.warning(f'{ept_las_full_filename} has very small file size; plotting extent as poly: {p35}')
-                            elif os.path.isfile(ept_las_full_filename):
-                                stats = os.stat(ept_las_full_filename)
-                            else:
-                                log.warning("can't get good LAS data, skipping to next project")
-                                continue
-
-                        # copy the laz files to a single directory for easier access in future processing
-                        cur_cwd = os.getcwd()
-                        os.chdir(eleDir)
-                        lazs = glob.glob(ept_laz_filename[:16] + '*.laz')
-                        for laz_file in lazs:
-                            po_ele_dir = Path(eleDir)
-                            po_laz_file = po_ele_dir.joinpath(laz_file)
-                            dest = po_all_laz_dir.joinpath(laz_file)
-                            if not os.path.isfile(dest):
-                                shutil.copy(po_laz_file, dest)
-                        os.chdir(cur_cwd)
-
-                        arcpy.management.AddField(fishnet_tiles, "laz_file", "TEXT", field_length=200)
-                        arcpy.management.AddField(fishnet_tiles, work_id_name, "LONG")
-                        with arcpy.da.UpdateCursor(fishnet_tiles, ['SHAPE@', 'laz_file', work_id_name, pt_field_name]) as ucur:
-                            for urow in ucur:
-                                baselaz = '_'.join(['ept', huc12, str(work_id_part), 'pt' + urow[-1] + '.laz'])
-                                laz_path = os.path.join(eleDir, baselaz)#ept_laz_filename[:16] + '*.laz')
-                                urow[1] = laz_path
-                                urow[2] = work_id_part
-                                ucur.updateRow(urow)
-
-                        fishnet_tiles_list.append(fishnet_tiles)
-
-                log.info('processing EPT lidar feature classes into unioned polygon feature class')
-                ept_lidar_fcs = arcpy.ListFeatureClasses(os.path.basename(geom_srOut_copy.getOutput(0))[:10] + '*')
-                # wesm_huc12_tiles = arcpy.Union_analysis(ept_lidar_fcs, wesm_huc12_tiles)
-                # wesm_huc12_tiles2 = arcpy.Merge_management(ept_lidar_fcs, wesm_huc12_tiles + '_merge')
-                wesm_huc12_tiles = arcpy.Merge_management(fishnet_tiles_list, wesm_huc12_tiles)# + '_list_merge')
-
-            df.joinDict(wesm_huc12, work_id_name, monthly_wesm_ept_mashup, work_id_name, ['collect_start', 'collect_end'])
-            df.joinDict(wesm_huc12_tiles, work_id_name, monthly_wesm_ept_mashup, work_id_name, ['collect_start', 'collect_end'])
-
-            
-    except AssertionError:
-        log.warning('assertion failure on: ' + huc12)
-        sys.exit(1)
-    except:
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-        pymsg = 'PYTHON ERRORS:\nTraceback info:\n' + tbinfo + '\nError Info:\n' + str(sys.exc_info()[1])
-        msgs = 'ArcPy ERRORS:\n' + arcpy.GetMessages(2) + '\n'
-        log.warning(pymsg)
-        log.warning(msgs)
-        log.warning('failure on: ' + huc12)
-        sys.exit(1)
-    finally:
-        log.warning('Finished at ' + time.asctime())
-        handlers = log.handlers
-        for h in handlers:
-            log.info('shutting it down!')
-            log.removeHandler(h)
-            h.close()
-
-#     doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon, 
-#          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-#          fElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-#          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup, messages)#msgStub())
-
-#     arcpy.AddMessage("Back from doEPT!")
+#     arcpy.AddMessage("Back from doLazDownloadCopy!")
