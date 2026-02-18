@@ -1262,7 +1262,7 @@ def create_metadata_json(out_path, pdal_exe, log):
 def download_usgs_laz(
     page_url: str,
     output_dir: str,
-    # alt_output_dir: str,
+    pdal_exe: str,
     log: logging.Logger,
     timeout: int = 60,
     max_retries: int = 5,
@@ -1280,8 +1280,8 @@ def download_usgs_laz(
         Apache directory URL containing LAZ files
     output_dir : str
         Local directory for downloads
-    alt_output_dir : str
-        Local directory for downloads
+    pdal_exe : str
+        Local pdal executable path
     timeout : int
         HTTP timeout (seconds)
     max_retries : int
@@ -1527,11 +1527,10 @@ def get_laz_bounds_and_crs(laz_file, pkl_path, write_pickle=True):
 
 
 def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon, 
-         pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-         tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-         int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup, messages):
+         pdal_exe, procDir, get_lidar_method,
+         ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup, messages):
     
-    arguments =     arguments = [monthly_wesm_ept_mashup, dem_polygon, pdal_exe, procDir, get_lidar_method, ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup]
+    arguments = [monthly_wesm_ept_mashup, dem_polygon, pdal_exe, procDir, get_lidar_method, ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup]
                                                        
     for a in arguments:
         if a == arguments[0]:
@@ -1633,8 +1632,6 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
     ## otherwise it defaults to a user's temp folder
     ## if you don't set anything it will go to 'in_memory'
         inm = 'in_memory'
-        if snap is not None:#!= "":
-            arcpy.env.snapRaster = snap
 
         # also set output to VCS 5703, NAVD88 Meters
         srOut = arcpy.SpatialReference(int(srOutCode), 5703)
