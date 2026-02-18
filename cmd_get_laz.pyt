@@ -1688,6 +1688,7 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
             prev_merged, merged_area, addOrderField = organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log)
 
         if df.testForZero(prev_merged):
+            url_list = df.getfields(wesm_huc12, 'url*')
             if get_lidar_method == "get_USGS_LAZ":
             # if get_USGS_LAZ:
                 bounds_list = []
@@ -1745,7 +1746,6 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                 # requests to EPT must be in 3857
                 prev_merged_projected_3857 = arcpy.management.Project(prev_merged, 'proj_trial', 3857)
                 # max_area = 0
-                url_list = df.getfields(wesm_huc12, 'url*')
                 fishnet_tiles_list = []
                 with arcpy.da.SearchCursor(prev_merged_projected_3857, ['SHAPE@', work_id_name] + url_list, sql_clause=[None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:
                     for srow in scur:
