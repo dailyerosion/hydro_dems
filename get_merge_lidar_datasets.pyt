@@ -162,7 +162,7 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
 
         #create names of outputs so we can see test if it's been run recently
         #get geoJSON from https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson
-        now_ymd_string = nowYmd[:10]
+        now_ymd_string = '2026_02_02'#nowYmd[:10]
         ept_first_of_month_name = "ept_resources_" + now_ymd_string
         ept_4269_first_of_month_name = "ept_resources_epsg4269_" + now_ymd_string
         wesm_first_of_month_name = "main_wesm_" + now_ymd_string
@@ -176,9 +176,10 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
         arcpy.env.workspace = ept_gdb_path
         ept_features_path = opj(ept_gdb_path, ept_first_of_month_name)
         ept_4269_features_path = opj(ept_gdb_path, ept_4269_first_of_month_name)
-        if not arcpy.Exists(ept_features_path) or not arcpy.Exists(ept_wesm_file):
+        if True:#not arcpy.Exists(ept_features_path) or not arcpy.Exists(ept_wesm_file):
             # pass # get the ept file
             ept_download_location = opj(eptDir, ept_first_of_month_name + '.geojson')
+##            ept_download_location = opj(eptDir, 'ept_resources_2026_02_02.geojson')
             if not os.path.exists(ept_download_location):
                 log.info(f'downloading from: https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson')
                 log.info('requesting ept to ' + ept_download_location)
@@ -186,6 +187,7 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
                 # download_file('https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson', ept_download_location, log)
             # requests.request()
             wesm_download_location = opj(eptDir, wesm_first_of_month_name + '.gpkg')
+##            wesm_download_location = opj(eptDir, 'main_wesm_2026_02_02.gpkg')
             if not os.path.exists(wesm_download_location):
                 log.info('requesting wesm to ' + wesm_download_location)
                 download_file('https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/metadata/WESM.gpkg', wesm_download_location, log)
@@ -196,7 +198,19 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
 
             log.info('projecting WESM to EPSG 4269 (NAD83)')
             # do WESM first so map will be in epsg 4269 (NAD83)
-            main_wesm_copy = arcpy.conversion.FeatureClassToFeatureClass(opj(wesm_download_location, 'main.wesm'), ept_gdb_path, 'wesm_from_gpkg')
+            # WESM has some features that will not export from GPKG to FGDB
+            main_wesm_copy_no_complex_geom = arcpy.analysis.Select(
+    in_features=opj(wesm_download_location, 'main.wesm'),#r"M:\DEP\Elevation_databases\main_wesm_2026_02_02.gpkg\main.WESM",
+    where_clause="workunit_id NOT IN (76433, 195100, 197966, 228259, 300276, 300553)"
+)
+
+            main_wesm_copy = arcpy.analysis.Select(
+    in_features=main_wesm_copy_no_complex_geom,
+    out_feature_class=opj(ept_gdb_path, 'wesm_from_gpkg'),#r"C:\Users\bkgelder\Documents\ArcGIS\Projects\DEP_ACPF_overview\DEP_ACPF_overview.gdb\WESM_Select_Not_Corrupt",
+    where_clause="""project NOT LIKE 'AK_%' AND project NOT LIKE 'HI_%'"""
+)
+
+##            main_wesm_copy = arcpy.conversion.FeatureClassToFeatureClass(opj(wesm_download_location, 'main.wesm'), ept_gdb_path, 'wesm_from_gpkg')
             workunit_lower_field = 'workunit_lower'
             if not workunit_lower_field in df.getfields(main_wesm_copy):
                 arcpy.AddField_management(main_wesm_copy, workunit_lower_field, 'TEXT')
@@ -248,41 +262,43 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
             log.info(rslt2.getMessages())
             arcpy.management.JoinField(main_wesm_copy, workunit_lower_field, ept_features, alt2_name_field, "id;count;url;opr_year")
 
-            select_not_null4 = arcpy.analysis.Select(main_wesm_copy, 'wesm_ept_valid_' + now_ymd_string, where_clause = "id_12 IS NOT NULL OR id_1 IS NOT NULL OR id IS NOT NULL")
-            select_is_null4 = arcpy.analysis.Select(main_wesm_copy, where_clause = "id_12 IS NULL AND id_1 IS NULL AND id IS NULL")
-            mn_ept_features = arcpy.analysis.Select(ept_features, 'mn_fullstate', "name = 'MN_FullState'")
-
-            # sj_data = arcpy.analysis.Select(sj, 'sj_data', "url_12_13 IS NOT Null")
-            # mn_sj_data = arcpy.analysis.Clip(sj_data, ept_mn_fullstate)
-            mn_select_is_null4 = arcpy.analysis.Clip(select_is_null4, mn_ept_features)#sj_data, ept_mn_fullstate)
-            mn_sj_data = arcpy.analysis.SpatialJoin(mn_select_is_null4, mn_ept_features, 'sj_null_wesm_ept')
-
-            # synchronize fields between ept and wesm data
-            arcpy.management.DeleteField(mn_sj_data, 'Join_Count; TARGET_FID')
-            arcpy.management.DeleteField(mn_sj_data, 'Shape_Length_1; Shape_Area_1')
-            arcpy.management.AddFields(select_not_null4, [['id_12_13', 'DOUBLE'], ['count_12_13', 'DOUBLE'], ['url_12_13', 'TEXT'], ['opr_year_12_13', 'TEXT'], ['name_lower', 'TEXT'], ['alt_name', 'TEXT'], ['alt2_name', 'TEXT'], ['name', 'TEXT']])
-
-            select_not_null4_copy = arcpy.management.CopyFeatures(select_not_null4, ept_wesm_file)#ept_features_path)#'wesm_copy')
-
-            log.info('figure out Minnesota statewide data vagaries')
-            mn_ept_neg_buffer = arcpy.analysis.Buffer(mn_ept_features, 'mn_neg_buffer', '-667 METERS')
-            missing_mn = arcpy.analysis.Erase(mn_ept_neg_buffer, select_not_null4_copy)
-
-            sp_missing = arcpy.MultipartToSinglepart_management(missing_mn)
-
-            missing_mn_big = arcpy.Select_analysis(sp_missing, where_clause= 'SHAPE_AREA > 0.003')
-            big_fields = df.getfields(missing_mn_big)
-
-            fields = ['workunit', 'workunit_id', 'project', 'project_id', 'collect_start', 'collect_end', 'ql', 'spec', 'p_method', 'dem_gsd_meters', 'horiz_crs', 'vert_crs', 'geoid', 'lpc_pub_date', 'lpc_category', 'lpc_reason', 'sourcedem_pub_date', 'sourcedem_category', 'sourcedem_reason', 'onemeter_category', 'onemeter_reason', 'seamless_category', 'seamless_reason', 'lpc_link', 'sourcedem_link', 'metadata_link', 'workunit_lower', 'id', 'count', 'url', 'opr_year', 'id_1', 'count_1', 'url_1', 'opr_year_1', 'id_12', 'count_12', 'url_12', 'opr_year_12', 'name', 'id_12_13', 'count_12_13', 'url_12_13', 'opr_year_12_13', 'name_lower', 'alt_name', 'alt2_name']
-            icur = arcpy.da.InsertCursor(select_not_null4_copy, ['OID@', 'SHAPE@'] + big_fields[2:-4] + ['workunit_id', 'collect_start'])
-
-            # give the Minnesota data it's own fictitious workunit_id (and maybe date?)
-            with arcpy.da.SearchCursor(missing_mn_big, ['OID@', 'SHAPE@'] + big_fields[2:-4]) as mn_scur:
-                for srow in mn_scur:
-                    print(srow[0:5])
-                    icur.insertRow(list(srow) + [-10000, datetime.datetime(2008, 4, 21, 0, 0)])
-
-            del icur
+            select_not_null4 = arcpy.analysis.Select(main_wesm_copy, 'wesm_ept_valid_' + now_ymd_string, where_clause = "id_12 IS NOT NULL OR id_1 IS NOT NULL OR id IS NOT NULL")# AND workunit_id > 0")
+            select_is_null5 = arcpy.analysis.Select(main_wesm_copy, where_clause = "id_12 IS NULL AND id_1 IS NULL AND id IS NULL AND workunit_id > 0")
+            merge_not_null_is_null_final = arcpy.Merge_management([select_not_null4, select_is_null5], ept_wesm_file)
+##            select_is_null4 = arcpy.analysis.Select(main_wesm_copy, where_clause = "id_12 IS NULL AND id_1 IS NULL AND id IS NULL")
+##            mn_ept_features = arcpy.analysis.Select(ept_features, 'mn_fullstate', "name = 'MN_FullState'")
+##
+##            # sj_data = arcpy.analysis.Select(sj, 'sj_data', "url_12_13 IS NOT Null")
+##            # mn_sj_data = arcpy.analysis.Clip(sj_data, ept_mn_fullstate)
+##            mn_select_is_null4 = arcpy.analysis.Clip(select_is_null4, mn_ept_features)#sj_data, ept_mn_fullstate)
+##            mn_sj_data = arcpy.analysis.SpatialJoin(mn_select_is_null4, mn_ept_features, 'sj_null_wesm_ept')
+##
+##            # synchronize fields between ept and wesm data
+##            arcpy.management.DeleteField(mn_sj_data, 'Join_Count; TARGET_FID')
+##            arcpy.management.DeleteField(mn_sj_data, 'Shape_Length_1; Shape_Area_1')
+##            arcpy.management.AddFields(select_not_null4, [['id_12_13', 'DOUBLE'], ['count_12_13', 'DOUBLE'], ['url_12_13', 'TEXT'], ['opr_year_12_13', 'TEXT'], ['name_lower', 'TEXT'], ['alt_name', 'TEXT'], ['alt2_name', 'TEXT'], ['name', 'TEXT']])
+##
+##            select_not_null4_copy = arcpy.management.CopyFeatures(select_not_null4, ept_wesm_file)#ept_features_path)#'wesm_copy')
+##
+##            log.info('figure out Minnesota statewide data vagaries')
+##            mn_ept_neg_buffer = arcpy.analysis.Buffer(mn_ept_features, 'mn_neg_buffer', '-667 METERS')
+##            missing_mn = arcpy.analysis.Erase(mn_ept_neg_buffer, select_not_null4_copy)
+##
+##            sp_missing = arcpy.MultipartToSinglepart_management(missing_mn)
+##
+##            missing_mn_big = arcpy.Select_analysis(sp_missing, where_clause= 'SHAPE_AREA > 0.003')
+##            big_fields = df.getfields(missing_mn_big)
+##
+##            fields = ['workunit', 'workunit_id', 'project', 'project_id', 'collect_start', 'collect_end', 'ql', 'spec', 'p_method', 'dem_gsd_meters', 'horiz_crs', 'vert_crs', 'geoid', 'lpc_pub_date', 'lpc_category', 'lpc_reason', 'sourcedem_pub_date', 'sourcedem_category', 'sourcedem_reason', 'onemeter_category', 'onemeter_reason', 'seamless_category', 'seamless_reason', 'lpc_link', 'sourcedem_link', 'metadata_link', 'workunit_lower', 'id', 'count', 'url', 'opr_year', 'id_1', 'count_1', 'url_1', 'opr_year_1', 'id_12', 'count_12', 'url_12', 'opr_year_12', 'name', 'id_12_13', 'count_12_13', 'url_12_13', 'opr_year_12_13', 'name_lower', 'alt_name', 'alt2_name']
+##            icur = arcpy.da.InsertCursor(select_not_null4_copy, ['OID@', 'SHAPE@'] + big_fields[2:-4] + ['workunit_id', 'collect_start'])
+##
+##            # give the Minnesota data it's own fictitious workunit_id (and maybe date?)
+##            with arcpy.da.SearchCursor(missing_mn_big, ['OID@', 'SHAPE@'] + big_fields[2:-4]) as mn_scur:
+##                for srow in mn_scur:
+##                    print(srow[0:5])
+##                    icur.insertRow(list(srow) + [-10000, datetime.datetime(2008, 4, 21, 0, 0)])
+##
+##            del icur
 
     except:
         dep_except(huc12, traceback, log)
