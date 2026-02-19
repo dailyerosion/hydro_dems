@@ -1828,7 +1828,7 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                                 log.warning(f'failed download {page_url}')
                                 return_path = None
 
-                            create_bounds_from_json(json_dir, out_gdb, out_fc_name, work_id_name, srow[1], create_gdb=True)
+                            create_bounds_from_json(json_dir, out_gdb, out_fc_name, work_id_name, srow[1], log = log, create_gdb=True)
 
                         bounds_list.append(out_fc)
 
@@ -2164,7 +2164,7 @@ import json
 import os
 
 
-def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work_id_field_name, work_id_field_value, spatial_reference=None, create_gdb=True):
+def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work_id_field_name, work_id_field_value, log, spatial_reference=None, create_gdb=True):
     """
     Process a directory of JSON files containing LAS metadata and create a feature class
     with polygon boundaries and file path attributes.
@@ -2179,6 +2179,8 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
         Name for the output feature class
     work_id_field_name : str
         adds a field with this name and populates it with a unique ID from the WESM (default: None)
+    log : logging.Logger
+        Logger object for logging messages
     spatial_reference : arcpy.SpatialReference or int, optional
         Spatial reference for output. If None, uses EPSG from first JSON file
     create_gdb : bool, optional
@@ -2197,20 +2199,20 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
                 gdb_path = os.path.dirname(output_gdb)
                 gdb_name = os.path.basename(output_gdb)
                 
-                print(f"Geodatabase does not exist. Creating: {output_gdb}")
+                log.info(f"Geodatabase does not exist. Creating: {output_gdb}")
                 arcpy.CreateFileGDB_management(gdb_path, gdb_name)
-                print(f"  ✓ Created geodatabase: {gdb_name}")
-                print("-" * 60)
+                log.info(f"  ✓ Created geodatabase: {gdb_name}")
+                log.info("-" * 60)
             else:
-                print(f"Error: Geodatabase does not exist: {output_gdb}")
-                print("Set create_gdb=True to create it automatically.")
+                log.error(f"Error: Geodatabase does not exist: {output_gdb}")
+                log.error("Set create_gdb=True to create it automatically.")
                 return None
         # Create output feature class path
         output_fc = os.path.join(output_gdb, feature_class_name)
         
         # Check if feature class already exists
         if arcpy.Exists(output_fc):
-            print(f"Feature class {feature_class_name} already exists. Deleting...")
+            log.info(f"Feature class {feature_class_name} already exists. Deleting...")
             arcpy.Delete_management(output_fc)
         
         # Get list of JSON files in directory
@@ -2218,11 +2220,11 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
                      if f.lower().endswith('.json')]
         
         if not json_files:
-            print(f"No JSON files found in {json_directory}")
+            log.error(f"No JSON files found in {json_directory}")
             return None
         
-        print(f"Found {len(json_files)} JSON files to process")
-        print("-" * 60)
+        log.info(f"Found {len(json_files)} JSON files to process")
+        log.info("-" * 60)
         
         # Read first JSON to get spatial reference if not provided
         first_json = os.path.join(json_directory, json_files[0])
@@ -2249,13 +2251,13 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
                 
                 if epsg_code:
                     spatial_reference = arcpy.SpatialReference(epsg_code)
-                    print(f"Using spatial reference: EPSG:{epsg_code}")
+                    log.info(f"Using spatial reference: EPSG:{epsg_code}")
                 else:
                     raise KeyError("EPSG code not found")
                     
             except (KeyError, TypeError) as e:
-                print(f"Warning: Could not determine spatial reference from JSON: {e}")
-                print("Using default: WGS 1984")
+                log.warning(f"Could not determine spatial reference from JSON: {e}")
+                log.info("Using default: WGS 1984")
                 spatial_reference = arcpy.SpatialReference(4326)
         
         # Create feature class
@@ -2281,9 +2283,9 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
         arcpy.AddField_management(output_fc, work_id_field_name, "LONG")
         arcpy.AddField_management(output_fc, "JSON_File", "TEXT", field_length=255)
         
-        print(f"Created feature class: {feature_class_name}")
-        print("Fields added: LAS_FilePath, FileName, FileSize_MB, PointCount, MinX, MinY, MaxX, MaxY, MinZ, MaxZ, EPSG, JSON_File")
-        print("-" * 60)
+        log.info(f"Created feature class: {feature_class_name}")
+        log.info("Fields added: LAS_FilePath, FileName, FileSize_MB, PointCount, MinX, MinY, MaxX, MaxY, MinZ, MaxZ, EPSG, JSON_File")
+        log.info("-" * 60)
         
         # Process each JSON file
         success_count = 0
@@ -2366,22 +2368,22 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
                     ])
                     
                     success_count += 1
-                    print(f"  ✓ Processed: {json_file}")
+                    log.info(f"  ✓ Processed: {json_file}")
                     
                 except Exception as e:
                     error_count += 1
-                    print(f"  ✗ Error processing {json_file}: {str(e)}")
+                    log.error(f"  ✗ Error processing {json_file}: {str(e)}")
         
-        print("-" * 60)
-        print(f"Processing complete!")
-        print(f"  Successfully processed: {success_count}")
-        print(f"  Errors: {error_count}")
-        print(f"  Output feature class: {output_fc}")
+        log.info("-" * 60)
+        log.info(f"Processing complete!")
+        log.info(f"  Successfully processed: {success_count}")
+        log.info(f"  Errors: {error_count}")
+        log.info(f"  Output feature class: {output_fc}")
         
         return output_fc
         
     except Exception as e:
-        print(f"Error creating feature class: {str(e)}")
+        log.error(f"Error creating feature class: {str(e)}")
         return None
 
 
