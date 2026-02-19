@@ -1131,7 +1131,7 @@ import logging
 
 import re
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 import pandas as pd
 from typing import List, Dict, Tuple
 
@@ -1139,13 +1139,14 @@ from typing import List, Dict, Tuple
 def parse_apache_listing(url: str) -> List[Dict[str, str]]:
     """
     Parse an Apache directory listing and extract file information.
-    Handles both full filenames and truncated filenames with '..>'
+    Extracts actual filenames from href attributes and metadata from
+    the text immediately following each link.
     
     Args:
         url: URL of the Apache directory listing
         
     Returns:
-        List of dictionaries containing file information including download links
+        List of dictionaries containing file information
     """
     try:
         # Fetch the page
@@ -1161,76 +1162,80 @@ def parse_apache_listing(url: str) -> List[Dict[str, str]]:
             print(f"Warning: No <pre> tag found at {url}")
             return []
         
-        # Get all anchor tags (links) within the pre section
-        links = pre_tag.find_all('a')
-        
-        # Create a mapping of filenames to their href values
-        filename_to_href = {}
-        for link in links:
-            href = link.get('href', '')
-            link_text = link.get_text()
-            # Only process .laz files or truncated names
-            if link_text.endswith('.laz') or link_text.endswith('..>'):
-                filename_to_href[link_text] = href
-        
-        # Get the text content for regex parsing
-        listing_text = pre_tag.get_text()
-        
         files = []
         
         # Ensure base URL ends with /
         base_url = url if url.endswith('/') else url + '/'
         
-        # Pattern 1: Full filename (Iowa, Nebraska Northeast first URL)
-        # Example: "USGS_LPC_IA_EasternIA_2019_B19_15TWF850570.laz     21-Oct-2022 01:19               28237"
-        pattern1 = r'([^\s]+\.laz)\s+(\d{2}-\w{3}-\d{4})\s+(\d{2}:\d{2})\s+(\d+)'
+        # Find all anchor tags within the pre section
+        links = pre_tag.find_all('a')
         
-        # Pattern 2: Truncated filename (Kansas, Nebraska Northeast Phase 2)
-        # Example: "USGS_LPC_KS_Statewide4County_2017_A18_14S_NJ_85..> 15-Nov-2018 01:46               68289"
-        pattern2 = r'([^\s]+\.\.>)\s+(\d{2}-\w{3}-\d{4})\s+(\d{2}:\d{2})\s+(\d+)'
-        
-        # Try pattern 1 (full filenames)
-        for match in re.finditer(pattern1, listing_text):
-            filename = match.group(1)
-            date = match.group(2)
-            time = match.group(3)
-            size_bytes = int(match.group(4))
+        for link in links:
+            href = link.get('href', '')
             
-            # Get the href for this filename
-            href = filename_to_href.get(filename, filename)
-            download_url = base_url + href
+            # Skip non-.laz files
+            if not href.endswith('.laz'):
+                continue
             
-            files.append({
-                'filename': filename,
-                'date': date,
-                'time': time,
-                'size_bytes': size_bytes,
-                'size_mb': round(size_bytes / (1024 * 1024), 2),
-                'url': url,
-                'download_url': download_url
-            })
-        
-        # If no matches with pattern 1, try pattern 2 (truncated filenames)
-        if not files:
-            for match in re.finditer(pattern2, listing_text):
-                filename = match.group(1)
-                date = match.group(2)
-                time = match.group(3)
-                size_bytes = int(match.group(4))
+            # Get the actual filename from href
+            actual_filename = href
+            
+            # Get the displayed link text
+            link_text = link.get_text()
+            
+            # Get the text that comes IMMEDIATELY after this link tag
+            # This is the key fix - we look at the next sibling text node
+            next_text = link.next_sibling
+            
+            # If next_sibling is a NavigableString, use it; otherwise get its text
+            if isinstance(next_text, NavigableString):
+                following_text = str(next_text)
+            else:
+                following_text = ""
+            
+            # Pattern to extract date, time, and size from the following text
+            # Example: " 26-Jun-2023 17:36             5410"
+            metadata_pattern = r'\s+(\d{2}-\w{3}-\d{4})\s+(\d{2}:\d{2})\s+(\d+)'
+            
+            match = re.search(metadata_pattern, following_text)
+            
+            if match:
+                date = match.group(1)
+                time = match.group(2)
+                size_bytes = int(match.group(3))
                 
-                # Get the href for this filename
-                href = filename_to_href.get(filename, filename.replace('..>', ''))
-                download_url = base_url + href
+                # Determine if filename is truncated in display
+                is_truncated = link_text.endswith('..>') and not actual_filename.endswith('..>')
                 
-                files.append({
-                    'filename': filename,
+                file_record = {
+                    'filename': actual_filename,
+                    'displayed_name': link_text if is_truncated else actual_filename,
                     'date': date,
                     'time': time,
                     'size_bytes': size_bytes,
                     'size_mb': round(size_bytes / (1024 * 1024), 2),
                     'url': url,
-                    'download_url': download_url,
-                    'note': 'Filename truncated in directory listing'
+                    'download_url': base_url + href
+                }
+                
+                if is_truncated:
+                    file_record['note'] = 'Display name truncated (full name in filename field)'
+                
+                files.append(file_record)
+            else:
+                # If we can't find metadata, still record the file
+                print(f"Warning: Could not find metadata for {actual_filename}")
+                print(f"  Following text: {repr(following_text[:100])}")
+                files.append({
+                    'filename': actual_filename,
+                    'displayed_name': link_text,
+                    'date': 'Unknown',
+                    'time': 'Unknown',
+                    'size_bytes': 0,
+                    'size_mb': 0.0,
+                    'url': url,
+                    'download_url': base_url + href,
+                    'note': 'Metadata extraction failed'
                 })
         
         return files
@@ -1240,7 +1245,114 @@ def parse_apache_listing(url: str) -> List[Dict[str, str]]:
         return []
     except Exception as e:
         print(f"Error parsing {url}: {e}")
+        import traceback
+        traceback.print_exc()
         return []
+
+    # """
+    # Parse an Apache directory listing and extract file information.
+    # Handles both full filenames and truncated filenames with '..>'
+    
+    # Args:
+    #     url: URL of the Apache directory listing
+        
+    # Returns:
+    #     List of dictionaries containing file information including download links
+    # """
+    # try:
+    #     # Fetch the page
+    #     response = requests.get(url, timeout=30)
+    #     response.raise_for_status()
+        
+    #     # Parse with BeautifulSoup
+    #     soup = BeautifulSoup(response.text, 'html.parser')
+        
+    #     # Find the pre tag that contains the file listing
+    #     pre_tag = soup.find('pre')
+    #     if not pre_tag:
+    #         print(f"Warning: No <pre> tag found at {url}")
+    #         return []
+        
+    #     # Get all anchor tags (links) within the pre section
+    #     links = pre_tag.find_all('a')
+        
+    #     # Create a mapping of filenames to their href values
+    #     filename_to_href = {}
+    #     for link in links:
+    #         href = link.get('href', '')
+    #         link_text = link.get_text()
+    #         # Only process .laz files or truncated names
+    #         if link_text.endswith('.laz') or link_text.endswith('..>'):
+    #             filename_to_href[link_text] = href
+        
+    #     # Get the text content for regex parsing
+    #     listing_text = pre_tag.get_text()
+        
+    #     files = []
+        
+    #     # Ensure base URL ends with /
+    #     base_url = url if url.endswith('/') else url + '/'
+        
+    #     # Pattern 1: Full filename (Iowa, Nebraska Northeast first URL)
+    #     # Example: "USGS_LPC_IA_EasternIA_2019_B19_15TWF850570.laz     21-Oct-2022 01:19               28237"
+    #     pattern1 = r'([^\s]+\.laz)\s+(\d{2}-\w{3}-\d{4})\s+(\d{2}:\d{2})\s+(\d+)'
+        
+    #     # Pattern 2: Truncated filename (Kansas, Nebraska Northeast Phase 2)
+    #     # Example: "USGS_LPC_KS_Statewide4County_2017_A18_14S_NJ_85..> 15-Nov-2018 01:46               68289"
+    #     pattern2 = r'([^\s]+\.\.>)\s+(\d{2}-\w{3}-\d{4})\s+(\d{2}:\d{2})\s+(\d+)'
+        
+    #     # Try pattern 1 (full filenames)
+    #     for match in re.finditer(pattern1, listing_text):
+    #         filename = match.group(1)
+    #         date = match.group(2)
+    #         time = match.group(3)
+    #         size_bytes = int(match.group(4))
+            
+    #         # Get the href for this filename
+    #         href = filename_to_href.get(filename, filename)
+    #         download_url = base_url + href
+            
+    #         files.append({
+    #             'filename': filename,
+    #             'date': date,
+    #             'time': time,
+    #             'size_bytes': size_bytes,
+    #             'size_mb': round(size_bytes / (1024 * 1024), 2),
+    #             'url': url,
+    #             'download_url': download_url
+    #         })
+        
+    #     # If no matches with pattern 1, try pattern 2 (truncated filenames)
+    #     if not files:
+    #         for match in re.finditer(pattern2, listing_text):
+    #             filename = match.group(1)
+    #             date = match.group(2)
+    #             time = match.group(3)
+    #             size_bytes = int(match.group(4))
+                
+    #             # Get the href for this filename
+    #             href = filename_to_href.get(filename, filename.replace('..>', ''))
+    #             download_url = base_url + href
+                
+    #             files.append({
+    #                 'filename': filename,
+    #                 'date': date,
+    #                 'time': time,
+    #                 'size_bytes': size_bytes,
+    #                 'size_mb': round(size_bytes / (1024 * 1024), 2),
+    #                 'url': url,
+    #                 'download_url': download_url,
+    #                 'note': 'Filename truncated in directory listing'
+    #             })
+        
+    #     return files
+        
+    # except requests.RequestException as e:
+    #     print(f"Error fetching {url}: {e}")
+    #     return []
+    # except Exception as e:
+    #     print(f"Error parsing {url}: {e}")
+    #     return []
 
 def create_metadata_json(out_path, pdal_exe, log):
             json_file_with_laz_dir = out_path.replace('.laz', '.json')
@@ -1711,7 +1823,7 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                         if not arcpy.Exists(out_fc):
                             page_url = srow[2] + '/LAZ/'
                             try:
-                                return_path = download_usgs_laz(page_url = page_url, output_dir = dl_dir, log = log)
+                                return_path = download_usgs_laz(page_url = page_url, output_dir = dl_dir, pdal_exe = pdal_exe, log = log)
                             except:
                                 log.warning(f'failed download {page_url}')
                                 return_path = None
