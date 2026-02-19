@@ -2158,11 +2158,35 @@ def build_bounds_of_pkls(pkl_dir, out_gdb, out_fc_name, out_fc, work_id_name, wo
     print(f"Done. Inserted {inserted} features. Skipped {skipped} files.")
 
 ##----------------------------------------------------------------------
+import json
+import re
 
+def get_horizontal_epsg(json_path):
+    """
+    Reads a PDAL LAS/LAZ info JSON file and returns the
+    horizontal projected CRS EPSG code.
+    """
+    with open(json_path, "r") as f:
+        data = json.load(f)
+
+    # Navigate to the horizontal WKT string
+    horizontal_wkt = data["metadata"]["srs"]["horizontal"]
+
+    # The EPSG code is the last AUTHORITY["EPSG","<code>"] entry in the WKT,
+    # which identifies the overall projected CRS
+    matches = re.findall(r'AUTHORITY\["EPSG","(\d+)"\]', horizontal_wkt)
+
+    if not matches:
+        raise ValueError("No EPSG authority code found in horizontal WKT.")
+
+    # The last AUTHORITY entry in a WKT string is the CRS-level code
+    epsg_code = int(matches[-1])
+    return epsg_code
+
+    
 import arcpy
 import json
 import os
-
 
 def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work_id_field_name, work_id_field_value, log, spatial_reference=None, create_gdb=True):
     """
@@ -2236,18 +2260,20 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
             # Handle different JSON structures (simple ProjectedCRS vs CompoundCRS)
             epsg_code = None
             try:
-                srs_json = first_data['metadata']['srs']['json']
+                log.info(f"Attempting to determine spatial reference from JSON metadata: {first_json}")
+                epsg_code = get_horizontal_epsg(json_path=first_json)
+                # srs_json = first_data['metadata']['srs']['json']
                 
-                # Check if it's a CompoundCRS (has 'components')
-                if srs_json.get('type') == 'CompoundCRS' and 'components' in srs_json:
-                    # Get the horizontal (projected) component EPSG
-                    for component in srs_json['components']:
-                        if component.get('type') == 'ProjectedCRS':
-                            epsg_code = component['id']['code']
-                            break
-                # Check if it's a simple ProjectedCRS
-                elif srs_json.get('type') == 'ProjectedCRS' and 'id' in srs_json:
-                    epsg_code = srs_json['id']['code']
+                # # Check if it's a CompoundCRS (has 'components')
+                # if srs_json.get('type') == 'CompoundCRS' and 'components' in srs_json:
+                #     # Get the horizontal (projected) component EPSG
+                #     for component in srs_json['components']:
+                #         if component.get('type') == 'ProjectedCRS':
+                #             epsg_code = component['id']['code']
+                #             break
+                # # Check if it's a simple ProjectedCRS
+                # elif srs_json.get('type') == 'ProjectedCRS' and 'id' in srs_json:
+                #     epsg_code = srs_json['id']['code']
                 
                 if epsg_code:
                     spatial_reference = arcpy.SpatialReference(epsg_code)
