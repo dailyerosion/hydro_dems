@@ -1559,7 +1559,7 @@ def download_usgs_laz(
                 log.warning(msgs)
 
     finally:
-        return return_path
+        return return_path, len(laz_files)
 
 
 import json
@@ -1823,12 +1823,17 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                         if not arcpy.Exists(out_fc):
                             page_url = srow[2] + '/LAZ/'
                             try:
-                                return_path = download_usgs_laz(page_url = page_url, output_dir = dl_dir, pdal_exe = pdal_exe, log = log)
+                                return_path, len_laz = download_usgs_laz(page_url = page_url, output_dir = dl_dir, pdal_exe = pdal_exe, log = log)
                             except:
                                 log.warning(f'failed download {page_url}')
                                 return_path = None
+                                len_laz = None
 
                             create_bounds_from_json(json_dir, out_gdb, out_fc_name, work_id_name, srow[1], log = log, create_gdb=True)
+                            bounds_count = int(arcpy.GetCount_management(out_fc).getOutput(0))
+
+                            if bounds_count != len_laz:
+                                log.warning(f'Bounds count {bounds_count} does not match laz file count {len_laz} for work unit {srow[1]}')
 
                         bounds_list.append(out_fc)
 
@@ -2394,11 +2399,11 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
                     ])
                     
                     success_count += 1
-                    log.info(f"  ✓ Processed: {json_file}")
+                    log.info(f" Processed: {json_file}")
                     
                 except Exception as e:
                     error_count += 1
-                    log.error(f"  ✗ Error processing {json_file}: {str(e)}")
+                    log.error(f" Error processing {json_file}: {str(e)}")
         
         log.info("-" * 60)
         log.info(f"Processing complete!")
