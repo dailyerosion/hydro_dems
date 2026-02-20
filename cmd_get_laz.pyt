@@ -2230,7 +2230,7 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
                 
                 log.info(f"Geodatabase does not exist. Creating: {output_gdb}")
                 arcpy.CreateFileGDB_management(gdb_path, gdb_name)
-                log.info(f"  ✓ Created geodatabase: {gdb_name}")
+                log.info(f"Created geodatabase: {gdb_name}")
                 log.info("-" * 60)
             else:
                 log.error(f"Error: Geodatabase does not exist: {output_gdb}")
@@ -2399,17 +2399,17 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
                     ])
                     
                     success_count += 1
-                    log.info(f" Processed: {json_file}")
+                    log.info(f"Processed: {json_file}")
                     
                 except Exception as e:
                     error_count += 1
-                    log.error(f" Error processing {json_file}: {str(e)}")
+                    log.error(f"Error processing {json_file}: {str(e)}")
         
         log.info("-" * 60)
         log.info(f"Processing complete!")
-        log.info(f"  Successfully processed: {success_count}")
-        log.info(f"  Errors: {error_count}")
-        log.info(f"  Output feature class: {output_fc}")
+        log.info(f"Successfully processed: {success_count}")
+        log.info(f"Errors: {error_count}")
+        log.info(f"Output feature class: {output_fc}")
         
         return output_fc
         
