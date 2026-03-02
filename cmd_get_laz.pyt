@@ -1049,7 +1049,8 @@ def download_usgs_laz(
                 if os.path.getsize(out_path) == expected_size:
                     log.info(f"Path Exists (size OK): {out_path}")
                     return_path = out_path
-                    create_metadata_json(out_path, pdal_exe, log)
+                    if 'E:' not in out_path:
+                        create_metadata_json(out_path, pdal_exe, log)
                     continue
                 else:
                     log.info(f"Re-downloading (size mismatch): {filename}") 
@@ -1085,7 +1086,8 @@ def download_usgs_laz(
 
                     log.info(f"Download complete: {filename}")
                     return_path = out_path
-                    create_metadata_json(out_path, pdal_exe, log)
+                    if 'E:' not in out_path:
+                        create_metadata_json(out_path, pdal_exe, log)
                     success = True
                     break
 
@@ -1375,7 +1377,7 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
 
         #eptDir = os.path.dirname(os.path.dirname(monthly_wesm_ept_mashup))
         wesm_huc12_all = arcpy.analysis.Clip(monthly_wesm_ept_mashup, maskFcOut, opj('in_memory', 'meets_3dep'))
-        wesm_huc12 = arcpy.Select_analysis(wesm_huc12_all, 'wesm_' + huc12, where_clause= "lpc_category = 'Meets'")
+        wesm_huc12 = arcpy.Select_analysis(wesm_huc12_all, 'wesm_' + huc12, where_clause= "lpc_category = 'Meets' OR lpc_category = 'Meets with variance' OR lpc_category = 'Expected to meet'")
         select_ql0_ql1 = arcpy.Select_analysis(wesm_huc12, where_clause = "ql = 'QL 1' OR ql = 'QL 0'")
         count_ql0_ql1 = int(str(arcpy.GetCount_management(select_ql0_ql1)))
         if count_ql0_ql1 >= 1:
@@ -1405,7 +1407,12 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                     for srow in scur:
                         log.debug(f'{work_id_name} is: {srow[1]} and lpc_link is: {srow[2]} ')
                         # dl_dir = os.path.join('E:\\DEP\\USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
-                        dl_dir = os.path.join(lidar_download_directory, os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
+                        # handle projects that do not have two project folders in the path, like https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/LPC/Projects/USGS_LPC_WI_Forest_2016_LAS_2019/
+                        laz_grandpa_dir = os.path.basename(os.path.dirname(srow[2]))
+                        if laz_grandpa_dir == 'Project':
+                            dl_dir = os.path.join(lidar_download_directory, os.path.basename(srow[2]), 'LAZ')
+                        else:
+                            dl_dir = os.path.join(lidar_download_directory, os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
                         # alt_dl_dir = opj('M:/DEP/USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
 
                         json_dir = dl_dir.replace('LAZ', 'json')
