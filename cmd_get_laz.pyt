@@ -1049,7 +1049,8 @@ def download_usgs_laz(
                 if os.path.getsize(out_path) == expected_size:
                     log.info(f"Path Exists (size OK): {out_path}")
                     return_path = out_path
-                    if 'E:' not in out_path:
+                    if '-m' not in platform.node().lower():
+                    # if 'E:' not in out_path:
                         create_metadata_json(out_path, pdal_exe, log)
                     continue
                 else:
@@ -1086,7 +1087,8 @@ def download_usgs_laz(
 
                     log.info(f"Download complete: {filename}")
                     return_path = out_path
-                    if 'E:' not in out_path:
+                    if '-m' not in platform.node().lower():
+                    # if 'E:' not in out_path:
                         create_metadata_json(out_path, pdal_exe, log)
                     success = True
                     break
@@ -1409,7 +1411,7 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                         # dl_dir = os.path.join('E:\\DEP\\USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
                         # handle projects that do not have two project folders in the path, like https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/LPC/Projects/USGS_LPC_WI_Forest_2016_LAS_2019/
                         laz_grandpa_dir = os.path.basename(os.path.dirname(srow[2]))
-                        if laz_grandpa_dir == 'Project':
+                        if laz_grandpa_dir == 'Projects':
                             dl_dir = os.path.join(lidar_download_directory, os.path.basename(srow[2]), 'LAZ')
                         else:
                             dl_dir = os.path.join(lidar_download_directory, os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
@@ -1433,32 +1435,34 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                                 return_path = None
                                 len_laz = None
 
-                            create_bounds_from_json(json_dir, out_gdb, out_fc_name, work_id_name, srow[1], log = log, create_gdb=True)
-                            bounds_count = int(arcpy.GetCount_management(out_fc).getOutput(0))
+                            if '-m' not in platform.node().lower():
+                                create_bounds_from_json(json_dir, out_gdb, out_fc_name, work_id_name, srow[1], log = log, create_gdb=True)
+                                bounds_count = int(arcpy.GetCount_management(out_fc).getOutput(0))
 
-                            if bounds_count != len_laz:
-                                log.warning(f'Bounds count {bounds_count} does not match laz file count {len_laz} for work unit {srow[1]}')
+                                if bounds_count != len_laz:
+                                    log.warning(f'Bounds count {bounds_count} does not match laz file count {len_laz} for work unit {srow[1]}')
+                        if arcpy.Exists(out_fc):
+                            bounds_list.append(out_fc)
 
-                        bounds_list.append(out_fc)
+                if len(bounds_list) > 0:
+                    log.info(f'bounds_list: {bounds_list}')
+                    out_fc_merge = arcpy.Merge_management(bounds_list, os.path.join('in_memory', 'out_fc_merge'))
 
-                log.info(f'bounds_list: {bounds_list}')
-                out_fc_merge = arcpy.Merge_management(bounds_list, os.path.join('in_memory', 'out_fc_merge'))
+                    out_fc_clip = arcpy.Clip_analysis(out_fc_merge, maskFc)
 
-                out_fc_clip = arcpy.Clip_analysis(out_fc_merge, maskFc)
+                    # copy the HUC12 laz files to a single directory for easier access in future processing
+                    with arcpy.da.SearchCursor(out_fc_clip, ['OBJECTID', 'laz_file']) as scur:
+                        for srow in scur:
+                            laz_file = srow[1].replace('\\laz\\', '\\USGS_LPC\\')
+                            if not os.path.isfile(laz_file):
+                                laz_file = laz_file.replace('E:\\DEP\\USGS_LPC', 'M:\\DEP\\USGS_LPC')
+                            po_laz_file = Path(laz_file)
+                            dest = po_all_laz_dir.joinpath(po_laz_file.name)
+                            if not os.path.isfile(dest):
+                                shutil.copy(po_laz_file, dest)
 
-                # copy the HUC12 laz files to a single directory for easier access in future processing
-                with arcpy.da.SearchCursor(out_fc_clip, ['OBJECTID', 'laz_file']) as scur:
-                    for srow in scur:
-                        laz_file = srow[1].replace('\\laz\\', '\\USGS_LPC\\')
-                        if not os.path.isfile(laz_file):
-                            laz_file = laz_file.replace('E:\\DEP\\USGS_LPC', 'M:\\DEP\\USGS_LPC')
-                        po_laz_file = Path(laz_file)
-                        dest = po_all_laz_dir.joinpath(po_laz_file.name)
-                        if not os.path.isfile(dest):
-                            shutil.copy(po_laz_file, dest)
-
-                df.create_needed_dirs_and_gdbs(wesm_huc12_tiles, log)
-                wesm_huc12_tiles = arcpy.CopyFeatures_management(out_fc_clip, wesm_huc12_tiles)
+                    df.create_needed_dirs_and_gdbs(wesm_huc12_tiles, log)
+                    wesm_huc12_tiles = arcpy.CopyFeatures_management(out_fc_clip, wesm_huc12_tiles)
                                 
 
                         
