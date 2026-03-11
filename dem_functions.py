@@ -3069,7 +3069,7 @@ def copy_text_line_by_line(source_file, destination_file):
 ##                else:
 ##                    destination.write(line)
         
-        print("Text copied line by line successfully from {} to {}.".format(source_file, destination_file))
+        print("Text copied line by line successfully to {}.".format(source_file, destination_file))
     
     except FileNotFoundError:
         print("File not found. Please check the file paths.")
