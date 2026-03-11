@@ -2304,7 +2304,7 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                     demPtString = demListVal
 ##                    maskRastOut = arcpy.PolygonToRaster_conversion(maskFcOut, 'id', opj(sgdb, maskRastBase + demPtString), cellsize = float(demListVal))
                 if cntBeFile is not None:
-                    if demListVal >= 1: #creating point counts this way is very slow (slower than from LAS Datasets)
+                    if int(demListVal) >= 1: #creating point counts for high resolution is very slow (slower than from LAS Datasets)
                         maskRastOutName = opj(sgdb, maskRastBase + demPtString)#demListVal)
                         cntBeFileRasterObj = createCountsFromMultipoints(sgdb, maskRastOutName, demListVal, demPtString, huc12, finalMPinm, finalMP, log, cntBeFile, init_res, pattern22)
 
