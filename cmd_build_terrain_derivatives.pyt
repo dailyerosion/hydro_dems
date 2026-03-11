@@ -603,7 +603,7 @@ def terrain_args_from_inputs(terrain):
     terrain_arguments = ', '.join(terrain_arguments_list)
     return terrain_arguments
 
-def createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOut, procDir, terrains, huc12, lidar_metadata_info, pyramid_args, dem_metadata_template, tElevFile_initial, named_cell_size):
+def createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOut, procDir, terrains, huc12, lidar_metadata_info, pyramid_args, dem_metadata_template, tElevFile_initial, named_cell_size, pattern22, interpDict, srOutNoVCS):
     try:
         # log.debug('snapRaster for Terrain to raster: ' + arcpy.env.snapRaster)
         interpTechnique = 'NATURAL_NEIGHBORS'
@@ -1897,78 +1897,11 @@ def try_to_delete(rasRes, log):
             os.remove(rasRes)
 
 
-# def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon, 
-        #  pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-        #  tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-        #  int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup, messages):
-
-    return tElevFile
-
-
-##----------------------------------------------------------------------
-
-
-
-if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        #Paste arguments into here for use within Python Window
-        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-        # cleanup = False
-        parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-    "C:/Temp/cmd_build_terrain_derivatives_main.pyt",
-    "E:/DEP_Checkout/Man_Data_ACPF/dep_ACPF2023/07080103/idepACPF070801030408.gdb/buf070801030408",
-    "E:/DEP_Checkout/Man_Data_ACPF/dep_ACPF2023/07080103/idepACPF070801030408.gdb/wesm_tiles_2026_02_10_070801030408",
-    "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_070801030408/laz_all_points",
-    "C:/Users/bkgelder/.conda/envs/pdal_python/Library/bin/pdal.exe",
-    "1,2,3",
-    "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_070801030408",
-    "E:/DEP_Checkout/Basedata_Summaries/Basedata_26915.gdb/Snap1m",
-    "",
-    "",
-    "E:/DEP_Checkout/LiDAR_Current/elev_TLib_mean18/07080103/et_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07080103/be_min_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07080103/fr_max_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/count_Lib/07080103/cnt_be_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/count_Lib/07080103/cnt_fr_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/count_Lib/07080103/cnt_pls_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/int_Lib/07080103/fr_int_min_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/int_Lib/07080103/fr_int_max_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/int_Lib/07080103/be_int_max_1m_070801030408.tif",
-    "False"]
-        for i in parameters[2:]:
-            sys.argv.append(i)
-
-    else:
-        #For use via Windows Command Line
-        #above 'parameters' come in via command line arguments, nothing else needed
-        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-        # clean up the folder after done processing
-        # cleanup = True
-
-    # inputs then outputs, change "" to Python None
-    (dem_boundary, wesm_huc12_tiles, laz_download_dir,#lidar_download_directory, #monthly_wesm_ept_mashup, dem_polygon, 
-         pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-         tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-         int1rMinFile, int1rMaxFile, intBeMaxFile, cleanup
-        ) = [i if i != "" else None for i in sys.argv[1:]]
-
-    # switch a text 'True' into a real Python True
-    cleanup = True if cleanup == "True" else False
-
-    messages = msgStub()
-
-#     doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon, 
-#          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-#          tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-#          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup, messages)#msgStub())
-
-#     arcpy.AddMessage("Back from doEPT!")
-
-# def doLidarDEMs(wesm_huc12,
-#          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-#          tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-#          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup, messages):
-    arguments = [dem_boundary, wesm_huc12_tiles, laz_download_dir, #lidar_download_directory, #monthly_wesm_ept_mashup, dem_polygon, 
+def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir, 
+        pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
+        tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+        int1rMinFile, int1rMaxFile, intBeMaxFile, cleanup, messages):
+    arguments = [dem_boundary, wesm_huc12_tiles, laz_download_dir, 
         pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
         tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
         int1rMinFile, int1rMaxFile, intBeMaxFile, cleanup]
@@ -2370,11 +2303,12 @@ if __name__ == "__main__":
                 else:
                     demPtString = demListVal
 ##                    maskRastOut = arcpy.PolygonToRaster_conversion(maskFcOut, 'id', opj(sgdb, maskRastBase + demPtString), cellsize = float(demListVal))
-                maskRastOutName = opj(sgdb, maskRastBase + demPtString)#demListVal)
                 if cntBeFile is not None:
-                    cntBeFileRasterObj = createCountsFromMultipoints(sgdb, maskRastOutName, demListVal, demPtString, huc12, finalMPinm, finalMP, log, cntBeFile, init_res, pattern22)
+                    if demListVal >= 1: #creating point counts this way is very slow (slower than from LAS Datasets)
+                        maskRastOutName = opj(sgdb, maskRastBase + demPtString)#demListVal)
+                        cntBeFileRasterObj = createCountsFromMultipoints(sgdb, maskRastOutName, demListVal, demPtString, huc12, finalMPinm, finalMP, log, cntBeFile, init_res, pattern22)
 
-                terrainList = createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOutName, procDir, terrains, huc12, lidar_metadata_info, pyramid_args, flib_metadata_template, tElevFile, init_res)
+                terrainList = createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOutName, procDir, terrains, huc12, lidar_metadata_info, pyramid_args, flib_metadata_template, tElevFile, init_res, pattern22, interpDict, srOutNoVCS)
 
                 buildLASRasters(lasdAll, lasdGround, log, demListVal, demPtString, huc12, srSfx, maskRastOutName, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, init_res, internal_regions, lidar_metadata_info, derivative_metadata, pattern22)
         else:
@@ -2387,6 +2321,8 @@ if __name__ == "__main__":
 ##            if 'terrains' in locals():
 ##                dismantleTerrains(terrains, finalHb, finalNoZHb, poorZHb, finalHl, tcdFdSet, log)
             df.cleanupOther(procDir, log, sgdb, inm)
+
+        return tElevFile
 
     except AssertionError:
         log.warning('assertion failure on: ' + huc12)
@@ -2418,3 +2354,64 @@ if __name__ == "__main__":
             log.info('shutting it down!')
             log.removeHandler(h)
             h.close()
+
+
+##----------------------------------------------------------------------
+## below should be commented out when using as a Python Toolbox (.pyt) - in 2025, .pyt cannot handle running code in the main block
+## remove the comments below for use from the windows command line
+
+# if __name__ == "__main__":
+#     if len(sys.argv) == 1:
+#         #Paste arguments into here for use within Python Window
+#         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+#         # cleanup = False
+#         parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+#     "C:/Temp/cmd_build_terrain_derivatives_main.pyt",
+#     "E:/DEP_Checkout/Man_Data_ACPF/dep_ACPF2023/07080103/idepACPF070801030408.gdb/buf070801030408",
+#     "E:/DEP_Checkout/Man_Data_ACPF/dep_ACPF2023/07080103/idepACPF070801030408.gdb/wesm_tiles_2026_02_10_070801030408",
+#     "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_070801030408/laz_all_points",
+#     "C:/Users/bkgelder/.conda/envs/pdal_python/Library/bin/pdal.exe",
+#     "1,2,3",
+#     "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_070801030408",
+#     "E:/DEP_Checkout/Basedata_Summaries/Basedata_26915.gdb/Snap1m",
+#     "",
+#     "",
+#     "E:/DEP_Checkout/LiDAR_Current/elev_TLib_mean18/07080103/et_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07080103/be_min_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07080103/fr_max_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/count_Lib/07080103/cnt_be_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/count_Lib/07080103/cnt_fr_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/count_Lib/07080103/cnt_pls_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/int_Lib/07080103/fr_int_min_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/int_Lib/07080103/fr_int_max_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/int_Lib/07080103/be_int_max_1m_070801030408.tif",
+#     "False"]
+#         for i in parameters[2:]:
+#             sys.argv.append(i)
+
+#     else:
+#         #For use via Windows Command Line
+#         #above 'parameters' come in via command line arguments, nothing else needed
+#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+#         # clean up the folder after done processing
+#         # cleanup = True
+
+#     # inputs then outputs, change "" to Python None
+#     (dem_boundary, wesm_huc12_tiles, laz_download_dir,
+#          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
+#          tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+#          int1rMinFile, int1rMaxFile, intBeMaxFile, cleanup
+#         ) = [i if i != "" else None for i in sys.argv[1:]]
+
+#     # switch a text 'True' into a real Python True
+#     cleanup = True if cleanup == "True" else False
+
+#     messages = msgStub()
+
+#     doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
+#          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
+#          tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+#          int1rMinFile, int1rMaxFile, intBeMaxFile, cleanup, messages)
+
+#     arcpy.AddMessage("Back from doEPT!")
+
