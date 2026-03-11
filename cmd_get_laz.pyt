@@ -600,6 +600,8 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1):#maskFc_3857
     log.debug(f'Square area in km^2 is: {round(square_area/pow(1000,2), 1)}')
     log.debug(f'Geometry area in km^2 is: {round(geom.area/pow(1000,2), 1)}')
 
+    pt_field_name = 'PT_Identifier'
+
     if square_area / (1000**2) > 150.0 or ql1:
         if ql1:
             x_net_size = 2000
@@ -627,7 +629,6 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1):#maskFc_3857
 
         fishnet_int_mask = arcpy.Intersect_analysis([fishnet2, maskFcOut])
 
-        pt_field_name = 'PT_Identifier'
         arcpy.AddField_management(fishnet_int_mask, pt_field_name, 'TEXT', field_length='10')
         arcpy.CalculateField_management(fishnet_int_mask, pt_field_name, '!FID_' + os.path.basename(fishnet_name) + '!', 'PYTHON3')
 
@@ -697,6 +698,11 @@ def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1):#maskFc_3857
         # arcpy.env.outputCoordinateSystem =\ srOut
 
     else:
+        fishnet_int_mask = arcpy.CopyFeatures_management(maskFcOut)
+
+        arcpy.AddField_management(fishnet_int_mask, pt_field_name, 'TEXT', field_length='10')
+        arcpy.CalculateField_management(fishnet_int_mask, pt_field_name, '!OBJECTID!', 'PYTHON3')
+
         splits = 1
         ept_extent = str(geom.extent.XMin) + ', ' + str(geom.extent.XMax) + '], [' + str(geom.extent.YMin) + ', ' + str(geom.extent.YMax)
         parts.append(['_pt1', ept_extent])
@@ -968,7 +974,7 @@ def create_metadata_json(out_path, pdal_exe, log):
             #         check=True
             #     )
 
-def download_usgs_laz(
+def usgs_download_laz(
     page_url: str,
     output_dir: str,
     pdal_exe: str,
@@ -1429,7 +1435,7 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                         if not arcpy.Exists(out_fc):
                             page_url = srow[2] + '/LAZ/'
                             try:
-                                return_path, len_laz = download_usgs_laz(page_url = page_url, output_dir = dl_dir, pdal_exe = pdal_exe, log = log)
+                                return_path, len_laz = usgs_download_laz(page_url = page_url, output_dir = dl_dir, pdal_exe = pdal_exe, log = log)
                             except:
                                 log.warning(f'failed download {page_url}')
                                 return_path = None
@@ -1611,10 +1617,10 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                         arcpy.management.AddField(fishnet_tiles, work_id_name, "LONG")
                         with arcpy.da.UpdateCursor(fishnet_tiles, ['SHAPE@', 'laz_file', work_id_name, pt_field_name]) as ucur:
                             for urow in ucur:
-                                baselaz = '_'.join(['ept', huc12, str(work_id_part), 'pt' + urow[-1] + '.laz'])
+                                baselaz = '_'.join(['ept', huc12, str(work_id), 'pt' + urow[-1] + '.laz'])
                                 laz_path = os.path.join(eleDir, baselaz)
                                 urow[1] = laz_path
-                                urow[2] = work_id_part
+                                urow[2] = work_id#_part
                                 ucur.updateRow(urow)
 
                         fishnet_tiles_list.append(fishnet_tiles)
