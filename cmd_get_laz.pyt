@@ -1432,7 +1432,10 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                         out_fc_name = 'laz_bounds_' + str(srow[1])
                         out_fc = os.path.join(out_gdb, out_fc_name)
                         # for mobile computers - check if the network path exists and if so, use the M drive alternative
-                        alt_out_fc = os.path.join('M:\\', os.path.relpath(out_fc, start='E:\\'))
+                        try:
+                            alt_out_fc = os.path.join('M:\\', os.path.relpath(out_fc, start='E:\\'))
+                        except:
+                            alt_out_fc = out_fc
 
                         if not arcpy.Exists(out_fc) and not arcpy.Exists(alt_out_fc):
                             page_url = srow[2] + '/LAZ/'
@@ -1451,7 +1454,7 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                                     log.warning(f'Bounds count {bounds_count} does not match laz file count {len_laz} for work unit {srow[1]}')
                         if arcpy.Exists(out_fc):
                             bounds_list.append(out_fc)
-                        elif arcpy.Exists(alt_out_fc):
+                        elif arcpy.Exists(alt_out_fc) and alt_out_fc != out_fc:
                             bounds_list.append(alt_out_fc)
 
                 if len(bounds_list) > 0:
