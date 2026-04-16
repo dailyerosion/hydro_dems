@@ -15,6 +15,7 @@ import os
 import time
 import subprocess
 import platform
+import getpass
 import glob
 import traceback
 import re
@@ -1376,92 +1377,146 @@ def copy_md_summary_args(md_item):
                 f_dict.update({'\n' + key + sep: value})
     return f_dict
 
-def addMetadata(outDEM, paraDict, template_file_path, log = None):
-    # Set the standard-format metadata XML file's path
-    # need to load metadata editor via 'import arcpy.metadata as md'
-    # outDEM = raster to receive updated metadata
-    # paraDict = dictionary of key/value pairs to be stored in metadata
-    #   values stored include things like analyst, lidar acquisition date, etc.
-    # template_file_path = a template to load a basic summary from
-    # log = otional logging of error messages to a log file
-    # scriptPath = sys.path[0]
+def addMetadata(outDEM, paraDict, template_file_path, log=None):
+    """ Claude AI contributed revision of addMetadata function to fix some bugs and improve functionality.
+    Set the standard-format metadata XML file's path
+    need to load metadata editor via 'import arcpy.metadata as md'
+    outDEM = raster to receive updated metadata
+    paraDict = dictionary of key/value pairs to be stored in metadata
+      values stored include things like analyst, lidar acquisition date, etc.
+    template_file_path = a template to load a basic summary from
+    log = otional logging of error messages to a log file
+    scriptPath = sys.path[0]
+    """
+    def _log(msg):
+        """Safe logger that works whether log is provided or not."""
+        if log:
+            log.info(msg)
+
     try:
-        src_file_path = template_file_path
-
         # Get the target item's Metadata object
-        tgt_item_md = md.Metadata(outDEM)    
+        tgt_item_md = md.Metadata(outDEM)
 
-        # Import the ACPF metadata content to the target item
+        if tgt_item_md is None:
+            _log(f'Could not retrieve metadata object for {outDEM}')
+            return
+
         if not tgt_item_md.isReadOnly:
-            log.info(f'Adding metadata to {outDEM}')
-            tgt_item_md.importMetadata(src_file_path)
-            tgt_item_md.title = os.path.split(outDEM)[1]
-            tgt_item_md.credits = 'Analyst: %s' % os.getlogin()#getpass.getuser()
+            _log(f'Adding metadata to {outDEM}')
 
-            src_desc = tgt_item_md.summary
-            if src_desc == None:
-                src_desc = ''
-            for key, value in paraDict.items():  
-                src_desc = src_desc + ('%s %s' % (key, value))
+            # Import template metadata and save before further edits
+            tgt_item_md.importMetadata(template_file_path)
+            tgt_item_md.save()  # FIX: Save after import before modifying
+
+            # Set title
+            tgt_item_md.title = os.path.split(outDEM)[1]
+
+            # FIX: Use getpass.getuser() instead of os.getlogin()
+            tgt_item_md.credits = 'Analyst: %s' % getpass.getuser()
+
+            # Build and set summary
+            src_desc = tgt_item_md.summary or ''  # FIX: cleaner None handling
+            for key, value in paraDict.items():
+                src_desc += f'{key} {value}\n'   # Added newline for readability
             tgt_item_md.summary = src_desc
 
-            tgt_item_md_copy = tgt_item_md.copy()
-            
+            # FIX: Removed unused tgt_item_md.copy() call before save
             tgt_item_md.save()
+            _log(f'Metadata saved successfully for {outDEM}')
 
-    except TypeError as e:
-        print('handling as exception')
-##        log.debug(e.message)
-        if sys.version_info.major == 2:
-            arcpy.AddError(e.message)
-            print(e.message)
-            log.warning(e.message)
-        elif sys.version_info.major == 3:
-            arcpy.AddError(e)
-            print(e)
-            if log is not None:
-                log.warning(e)
+        else:
+            _log(f'Metadata is read-only for {outDEM}, skipping.')
 
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
+    except Exception as e:
+        _log(f'Error adding metadata to {outDEM}: {e}')
+        raise  # Re-raise so the caller knows something went wrong
 
-        # Concatenate information together concerning the error into a message string
-        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-        # Return python error messages for use in script tool or Python Window
-        arcpy.AddError(pymsg)
-        # Print Python error messages for use in Python / Python Window
-        print(pymsg + "\n")
-        if log is not None:
-            log.warning(pymsg)
+# def addMetadata(outDEM, paraDict, template_file_path, log = None):
+#     # Set the standard-format metadata XML file's path
+#     # need to load metadata editor via 'import arcpy.metadata as md'
+#     # outDEM = raster to receive updated metadata
+#     # paraDict = dictionary of key/value pairs to be stored in metadata
+#     #   values stored include things like analyst, lidar acquisition date, etc.
+#     # template_file_path = a template to load a basic summary from
+#     # log = otional logging of error messages to a log file
+#     # scriptPath = sys.path[0]
+#     try:
+#         src_file_path = template_file_path
 
-        if arcpy.GetMessages(2) not in pymsg:
-            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-            arcpy.AddError(msgs)
-            print(msgs)
-            if log is not None:
-                log.warning(msgs)
+#         # Get the target item's Metadata object
+#         tgt_item_md = md.Metadata(outDEM)    
 
-    except:
-        print('handling as except')
-        # Get the traceback object
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
+#         # Import the ACPF metadata content to the target item
+#         if not tgt_item_md.isReadOnly:
+#             log.info(f'Adding metadata to {outDEM}')
+#             tgt_item_md.importMetadata(src_file_path)
+#             tgt_item_md.title = os.path.split(outDEM)[1]
+#             tgt_item_md.credits = 'Analyst: %s' % os.getlogin()#getpass.getuser()
 
-        # Concatenate information together concerning the error into a message string
-        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-        # Return python error messages for use in script tool or Python Window
-        arcpy.AddError(pymsg)
-        # Print Python error messages for use in Python / Python Window
-        print(pymsg + "\n")
-        if log is not None:
-            log.warning(pymsg)
+#             src_desc = tgt_item_md.summary
+#             if src_desc == None:
+#                 src_desc = ''
+#             for key, value in paraDict.items():  
+#                 src_desc = src_desc + ('%s %s' % (key, value))
+#             tgt_item_md.summary = src_desc
 
-        if arcpy.GetMessages(2) not in pymsg:
-            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-            arcpy.AddError(msgs)
-            print(msgs)
-            if log is not None:
-                log.warning(msgs)
+#             tgt_item_md_copy = tgt_item_md.copy()
+            
+#             tgt_item_md.save()
+
+#     except TypeError as e:
+#         print('handling as exception')
+# ##        log.debug(e.message)
+#         if sys.version_info.major == 2:
+#             arcpy.AddError(e.message)
+#             print(e.message)
+#             log.warning(e.message)
+#         elif sys.version_info.major == 3:
+#             arcpy.AddError(e)
+#             print(e)
+#             if log is not None:
+#                 log.warning(e)
+
+#         tb = sys.exc_info()[2]
+#         tbinfo = traceback.format_tb(tb)[0]
+
+#         # Concatenate information together concerning the error into a message string
+#         pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+#         # Return python error messages for use in script tool or Python Window
+#         arcpy.AddError(pymsg)
+#         # Print Python error messages for use in Python / Python Window
+#         print(pymsg + "\n")
+#         if log is not None:
+#             log.warning(pymsg)
+
+#         if arcpy.GetMessages(2) not in pymsg:
+#             msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+#             arcpy.AddError(msgs)
+#             print(msgs)
+#             if log is not None:
+#                 log.warning(msgs)
+
+#     except:
+#         print('handling as except')
+#         # Get the traceback object
+#         tb = sys.exc_info()[2]
+#         tbinfo = traceback.format_tb(tb)[0]
+
+#         # Concatenate information together concerning the error into a message string
+#         pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+#         # Return python error messages for use in script tool or Python Window
+#         arcpy.AddError(pymsg)
+#         # Print Python error messages for use in Python / Python Window
+#         print(pymsg + "\n")
+#         if log is not None:
+#             log.warning(pymsg)
+
+#         if arcpy.GetMessages(2) not in pymsg:
+#             msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+#             arcpy.AddError(msgs)
+#             print(msgs)
+#             if log is not None:
+#                 log.warning(msgs)
 
 def create_cl2_json_pipeline(cl2_json_filename, eleDir, all_las_file, cl2_las_full_filename):
     '''Writes a json pipeline for use by pdal (point data abstraction library)'''

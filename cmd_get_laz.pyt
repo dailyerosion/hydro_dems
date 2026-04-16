@@ -1055,9 +1055,9 @@ def usgs_download_laz(
                 if os.path.getsize(out_path) == expected_size:
                     log.info(f"Path Exists (size OK): {out_path}")
                     return_path = out_path
-                    if '-m' not in platform.node().lower():
+                    # if '-m' not in platform.node().lower():
                     # if 'E:' not in out_path:
-                        create_metadata_json(out_path, pdal_exe, log)
+                    create_metadata_json(out_path, pdal_exe, log)
                     continue
                 else:
                     log.info(f"Re-downloading (size mismatch): {filename}") 
@@ -1093,9 +1093,9 @@ def usgs_download_laz(
 
                     log.info(f"Download complete: {filename}")
                     return_path = out_path
-                    if '-m' not in platform.node().lower():
+                    # if '-m' not in platform.node().lower():
                     # if 'E:' not in out_path:
-                        create_metadata_json(out_path, pdal_exe, log)
+                    create_metadata_json(out_path, pdal_exe, log)
                     success = True
                     break
 
@@ -1431,8 +1431,10 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                         out_gdb = opj(bounds_dir, 'laz_bounds_' + str(srow[1]) + '.gdb')
                         out_fc_name = 'laz_bounds_' + str(srow[1])
                         out_fc = os.path.join(out_gdb, out_fc_name)
+                        # for mobile computers - check if the network path exists and if so, use the M drive alternative
+                        alt_out_fc = os.path.join('M:\\', os.path.relpath(out_fc, start='E:\\'))
 
-                        if not arcpy.Exists(out_fc):
+                        if not arcpy.Exists(out_fc) and not arcpy.Exists(alt_out_fc):
                             page_url = srow[2] + '/LAZ/'
                             try:
                                 return_path, len_laz = usgs_download_laz(page_url = page_url, output_dir = dl_dir, pdal_exe = pdal_exe, log = log)
@@ -1449,6 +1451,8 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                                     log.warning(f'Bounds count {bounds_count} does not match laz file count {len_laz} for work unit {srow[1]}')
                         if arcpy.Exists(out_fc):
                             bounds_list.append(out_fc)
+                        elif arcpy.Exists(alt_out_fc):
+                            bounds_list.append(alt_out_fc)
 
                 if len(bounds_list) > 0:
                     log.info(f'bounds_list: {bounds_list}')
@@ -2033,7 +2037,9 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
         log.error(f"Error creating feature class: {str(e)}")
         return None
 
-
+##----------------------------------------------------------------------
+## below should be commented out when using as a Python Toolbox (.pyt) - in 2025, .pyt cannot handle running code in the main block
+## remove the comments below for use from the windows command line
 
 # if __name__ == "__main__":
 #     if len(sys.argv) == 1:
