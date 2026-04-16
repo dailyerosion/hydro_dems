@@ -1435,6 +1435,7 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                         try:
                             alt_out_fc = os.path.join('M:\\', os.path.relpath(out_fc, start='E:\\'))
                         except:
+                            log.debug(f'could not create alt_out_fc for {out_fc}, using out_fc for both')
                             alt_out_fc = out_fc
 
                         if not arcpy.Exists(out_fc) and not arcpy.Exists(alt_out_fc):
