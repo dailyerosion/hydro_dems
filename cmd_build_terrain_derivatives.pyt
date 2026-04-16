@@ -664,9 +664,9 @@ def createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOut, pr
             arcpy.env.outputCoordinateSystem = srOutNoVCS
 
             log.debug('tElevFile name will be ' + tElevFile_interp)
-            # arcpy.BuildPyramids_management(maskedDEMint)
-            arcpy.CopyRaster_management(maskedDEMint, tElevFile_interp, pixel_type = '16_BIT_SIGNED', format = 'TIFF')
-            # maskedDEMint.save(tElevFile_interp)
+            arcpy.BuildPyramids_management(maskedDEMint)
+            # arcpy.CopyRaster_management(maskedDEMint, tElevFile_interp, pixel_type = '16_BIT_SIGNED', format = 'TIFF')
+            maskedDEMint.save(tElevFile_interp)
             log.debug(f'Saved DEM for: {demPtString}')
 
             # f_dict = copy_md_summary_args(rastr)
@@ -678,10 +678,10 @@ def createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOut, pr
             # f_dict.update({'\n' + key + sep: tElevFile_interp})
 
             ## update metadata
-            log.debug(f'---Skipping metadata for {tElevFile_interp}')
-            # log.debug(f'---Adding metadata to {tElevFile_interp}')
-            # addMetadata(tElevFile_interp, paraDict, dem_metadata_template, log)
-            # log.debug('---Added metadata')
+            # log.debug(f'---Skipping metadata for {tElevFile_interp}')
+            log.debug(f'---Adding metadata to {tElevFile_interp}')
+            addMetadata(tElevFile_interp, paraDict, dem_metadata_template, log)
+            log.debug('---Added metadata')
 
 
     except Exception as e:
@@ -1126,8 +1126,8 @@ def buildLASRasters(lasdAll, lasdGround, log, demListVal, demPtString, huc12, sr
                 bareEarthReturnMinFile_sized = updateResolution(bareEarthReturnMinFile, named_cell_size, demListVal, pattern22, log)
                 log.debug('---Saving LR Min cm raster')
                 beReturnsMinCm.save(bareEarthReturnMinFile_sized)#locDict['bareEarthReturnMinFile'])#.replace('fr', 'be'))
-                # log.debug('---Adding metadata to LR Min cm raster')
-                # addMetadata(bareEarthReturnMinFile_sized, paraDict, derivative_metadata, log)
+                log.debug('---Adding metadata to LR Min cm raster')
+                addMetadata(bareEarthReturnMinFile_sized, paraDict, derivative_metadata, log)
 
         if int1rMaxFile is not None or int1rMinFile is not None or intBeMaxFile is not None:
             log.debug('---Creating intensity rasters')
