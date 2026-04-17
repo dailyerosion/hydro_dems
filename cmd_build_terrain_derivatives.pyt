@@ -1130,8 +1130,8 @@ def buildLASRasters(lasdAll, lasdGround, log, demListVal, demPtString, huc12, sr
                 addMetadata(bareEarthReturnMinFile_sized, paraDict, derivative_metadata, log)
 
         if int1rMaxFile is not None or int1rMinFile is not None or intBeMaxFile is not None:
-            log.debug('---Creating intensity rasters')
-            if demListVal == 2:# only run for 2m DEMs, otherwise too slow
+            if demListVal == '2':# only run for 2m DEMs, otherwise too slow
+                log.debug('---Creating intensity rasters')
                 if int1rMaxFile is None and int1rMinFile is not None: 
                     log.warning('Faking int1rMaxFile value due to requested int1rMinFile')
                     int1rMaxFile_faked = int1rMinFile.replace('fr_int_min', 'fr_int_max')
@@ -1217,7 +1217,7 @@ def buildLASRasters(lasdAll, lasdGround, log, demListVal, demPtString, huc12, sr
         # allReturnsMinCm = Int(Times(allReturnsMin, 100))
         # allReturnsMinCm.save(frMinFile_sized)#locDict['firstReturnMinFile'])#allReturnsMinFile)
 
-        if demListVal == 2:# only run for 2m DEMs, otherwise too slow
+        if demListVal == '2':# only run for 2m DEMs, otherwise too slow
             if cnt1rFile is not None:
                 log.debug('---Counting First Returns')
                 cnt1rFile_sized = updateResolution(cnt1rFile, named_cell_size, demListVal, pattern22, log)
@@ -2101,7 +2101,7 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
         vals = list(interpDict.values())
         vals_lower = [v.lower() for v in vals]
         for v in vals_lower:
-            print(v)
+            # print(v)
             if v in tElevFile:
                 interpFound = True
                 interpType = v
