@@ -2028,6 +2028,8 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
                 except Exception as e:
                     error_count += 1
                     log.error(f"Error processing {json_file}: {str(e)}")
+                    log.warning(f"Run script again, removing due to error: {json_file}")
+                    os.remove(json_file)
         
         log.info("-" * 60)
         log.info(f"Processing complete!")
