@@ -521,35 +521,6 @@ def create_laz_json_pipeline(laz_json_filename, saveDir, all_las_file, laz_full_
     return laz_json_full_filename
 
 
-def create_ept_json_pipeline(ept_json_filename, eleDir, ept_las_full_filename, extent_request, ept_address, srOutCode):
-    '''Writes a json pipeline for use by pdal (point data abstraction library)'''
-
-    ept_json_full_filename = os.altsep.join([eleDir, ept_json_filename])
-
-    json_str = '''{
-"pipeline": [
-{
-    "bounds": "([''' + extent_request + '''])",
-    "filename": "''' + ept_address + '''",
-    "type": "readers.ept",
-    "tag": "readdata"
-},
-{
-    "out_srs": "EPSG:''' + str(srOutCode) + '''",
-    "tag": "reprojectUTM",
-    "type": "filters.reprojection"
-},
-{
-    "filename": "''' + ept_las_full_filename + '''",
-    "tag": "writerslas",
-    "type": "writers.las"
-}]}'''
-
-    json_file_obj = open(ept_json_full_filename, 'w')
-    json_file_obj.write(json_str)
-    json_file_obj.close()
-
-    return ept_json_full_filename
 
 def organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log):
     """Organize the 3DEP projects by acquisition date so we use the
@@ -1395,7 +1366,7 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
         # code fails on QL1 data for 071200030402, downloaded LAS for 79951 work id was 143 GB and caused ExtractLas to fail
         # assert count_ql0_ql1 < 1, 'DEM builder not yet configured for QL1 or QL0 density data, email bkgelder@iastate.edu to request upgrade'
         if ql1:
-            log.warning('You have selected an area with QL0 or QL1 lidar, this will take a while!')
+            log.warning('You have selected an area with QL0 or QL1 lidar, this may take a while!')
 
 ##----------------------------------------------------------------------
 
@@ -1643,7 +1614,7 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
 ##----------------------------------------------------------------------
             # add collection start and end dates to the attribute table of the fishnet tiles for any projects that meet the build threshold, so we can use that info later in the processing to determine which tiles to prioritize for processing and which to maybe skip or process last based on how recent the data is
             df.joinDict(wesm_huc12, work_id_name, monthly_wesm_ept_mashup, work_id_name, ['collect_start', 'collect_end'])
-            df.joinDict(wesm_huc12_tiles, work_id_name, monthly_wesm_ept_mashup, work_id_name, ['collect_start', 'collect_end'])
+            df.joinDict(wesm_huc12_tiles, work_id_name, monthly_wesm_ept_mashup, work_id_name, ['collect_start', 'collect_end', 'ql', 'dem_gsd_meters', 'horiz_crs', 'vert_crs','lpc_category', 'lpc_reason'])
 
             
     except AssertionError:
