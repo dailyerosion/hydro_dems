@@ -162,7 +162,7 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
 
         #create names of outputs so we can see test if it's been run recently
         #get geoJSON from https://raw.githubusercontent.com/hobuinc/usgs-lidar/master/boundaries/resources.geojson
-        now_ymd_string = '2026_02_02'#nowYmd[:10]
+        now_ymd_string = nowYmd[:10]
         ept_first_of_month_name = "ept_resources_" + now_ymd_string
         ept_4269_first_of_month_name = "ept_resources_epsg4269_" + now_ymd_string
         wesm_first_of_month_name = "main_wesm_" + now_ymd_string
@@ -196,19 +196,13 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
                 log.info(f'WESM geopackage found at {wesm_download_location}')
             assert os.path.getsize(wesm_download_location) > 2500000000, "Check WESM download size, should be larger than 2.5 GB"
 
-            log.info('projecting WESM to EPSG 4269 (NAD83)')
-            # do WESM first so map will be in epsg 4269 (NAD83)
-            # WESM has some features that will not export from GPKG to FGDB
-            main_wesm_copy_no_complex_geom = arcpy.analysis.Select(
-    in_features=opj(wesm_download_location, 'main.wesm'),#r"M:\DEP\Elevation_databases\main_wesm_2026_02_02.gpkg\main.WESM",
-    where_clause="workunit_id NOT IN (76433, 195100, 197966, 228259, 300276, 300553)"
-)
-
-            main_wesm_copy = arcpy.analysis.Select(
-    in_features=main_wesm_copy_no_complex_geom,
-    out_feature_class=opj(ept_gdb_path, 'wesm_from_gpkg'),#r"C:\Users\bkgelder\Documents\ArcGIS\Projects\DEP_ACPF_overview\DEP_ACPF_overview.gdb\WESM_Select_Not_Corrupt",
-    where_clause="""project NOT LIKE 'AK_%' AND project NOT LIKE 'HI_%'"""
-)
+#             # WESM has some features that will not export from GPKG to FGDB
+#             main_wesm_copy_no_complex_geom = arcpy.analysis.Select(
+#     in_features=opj(wesm_download_location, 'main.wesm'),#r"M:\DEP\Elevation_databases\main_wesm_2026_02_02.gpkg\main.WESM",
+#     where_clause="workunit_id NOT IN (76433, 195100, 197966, 228259, 300276, 300553)"
+# )
+            where_no_ak_hi = """project NOT LIKE 'AK_%' AND project NOT LIKE 'HI_%'"""
+            main_wesm_copy = arcpy.analysis.Select(opj(wesm_download_location, 'main.wesm'), out_feature_class=opj(ept_gdb_path, 'wesm_from_gpkg'), where_clause=where_no_ak_hi)
 
 ##            main_wesm_copy = arcpy.conversion.FeatureClassToFeatureClass(opj(wesm_download_location, 'main.wesm'), ept_gdb_path, 'wesm_from_gpkg')
             workunit_lower_field = 'workunit_lower'
@@ -220,6 +214,8 @@ def doEPT(ept_wesm_file, procDir, cleanup, messages):
             # if not arcpy.Exists(ept_features_path):
             arcpy.env.outputZFlag = "Disabled"
             ept_features_4326 = arcpy.conversion.JSONToFeatures(ept_download_location, ept_features_path, "POLYGON")
+            log.info('projecting WESM to EPSG 4269 (NAD83)')
+            # do WESM first so map will be in epsg 4269 (NAD83)
             ept_features = arcpy.management.Project(ept_features_4326, ept_4269_features_path, 4269)
             # else:
             #     ept_features = ept_features_path
