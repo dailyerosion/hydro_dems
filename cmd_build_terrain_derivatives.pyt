@@ -2309,7 +2309,7 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
     }
 ]}'''
                         if ql == 'QL 0' or ql == 'QL 1':
-                            log.debug(f'pipeline_laz_las: {pipeline_laz_las}')
+                            log.debug(f'using decimating pipeline_laz_las')
                         pl_laz_las = pdal.Pipeline(pipeline_laz_las)
                         ex = pl_laz_las.execute()
 
