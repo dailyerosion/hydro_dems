@@ -516,57 +516,136 @@ def new_cp_to_enforce_after_inversion(all_cp_stops, fixed_dem, fixed_basins):
 
     return cp_for_next_fix, fill_dem_to_deepest, fd_to_deepest
 
+def setup_logs_envs(arguments, fillTif, procDir):
+    for a in arguments:
+        if a == arguments[0]:
+            arg_str = str(a) + '\n'
+        else:
+            arg_str += str(a) + '\n'
+
+    messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
+
+    huc12, huc8 = df.figureItOut(fillTif)
+    # the DEP huc DEM naming convention
+
+    # set up processing directory, if given use that
+    if procDir is not None:
+        if not os.path.isdir(procDir):
+            os.makedirs(procDir)
+        arcpy.env.scratchWorkspace = procDir
+        if not os.path.isdir(opj(procDir, 'scratch')):#arcpy.Exists('scratch'):
+            sfldr = arcpy.env.scratchFolder
+        else:
+            sfldr = opj(procDir, 'scratch')
+    else:
+        sfldr = arcpy.env.scratchFolder
+        procDir = sfldr
+
+    #figure out where to create log files based on procDir and cleanup
+    node = platform.node()
+    logProc = df.defineLocalProc(node)
+    if not os.path.isdir(logProc):
+        logProc = sfldr
+
+    if cleanup:
+        log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)
+        arcpy.SetLogHistory = False
+    else:
+        # log to file and console
+        log, nowYmd, logName, startTime = df.setupLoggingNew(logProc, sys.argv[0], huc12)
+        arcpy.SetLogHistory = True
+
+    log.info("Beginning execution: " + time.asctime())
+    log.debug('sys.argv is: ' + str(sys.argv) + '\n')
+    log.info("Processing HUC: " + huc12)
+    log.info(f"procDir: {procDir}")
+    log.info("Log file at " + logName)
+    messages.addMessage("Log file at " + logName)
+
+    # setup arcpy extensions and environments
+    arcpy.CheckOutExtension("Spatial")
+    arcpy.CheckOutExtension("3D")
+
+    fElevDesc = arcpy.da.Describe(fillTif)
+    srOut = fElevDesc['spatialReference']
+    srOutCode = srOut.PCSCode
+
+    assert srOutCode < 32768, "EPSG spatial reference code too large, PDAL will not recognize"
+
+    arcpy.env.snapRaster = fillTif
+    arcpy.env.cellSize = fillTif
+    proc_size = Raster(fillTif).meanCellHeight
+
+    if not arcpy.Exists(opj(procDir, 'scratch.gdb')):
+        sgdb = arcpy.env.scratchGDB
+    else:
+        sgdb = opj(procDir, 'scratch.gdb')
+    arcpy.env.scratchWorkspace = sgdb
+    arcpy.env.workspace = sgdb
+
+    arcpy.env.overwriteOutput = True
+    arcpy.env.ZResolution = "0.01"
+    arcpy.env.outputCoordinateSystem = srOut
+
+    log.info("Output will be in EPSG Code (spatial reference): " + str(srOutCode))
+
+    inm = 'in_memory\\'
+
+    return huc12, huc8, log, nowYmd, logName, startTime, sfldr, sgdb, inm, proc_size
 
 def doCleaner(fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile, cleanup, messages):
     try:
         arguments = [fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile, cleanup]
 
-        for a in arguments:
-            if a == arguments[0]:
-                arg_str = str(a) + '\n'
-            else:
-                arg_str += str(a) + '\n'
+        huc12, huc8, log, nowYmd, logName, startTime, sfldr, sgdb, inm, str_proc_size = setup_logs_envs(arguments, fillTif, voidProc)
+        proc_size = float(str_proc_size)
 
-        messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
+        # for a in arguments:
+        #     if a == arguments[0]:
+        #         arg_str = str(a) + '\n'
+        #     else:
+        #         arg_str += str(a) + '\n'
 
-        huc12, huc8 = df.figureItOut(fillTif)
+        # messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
 
-        if cleanup:
-            # log to file only
-            log, nowYmd, logName, startTime = df.setupLoggingNoCh(platform.node(), sys.argv[0], huc12, '')#'_' + version)
-            arcpy.SetLogHistory(False)
-        else:
-            # log to file and console
-            log, nowYmd, logName, startTime = df.setupLoggingNew(platform.node(), sys.argv[0], huc12, '')#'_' + version)
+        # huc12, huc8 = df.figureItOut(fillTif)
 
-        log.info(outputString)
+        # if cleanup:
+        #     # log to file only
+        #     log, nowYmd, logName, startTime = df.setupLoggingNoCh(platform.node(), sys.argv[0], huc12, '')#'_' + version)
+        #     arcpy.SetLogHistory(False)
+        # else:
+        #     # log to file and console
+        #     log, nowYmd, logName, startTime = df.setupLoggingNew(platform.node(), sys.argv[0], huc12, '')#'_' + version)
 
-        startTime = time.time()
-        log.info("Beginning execution: " + time.asctime())
-        log.info("Tool: Executing with parameters:\n" + arg_str)
-        messages.addMessage("Log file at " + logName)
+        # log.info(outputString)
 
-        ##try:
-        arcpy.CheckOutExtension('Spatial')
-        arcpy.env.overwriteOutput = True
+        # startTime = time.time()
+        # log.info("Beginning execution: " + time.asctime())
+        # log.info("Tool: Executing with parameters:\n" + arg_str)
+        # messages.addMessage("Log file at " + logName)
 
-        ## Set the environments
-        # control where scratchFolder and GDB are created
-        arcpy.env.scratchWorkspace = voidProc
-        sfldr = arcpy.env.scratchFolder
-        sgdb = arcpy.env.scratchGDB
-        arcpy.env.scratchWorkspace = sfldr
-        ##    arcpy.env.workspace = sgdb
-        arcpy.env.workspace = sfldr
+        # ##try:
+        # arcpy.CheckOutExtension('Spatial')
+        # arcpy.env.overwriteOutput = True
 
-        arcpy.env.snapRaster = fillTif#snapRaster
+        # ## Set the environments
+        # # control where scratchFolder and GDB are created
+        # arcpy.env.scratchWorkspace = voidProc
+        # sfldr = arcpy.env.scratchFolder
+        # sgdb = arcpy.env.scratchGDB
+        # arcpy.env.scratchWorkspace = sfldr
+        # ##    arcpy.env.workspace = sgdb
+        # arcpy.env.workspace = sfldr
 
-        arcpy.env.cellSize = fillTif#proc_size
-        proc_size = arcpy.env.cellSize
-        arcpy.env.snapRaster = fillTif
-        arcpy.env.extent = fillTif
+        # arcpy.env.snapRaster = fillTif#snapRaster
 
-        log.warning('sys.argv is: ' + str(sys.argv) + '\n')
+        # arcpy.env.cellSize = fillTif#proc_size
+        # proc_size = arcpy.env.cellSize
+        # arcpy.env.snapRaster = fillTif
+        # arcpy.env.extent = fillTif
+
+        # log.warning('sys.argv is: ' + str(sys.argv) + '\n')
 
         #voidFixTif is a hydro-flattened DEM generated using automated flattening processes
         if arcpy.Exists(voidFixTif):
@@ -932,13 +1011,13 @@ if __name__ == "__main__":
     if 0 <= len(sys.argv) <= 1:
         cleanup = False
         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-        "O:/DEP/Scripts/basics/cmd_clean_shallow_crv.py",
-        "O:/DEP/LiDAR_2013/elev_FLib_mean18_26915/07020008/ef2m070200080303.tif",
-        "O:/DEP/LiDAR_2013/elev_VLib_mean18_26915/07020008/ev2m070200080303.tif",
-        "O:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
-        "D:/DEP_Proc/DEMProc/Void_dem2013_2m_070200080303",
-        "O:/DEP/LiDAR_2013/elev_VLib_mean18_26915/07020008/ex2m070200080303.tif",
-        "O:/DEP/LiDAR_2013/elev_VLib_mean18_26915/07020008/ey2m070200080303.tif"]
+    "C:/DEP/Scripts/basics/cmd_cleaner_DEM.pyt",
+    "M:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef_1m_070801050901.tif",
+    "M:/DEP/LiDAR_Current/elev_VLib_mean18/07080105/ev_1m_070801050901.tif",
+    "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
+    "E:/DEP_Proc/DEMProc/Void_dem2013_1m_070801050901",
+    "M:/DEP/LiDAR_Current/elev_VLib_mean18/07080105/ex_1m_070801050901.tif",
+    "M:/DEP/LiDAR_Current/elev_VLib_mean18/07080105/ey_1m_070801050901.tif"]
 
         for i in parameters[2:]:
             sys.argv.append(i)
