@@ -1214,6 +1214,35 @@ def get_laz_bounds_and_crs(laz_file, pkl_path, write_pickle=True):
 ##    info = get_laz_bounds_and_crs(laz_path)
 ##    print(info)
 
+def create_ept_json_pipeline(ept_json_filename, eleDir, ept_las_full_filename, extent_request, ept_address, srOutCode):
+    '''Writes a json pipeline for use by pdal (point data abstraction library)'''
+
+    ept_json_full_filename = os.altsep.join([eleDir, ept_json_filename])
+
+    json_str = '''{
+"pipeline": [
+{
+    "bounds": "([''' + extent_request + '''])",
+    "filename": "''' + ept_address + '''",
+    "type": "readers.ept",
+    "tag": "readdata"
+},
+{
+    "out_srs": "EPSG:''' + str(srOutCode) + '''",
+    "tag": "reprojectUTM",
+    "type": "filters.reprojection"
+},
+{
+    "filename": "''' + ept_las_full_filename + '''",
+    "tag": "writerslas",
+    "type": "writers.las"
+}]}'''
+
+    json_file_obj = open(ept_json_full_filename, 'w')
+    json_file_obj.write(json_str)
+    json_file_obj.close()
+
+    return ept_json_full_filename
 
 
 def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon, 
