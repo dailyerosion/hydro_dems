@@ -1310,8 +1310,11 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
         fElevDesc = arcpy.da.Describe(dem_polygon)
         srOut = fElevDesc['spatialReference']
         srOutCode = srOut.PCSCode
-
-        assert srOutCode < 32768, "EPSG spatial reference code too large, PDAL will not recognize"
+        if srOutCode == 102039:
+            # reassign to 5070, https://rashms.com/gis/earth-ellipsoid-coordinate-reference-system-crs-projection-epsg-codes-in-gis/
+            srOutCode = 5070
+        assert srOutCode < 32768, 'EPSG spatial reference code too large, PDAL will not recognize'
+        log.info('Output will be in EPSG Code (spatial reference): ' + str(srOutCode))
 
         log.info("Output will be in EPSG Code (spatial reference): " + str(srOutCode))#sys.argv[9])
         log.info("Log file at " + logName)
@@ -1422,8 +1425,8 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                                 create_bounds_from_json(json_dir, out_gdb, out_fc_name, work_id_name, srow[1], log = log, create_gdb=True)
                                 bounds_count = int(arcpy.GetCount_management(out_fc).getOutput(0))
 
-                                if bounds_count != len_laz:
-                                    log.warning(f'Bounds count {bounds_count} does not match laz file count {len_laz} for work unit {srow[1]}')
+                                assert len_laz is not None, f'length of laz files is None for {page_url}, cannot compare to bounds count'
+                                assert len_laz == bounds_count, f'length of laz files {len_laz} does not match bounds count {bounds_count} for {page_url}'
                         if arcpy.Exists(out_fc):
                             bounds_list.append(out_fc)
                         elif arcpy.Exists(alt_out_fc) and alt_out_fc != out_fc:
@@ -1617,9 +1620,9 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
             df.joinDict(wesm_huc12_tiles, work_id_name, monthly_wesm_ept_mashup, work_id_name, ['collect_start', 'collect_end', 'ql', 'dem_gsd_meters', 'horiz_crs', 'vert_crs','lpc_category', 'lpc_reason'])
 
             
-    except AssertionError:
-        log.warning('assertion failure on: ' + huc12)
-        sys.exit(1)
+    # except AssertionError:
+    #     log.warning('assertion failure on: ' + huc12)
+    #     sys.exit(1)
     except:
         tb = sys.exc_info()[2]
         tbinfo = traceback.format_tb(tb)[0]
