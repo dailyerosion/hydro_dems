@@ -1567,35 +1567,35 @@ class msgStub:
     def addWarningMessage(self,text):
         arcpy.AddWarningMessage(text)
 
-if __name__ == "__main__":
-    import sys
+# if __name__ == "__main__":
+#     import sys
 
-    if len(sys.argv) == 1:
-        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-        cleanup = False
+#     if len(sys.argv) == 1:
+#         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+#         cleanup = False
 
-        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-	"C:/DEP/Scripts/basics/cmd_matcher_DEM.pyt",
-	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
-	"C:/DEP/LiDAR_Current/elev_PLib_mean18/07080105/ep3m070801050901.tif",
-	"C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/buf_070801050901",
-	"C:/DEP/LiDAR_Current/huc8_26915/huc_07080105.gdb/rd_rr_rd_rw_mrg_07080105",
-	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/fr0_0",
-	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/ws_polys_0",
-	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/dfs_frToPoly_0",
-	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901",
-	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/search_070801050901_mean18.pkl",
-	"9.0"]
+#         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+# 	"C:/DEP/Scripts/basics/cmd_matcher_DEM.pyt",
+# 	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
+# 	"C:/DEP/LiDAR_Current/elev_PLib_mean18/07080105/ep3m070801050901.tif",
+# 	"C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/buf_070801050901",
+# 	"C:/DEP/LiDAR_Current/huc8_26915/huc_07080105.gdb/rd_rr_rd_rw_mrg_07080105",
+# 	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/fr0_0",
+# 	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/ws_polys_0",
+# 	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/dfs_frToPoly_0",
+# 	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901",
+# 	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/search_070801050901_mean18.pkl",
+# 	"9.0"]
 
-        for i in parameters[2:]:
-            sys.argv.append(i)
-    else:
-        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-        # clean up the folder after done processing
-        cleanup = True
+#         for i in parameters[2:]:
+#             sys.argv.append(i)
+#     else:
+#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+#         # clean up the folder after done processing
+#         cleanup = True
 
-    fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth = [i for i in sys.argv[1:]]
-    messages = msgStub()
+#     fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth = [i for i in sys.argv[1:]]
+#     messages = msgStub()
 
-    doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth, cleanup, messages)
-    arcpy.AddMessage("Back from doMatcher!")
+#     doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth, cleanup, messages)
+#     arcpy.AddMessage("Back from doMatcher!")
