@@ -234,9 +234,13 @@ def setAllSearchDistances(inFC, wsSearchDistFld, minFrDistFld, frFld, minElFld, 
                         baseDistPre = min(maxFrSearchDist, actFrSearchDist)
                         baseDist = max(minFrSearchDist, baseDistPre)
                 else:
-                    actFrSearchDist = crestWidth + 1.25*row[1]*srchMult
-                    baseDistPre = min(maxFrSearchDist, actFrSearchDist)
-                    baseDist = max(minFrSearchDist, baseDistPre)
+                    if row[1] == None:
+                        baseDist = minFrSearchDist
+                        baseErrorList.append(str(row[2]))
+                    else:
+                        actFrSearchDist = crestWidth + 1.25*row[1]*srchMult
+                        baseDistPre = min(maxFrSearchDist, actFrSearchDist)
+                        baseDist = max(minFrSearchDist, baseDistPre)
                     
                 row[ucur.fields.index(wsSearchDistFld)] = baseDist
 
@@ -551,7 +555,8 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         arcpy.env.workspace = inm
 
         match_stats = arcpy.CreateTable_management(inm, 'match_stats')
-        df.tryAddField(match_stats, 'HUC12', 'TEXT')
+        arcpy.AddField_management(match_stats, 'HUC12', 'TEXT', field_length = 20)
+        # df.tryAddField(match_stats, 'HUC12', 'TEXT')
         df.tryAddField(match_stats, 'LEVEL', 'SHORT')
         df.tryAddField(match_stats, 'UP_PTS_COUNT', 'LONG')
         df.tryAddField(match_stats, 'DN_PTS_COUNT', 'LONG')
