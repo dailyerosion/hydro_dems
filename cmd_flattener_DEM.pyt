@@ -376,6 +376,10 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
         log.info("Log file at " + logName)
         messages.addMessage("Log file at " + logName)
 
+        output_data = arguments[-4:-1]
+        for o in output_data:
+            if o is not None:
+                df.create_needed_dirs_and_gdbs(o, log)
 
         arcpy.env.snapRaster = fillTif#snapRaster
 
