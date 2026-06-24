@@ -1,0 +1,2089 @@
+# -*- coding: utf-8 -*-
+"""Creates DEMs and derivatives (return counts, intensity) from lidar datasets
+available via the Entwine Point cloud format for a given polygon (usually 
+buffered HUC12 watershed boundary). Uses a previously created merge of
+the USGS WESM data and the EPT GeoJSON dataset to locate the AWS bucket for each
+project, then joins multiple projects and creates a lidar DEM and derivatives
+at one or multiple resolutions. Also creates a feature class of lidar datasets
+used to generate the DEM and derivatives."""
+
+import arcpy
+from arcpy.sa import *
+import arcpy.metadata as md
+import sys
+import os
+import time
+import subprocess
+import platform
+import glob
+import traceback
+import re
+import shutil
+from os.path import join as opj
+from pathlib import Path
+from math import ceil
+
+sys.path.append("C:\\DEP\\Scripts\\basics")
+
+import dem_functions as df
+
+#https://stackoverflow.com/questions/7006238/how-do-i-hide-the-console-when-i-use-os-system-or-subprocess-call
+CREATE_NO_WINDOW = 0x08000000
+
+class msgStub:
+    def addMessage(self,text):
+        arcpy.AddMessage(text)
+    def addErrorMessage(self,text):
+        arcpy.AddErrorMessage(text)
+    def addWarningMessage(self,text):
+        arcpy.AddWarningMessage(text)
+
+class Toolbox(object):
+    def __init__(self):
+        """Define the toolbox (the name of the toolbox is the name of the
+        .pyt file)."""
+        self.label = "Toolbox"
+        self.alias = "toolbox"
+
+        # List of tool classes associated with this toolbox
+        self.tools = [Tool]
+
+
+class Tool(object):
+    def __init__(self):
+        """Define the tool (tool name is the name of the class)."""
+        self.label = "Build DEMs from LiDAR by EPT download"
+        self.description = "Must install PDAL and run get_merge_lidar_datasets first to merge EPT and WESM. Build a DEM for a polygon by downloading the data through EPT format via PDAL."
+        self.canRunInBackground = False
+
+    def getParameterInfo(self):
+        """Define parameter definitions"""
+
+        param0 = arcpy.Parameter(
+            name="monthly_ept_wesm_mashup",
+            displayName="EPT WESM Merged Features From Previous",
+            datatype="DEFeatureClass",
+            parameterType='Required',
+            direction="Input")
+        
+        param1 = arcpy.Parameter(
+            name="dem_polygon",
+            displayName="Polygon Feature (single) of DEM Area",
+            datatype="DEFeatureClass",
+            parameterType='Required',
+            direction="Input")
+        
+        param2 = arcpy.Parameter(
+            name = "pdal_exe",
+            displayName="PDAL.exe Location",
+            datatype="DEFile",
+            parameterType='Required',
+            direction="Input")
+        
+        param3 = arcpy.Parameter(
+            name = "gsds",
+            displayName="Integer Resolution/Ground Sample Distance (in meters) of rasters, multiples joined by comma",
+            datatype="GPString",
+            parameterType='Required',
+            direction="Input")
+        param3.values = "3,2,1"#default gsds value to create 3, 2, and 1 meter rasters
+        
+        param4 = arcpy.Parameter(
+            name = "procDir",
+            displayName="Local Processing Directory",
+            datatype="DEFolder",
+            parameterType='Optional',
+            direction="Input")
+        
+        param5 = arcpy.Parameter(
+            name="snap",
+            displayName="Snap Raster",
+            datatype="DERasterDataset",
+            parameterType='Optional',
+            direction="Input")
+        
+        param6 = arcpy.Parameter(
+            name = "breakpolys",
+            displayName="Input HUC12 Merged Breakline Polygon Features",
+            datatype="DEFeatureClass",
+            parameterType='Optional',
+            direction="Input")
+        
+        param7 = arcpy.Parameter(
+            name = "breaklines",
+            displayName="Input HUC12 Merged Breakline Polyline Features",
+            datatype="DEFeatureClass",
+            parameterType='Optional',
+            direction="Input")
+        
+        param8 = arcpy.Parameter(
+            name = "tElevFile",
+            displayName="Output Terrain-based Elevation Model",
+            datatype="DERasterDataset",
+            parameterType='Required',
+            direction="Output")
+        
+        param9 = arcpy.Parameter(
+            name = "bareEarthReturnMinFile",
+            displayName="Output Bare Earth Minimum Elevation Model",
+            datatype="DERasterDataset",
+            parameterType='Optional',
+            direction="Output")
+        
+        param10 = arcpy.Parameter(
+            name = "firstReturnMaxFile",
+            displayName="Output First Return Maximum Elevation/Surface Model",
+            datatype="DERasterDataset",
+            parameterType='Optional',
+            direction="Output")
+        
+        param11 = arcpy.Parameter(
+            name = "cntBeFile",
+            displayName="Output Bare Earth Return Count Raster",
+            datatype="DERasterDataset",
+            parameterType='Optional',
+            direction="Output")
+        
+        param12 = arcpy.Parameter(
+            name = "cnt1rFile",
+            displayName="Output First Return Count Raster",
+            datatype="DERasterDataset",
+            parameterType='Optional',
+            direction="Output")
+        
+        param13 = arcpy.Parameter(
+            name = "cntPlsFile",
+            displayName="Output Pulse Count Raster",
+            datatype="DERasterDataset",
+            parameterType='Optional',
+            direction="Output")
+        
+        param14 = arcpy.Parameter(
+            name = "int1rMinFile",
+            displayName="Output Intensity First Return Minimum Raster",
+            datatype="DERasterDataset",
+            parameterType='Optional',
+            direction="Output")
+        
+        param15 = arcpy.Parameter(
+            name = "int1rMaxFile",
+            displayName="Output Intensity First Return Maximum Raster",
+            datatype="DERasterDataset",
+            parameterType='Optional',
+            direction="Output")
+        
+        param16 = arcpy.Parameter(
+            name = "intBeMaxFile",
+            displayName="Output Intensity Bare Earth Maximum Raster",
+            datatype="DERasterDataset",
+            parameterType='Optional',
+            direction="Output")
+        
+        param17 = arcpy.Parameter(
+            name = "ept_wesm_project_file",
+            displayName="EPT WESM Feature for AOI",
+            datatype="DEFeatureClass",
+            parameterType='Optional',
+            direction="Output")
+        
+        param18 = arcpy.Parameter(
+            name = "lidar_download_directory",
+            displayName="Lidar Data Download Directory",
+            datatype="DEFolder",
+            parameterType='Optional',
+            direction="Output")
+        
+        param19 = arcpy.Parameter(
+            name = "cleanup",
+            displayName="end of run data deletion",
+            datatype="GPBoolean",
+            parameterType='Optional',
+            direction="Output")
+
+        # param18.filter.type = "ValueList"
+        # param18.filter.list = [True, False]
+        # param19.value = True
+                        
+        params = [param0, param1, param2, param3,
+                  param4, param5, param6, param7,
+                  param8, param9, param10, param11,
+                  param12, param13, param14, param15,
+                  param16, param17, param18, param19]
+        return params
+
+
+    def isLicensed(self):
+        """Set whether tool is licensed to execute."""
+        return True
+
+    def updateParameters(self, parameters):
+        """Modify the values and properties of parameters before internal
+        validation is performed.  This method is called whenever a parameter
+        has been changed."""
+        return
+
+    def updateMessages(self, parameters):
+        """Modify the messages created by internal validation for each tool
+        parameter.  This method is called after internal validation."""
+        return
+
+    def execute(self, parameters, messages):
+        """The source code of the tool."""
+        cleanup = False
+        doLazDownloadCopy(parameters[0].valueAsText, parameters[1].valueAsText, parameters[2].valueAsText, parameters[3].valueAsText, parameters[4].valueAsText, 
+                    parameters[5].valueAsText, parameters[6].valueAsText, parameters[7].valueAsText, parameters[8].valueAsText, parameters[9].valueAsText, 
+                    parameters[10].valueAsText, parameters[11].valueAsText, parameters[12].valueAsText, parameters[13].valueAsText, parameters[14].valueAsText, 
+                    parameters[15].valueAsText, parameters[16].valueAsText, parameters[17].valueAsText, parameters[18].valueAsText, parameters[19].valueAsText, messages)
+        return
+
+    def postExecute(self, parameters):
+        """This method takes place after outputs are processed and
+        added to the display."""
+        return
+
+##----------------------------------------------------------------------
+## Set environments and begin
+
+# def fillOCSinks(inDEM, log):
+#     # Return a raster will all one-cell-sinks filled
+# ##    arcpy.AddMessage("-----Find Pits...")
+#     log.info('finding flow direction')
+#     sinkFDir = FlowDirection(inDEM)
+#     log.info('finding sinks')
+#     allSinks = Sink(sinkFDir)
+#     # arcpy.BuildRasterAttributeTable_management(allSinks)
+#     # log.info('sinks for ' + str(inDEM) + ' is ' + str(int(arcpy.GetCount_management(allSinks).getOutput(0))))
+# ##    arcpy.AddMessage("-----Fill everything else...")
+
+#     ## Make a No-one-cell-sink DEM
+#     log.info('finding all but sinks')
+#     AllButSinks_DEM = Con(IsNull(allSinks), inDEM)
+
+#     log.info('filling pits')
+#     ## Fill the No-one-cell-sink DEM
+#     absDEM_fill = Fill(AllButSinks_DEM)
+#     log.info('filled DEM')
+
+#     ## Add the Original 'real' sinks back into the filled DEM
+#     fill_DEM = Con(IsNull(absDEM_fill), inDEM, absDEM_fill)
+#     log.info('fixed pits')
+
+#     return(fill_DEM, allSinks)
+
+
+
+
+def getLidarTimeframes(merged):#, tilesClip_local):
+
+    try:
+    # if merged is not None:#in locals():
+        collect_starts = [s[0] for s in arcpy.da.SearchCursor(merged, ['collect_start'])]
+        collect_starts_min = min(collect_starts).strftime('%Y %b %d')
+        collect_ends = [s[0] for s in arcpy.da.SearchCursor(merged, ['collect_end'])]
+        collect_ends_max = max(collect_ends).strftime('%Y %b %d')
+        first_by_area = [s[0] for s in arcpy.da.SearchCursor(merged, ['collect_start', 'area_field'], sql_clause = (None, 'ORDER BY area_field DESC'))][0]
+        collect_majority = first_by_area.strftime('%Y %b %d')
+    except:
+    # else:
+        collect_ends_max = 'Unknown'
+        collect_starts_min = 'Unknown'
+        collect_majority = 'Unknown'
+
+####    if df.testForZero(tilesClip_local):
+####        tiles_t_or_f = 'True'
+####    else:
+####        tiles_t_or_f = 'False'
+
+    return collect_ends_max, collect_starts_min, collect_majority#, tiles_t_or_f
+
+
+def getLasRasterArguments(lasToRaster):
+    raster_arguments_list = [lasToRaster.getInput(t) for t in range(0, 7)]
+    raster_arguments = 'LasToRaster arguments: ' + ', '.join(raster_arguments_list)
+
+    return raster_arguments
+
+
+def testForZero(dataset):
+    if type(dataset) == 'Raster':
+        if dataset.hasRAT != True:
+            arcpy.BuildRasterAttributeTable_management(dataset)
+
+    try:
+        fcount = int(arcpy.GetCount_management(dataset).getOutput(0))
+    except:
+        fcount = 0
+    return fcount
+
+
+def projIfNeeded(input2, output, srOut):
+    srInput = arcpy.Describe(input2).spatialReference#maybe use projectionCode?
+    try:
+        if srInput.PCSCode != srOut.PCSCode:
+    ##        log.debug('projecting ' + str(input2))
+            projInput = arcpy.Project_management(input2, output, srOut)
+        else:
+            projInput = arcpy.CopyFeatures_management(input2, output)
+    except arcpy.ExecuteError:
+        ## assume there is a terrain created for the input, so must copy point feature class before projecting
+        ptCopy = arcpy.CopyFeatures_management(input2, os.path.join(os.path.dirname(os.path.dirname(output)), os.path.basename(output) + '_copy'))
+        projInput = arcpy.CopyFeatures_management(ptCopy, output)
+    return projInput
+
+
+
+def buildSelection(inList, field):
+    sel = ''
+    for index, item in enumerate(inList):
+        if index == 0:
+            sel = field + ' = ' + str(item)
+        else:
+            sel += ' OR ' + field + ' = ' + str(item)
+    return sel
+
+
+def errorhandle(sei, arcpy, traceback):
+    '''Try to handle the errors and output information about them'''
+    tb = sys.exc_info()[2]
+    tbinfo = traceback.format_tb(tb)[0]
+    # Concatenate information together concerning the error into a message string
+    pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+    # Return python error messages for use in script tool or Python Window
+    arcpy.AddError(pymsg)
+    # Print Python error messages for use in Python / Python Window
+    print(pymsg + "\n")
+
+    if arcpy.GetMessages(2) not in pymsg:
+        msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+        arcpy.AddError(msgs)
+        print(msgs)
+
+
+
+
+def copy_md_summary_args(md_item):
+    """
+    Copy an ACPF formatted metadata dictionary from one raster to another.
+    Designed for use copying inputs from a pre-pitfilled DEM to a pit-filled one.
+    md_item - dataset with metadata summary
+    f_dict - dictionary with line breaks (as ACPF style) and arguments
+    """    
+    f_dict = {}
+    sep = ': '
+    f_metadata = md.Metadata(md_item)
+    if f_metadata.summary is not None and f_metadata.summary != '':
+        f_met_split = f_metadata.summary.split('\n')
+        for i in f_met_split[2:]:
+            key, value = i.split(sep, 1)
+            # print(f'key {key} and value {value}')
+            if i == f_met_split[2]: #prev row (f_met_split[1]) was \n
+                f_dict.update({'\n\n' + key + sep: value})
+            else:
+                f_dict.update({'\n' + key + sep: value})
+    return f_dict
+
+def addMetadata(outDEM, paraDict, template_file_path, log = None):
+    # Set the standard-format metadata XML file's path
+    # need to load metadata editor via 'import arcpy.metadata as md'
+    # outDEM = raster to receive updated metadata
+    # paraDict = dictionary of key/value pairs to be stored in metadata
+    #   values stored include things like analyst, lidar acquisition date, etc.
+    # template_file_path = a template to load a basic summary from
+    # log = otional logging of error messages to a log file
+    # scriptPath = sys.path[0]
+    try:
+        src_file_path = template_file_path
+
+        # Get the target item's Metadata object
+        tgt_item_md = md.Metadata(outDEM)    
+
+        # Import the ACPF metadata content to the target item
+        if not tgt_item_md.isReadOnly:
+            tgt_item_md.importMetadata(src_file_path)
+            tgt_item_md.title = os.path.split(outDEM)[1]
+            tgt_item_md.credits = 'Analyst: %s' % os.getlogin()#getpass.getuser()
+
+            src_desc = tgt_item_md.summary
+            if src_desc == None:
+                src_desc = ''
+            for key, value in paraDict.items():  
+                src_desc = src_desc + ('%s %s' % (key, value))
+            tgt_item_md.summary = src_desc
+            
+            tgt_item_md.save()
+
+    except TypeError as e:
+        print('handling as exception')
+##        log.debug(e.message)
+        if sys.version_info.major == 2:
+            arcpy.AddError(e.message)
+            print(e.message)
+            log.warning(e.message)
+        elif sys.version_info.major == 3:
+            arcpy.AddError(e)
+            print(e)
+            if log is not None:
+                log.warning(e)
+
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+
+        # Concatenate information together concerning the error into a message string
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        # Return python error messages for use in script tool or Python Window
+        arcpy.AddError(pymsg)
+        # Print Python error messages for use in Python / Python Window
+        print(pymsg + "\n")
+        if log is not None:
+            log.warning(pymsg)
+
+        if arcpy.GetMessages(2) not in pymsg:
+            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+            arcpy.AddError(msgs)
+            print(msgs)
+            if log is not None:
+                log.warning(msgs)
+
+    except:
+        print('handling as except')
+        # Get the traceback object
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+
+        # Concatenate information together concerning the error into a message string
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        # Return python error messages for use in script tool or Python Window
+        arcpy.AddError(pymsg)
+        # Print Python error messages for use in Python / Python Window
+        print(pymsg + "\n")
+        if log is not None:
+            log.warning(pymsg)
+
+        if arcpy.GetMessages(2) not in pymsg:
+            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+            arcpy.AddError(msgs)
+            print(msgs)
+            if log is not None:
+                log.warning(msgs)
+
+def create_cl2_json_pipeline(cl2_json_filename, eleDir, all_las_file, cl2_las_full_filename):
+    '''Writes a json pipeline for use by pdal (point data abstraction library)'''
+
+    cl2_json_full_filename = os.altsep.join([eleDir, cl2_json_filename])
+
+    json_str = '''{
+"pipeline": [
+{
+    "filename": "''' + all_las_file + '''",
+    "type": "readers.las",
+    "tag": "readdata"
+},
+{
+    "tag": "getclass2",
+    "type": "filters.range",
+    "limits": "Classification[2:2]"
+},
+{
+    "filename": "''' + cl2_las_full_filename + '''",
+    "tag": "writerslas",
+    "type": "writers.las"
+}]}'''
+
+    json_file_obj = open(cl2_json_full_filename, 'w')
+    json_file_obj.write(json_str)
+    json_file_obj.close()
+
+    return cl2_json_full_filename
+
+
+def create_laz_json_pipeline(laz_json_filename, saveDir, all_las_file, laz_full_filename):
+    '''Writes a json pipeline for use by pdal (point data abstraction library)'''
+
+    laz_json_full_filename = os.altsep.join([saveDir, laz_json_filename])
+
+    json_str = '''{
+"pipeline": [
+{
+    "filename": "''' + all_las_file + '''",
+    "type": "readers.las",
+    "tag": "readdata"
+},
+{
+    "filename": "''' + laz_full_filename + '''",
+    "tag": "writerslas",
+    "type": "writers.las"
+}]}'''
+
+    json_file_obj = open(laz_json_full_filename, 'w')
+    json_file_obj.write(json_str)
+    json_file_obj.close()
+
+    return laz_json_full_filename
+
+
+def create_ept_json_pipeline(ept_json_filename, eleDir, ept_las_full_filename, extent_request, ept_address, srOutCode):
+    '''Writes a json pipeline for use by pdal (point data abstraction library)'''
+
+    ept_json_full_filename = os.altsep.join([eleDir, ept_json_filename])
+
+    json_str = '''{
+"pipeline": [
+{
+    "bounds": "([''' + extent_request + '''])",
+    "filename": "''' + ept_address + '''",
+    "type": "readers.ept",
+    "tag": "readdata"
+},
+{
+    "out_srs": "EPSG:''' + str(srOutCode) + '''",
+    "tag": "reprojectUTM",
+    "type": "filters.reprojection"
+},
+{
+    "filename": "''' + ept_las_full_filename + '''",
+    "tag": "writerslas",
+    "type": "writers.las"
+}]}'''
+
+    json_file_obj = open(ept_json_full_filename, 'w')
+    json_file_obj.write(json_str)
+    json_file_obj.close()
+
+    return ept_json_full_filename
+
+def organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log):
+    """Organize the 3DEP projects by acquisition date so we use the
+    most recent data first, then fill in with older data"""
+
+    valid_order = arcpy.ValidateFieldName('order', os.path.dirname(wesm_huc12.getOutput(0)))
+    addOrderField = arcpy.AddField_management(wesm_huc12, valid_order, 'SHORT')
+
+    # wesm_fields =
+    ordered_work_ids = [s[0] for s in arcpy.da.SearchCursor(wesm_huc12, [work_id_name], sql_clause = [None, 'ORDER BY collect_start DESC'])]
+    merged_area = 0
+    for cnt, o in enumerate(ordered_work_ids):
+        if merged_area <= maskFc_area * build_threshold:
+            log.debug(o)
+            if o < 0:
+                selected = arcpy.Select_analysis(wesm_huc12, 'select_wkid_neg' + str(abs(o)), work_id_name + ' = ' + str(o))
+            else:
+                selected = arcpy.Select_analysis(wesm_huc12, 'select_wkid_' + str(o), work_id_name + ' = ' + str(o))
+            arcpy.CalculateField_management(selected, valid_order, cnt+1, 'PYTHON3')
+            if cnt > 0:
+                erased = arcpy.Erase_analysis(selected, prev_merged)
+                if df.testForZero(erased):
+                    merged = arcpy.Merge_management([erased, prev_merged])
+                    merged_area += [s[0] for s in arcpy.da.SearchCursor(erased, ['SHAPE@AREA'])][0]
+            else:
+                merged = selected
+                merged_area += [s[0] for s in arcpy.da.SearchCursor(selected, ['SHAPE@AREA'])][0]
+            prev_merged = merged
+            log.debug(f"merged_area: {merged_area}")
+    log.info(f'merged_area was: {merged_area} and maskFc_area was: {maskFc_area}')
+
+    # if merged_area >= maskFc_area * 0.9999:
+    #     if 'tcdFdSet' not in locals():
+    #         tcdFdSet = arcpy.CopyFeatures_management(maskFc, os.path.join(str(FDSet), 'ept_las_area'))
+
+#             bigVoids = arcpy.Erase_analysis(maskFcOut, tcdFdSet_local)
+#             wesm_clipped = arcpy.analysis.Clip(wesm_huc12, bigVoids)
+
+    return prev_merged, merged_area, addOrderField
+
+def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1):#maskFc_3857, maskFc_3857_desc)
+    """Subdivide the EPT request into one or four parts based on size"""
+    parts = []
+        # if more than 500 sq km, split into 4
+    x_range = geom_extent.XMax - geom_extent.XMin
+    y_range = geom_extent.YMax - geom_extent.YMin
+    square_area = (x_range)*(y_range)
+    log.debug(f'Square area in km^2 is: {round(square_area/pow(1000,2), 1)}')
+    log.debug(f'Geometry area in km^2 is: {round(geom.area/pow(1000,2), 1)}')
+
+    pt_field_name = 'PT_Identifier'
+
+    if square_area / (1000**2) > 150.0 or ql1:
+        if ql1:
+            x_net_size = 2000
+        else:
+            x_net_size = 5000
+        y_net_size = x_net_size
+        log.debug(f'x/y_net_size for fishnet: {x_net_size}')
+
+        maskfc_5070 = arcpy.Project_management(maskFcOut, opj(sgdb, 'maskfc_5070'), 5070)
+        mask_5070_extent = arcpy.da.Describe(maskfc_5070)['extent']
+
+        origin_coords = f"{mask_5070_extent.XMin} {mask_5070_extent.YMin}"
+        y_axis_coords = f"{mask_5070_extent.XMin} {mask_5070_extent.YMin + y_net_size}"
+        rows = ceil((mask_5070_extent.YMax - mask_5070_extent.YMin) / y_net_size)
+        cols = ceil((mask_5070_extent.XMax - mask_5070_extent.XMin) / x_net_size)
+
+        # the geometry extents are coming in 5070
+        sr_5070 = arcpy.SpatialReference(5070)
+        arcpy.env.outputCoordinateSystem = sr_5070
+
+        fishnet_name = opj(sgdb, 'fishnet')
+        log.debug(f"fishnet args are: {fishnet_name, [geom_extent.XMin, geom_extent.YMin], None, x_net_size, y_net_size}")
+        # fishnet = arcpy.CreateFishnet_management(opj(sgdb, 'fishnet'), origin_coord =  + str(geom_extent.XMin, geom_extent.YMin], None, x_net_size, y_net_size)
+        fishnet2 = arcpy.CreateFishnet_management(fishnet_name, origin_coords, y_axis_coords, x_net_size, y_net_size, rows, cols, geometry_type = "POLYGON")
+
+        fishnet_int_mask = arcpy.Intersect_analysis([fishnet2, maskFcOut])
+
+        arcpy.AddField_management(fishnet_int_mask, pt_field_name, 'TEXT', field_length='10')
+        arcpy.CalculateField_management(fishnet_int_mask, pt_field_name, '!FID_' + os.path.basename(fishnet_name) + '!', 'PYTHON3')
+
+        # # PDAL requests must be in 3857
+        # arcpy.env.outputCoordinateSystem = 3857
+        fishnet_int_mask_3857 = arcpy.management.Project(fishnet_int_mask, opj(sgdb, 'fishnet_3857'), 3857)
+
+        with arcpy.da.SearchCursor(fishnet_int_mask_3857, ['OID@', 'SHAPE@', pt_field_name]) as scur:
+            for p, srow in enumerate(scur):
+                oid = srow[0]
+                geom_fish = srow[1]
+                pt_code = srow[2]
+                # splits.append(parts, geom_fish)
+
+                clip3_extent = geom_fish.extent
+                x_start = clip3_extent.XMin
+                x_end = clip3_extent.XMax
+                y_start = clip3_extent.YMin
+                y_end = clip3_extent.YMax
+
+                log.debug(f'fishnet_int_mask oid: {oid}')
+                log.debug(f'final_x_start: {x_start} and x_end: {x_end}')
+                log.debug(f'final_y_start: {y_start} and y_end: {y_end}')
+                ept_extent = str(x_start) + ', ' + str(x_end) + '], [' + str(y_start) + ', ' + str(y_end)
+
+
+                parts.append(['_pt' + str(pt_code), ept_extent])
+
+        # # splits = 4 # for splitting manually, not fishnet
+        # # switch to do intersect/clip in 3857
+        # arcpy.env.outputCoordinateSystem = 3857
+        # for p in range(0,splits):
+        #     p_div = p // pow(splits, 0.5)
+        #     p_mod = p % pow(splits, 0.5)
+        #     x_start = geom_extent.XMin + x_range * (p_div + 0) / pow(splits, 0.5)
+        #     x_end = geom_extent.XMin + x_range * (p_div + 1) /pow(splits, 0.5)
+        #     y_start = geom_extent.YMin + y_range * (p_mod + 0) /pow(splits, 0.5)
+        #     y_end = geom_extent.YMin + y_range * (p_mod + 1) /pow(splits, 0.5)
+        #     log.debug(f'p_div: {p_div}, p_mod: {p_mod}')
+        #     log.debug(f'x_start: {x_start} and x_end: {x_end}')
+        #     log.debug(f'y_start: {y_start} and y_end: {y_end}')
+        #     # refine request by intersecting preliminary extent polygon with HUC12 buffered boundary - helps in NE-SW and SE-NW watersheds
+        #     ext1 = arcpy.Extent(x_start, y_start, x_end, y_end)
+        #     poly1 = ext1.polygon
+
+        #     maskFc_3857 = arcpy.management.Project(maskFcOut, opj(sgdb, 'maskfc_3857'), 3857)
+        #     maskFc_3857_desc = arcpy.da.Describe(maskFc_3857)
+        #     maskFc_3857_extent = maskFc_3857_desc['extent']
+        #     # Should always be False
+        #     #poly1.disjoint(maskFc_3857_extent)
+        #     poly1_3857_int = poly1.intersect(maskFc_3857_extent, 4)
+
+        #     clip3 = arcpy.analysis.Clip(maskFc_3857, poly1_3857_int)
+        #     clip3_extent = arcpy.da.Describe(clip3)['extent']
+
+        #     x_start = clip3_extent.XMin
+        #     x_end = clip3_extent.XMax
+        #     y_start = clip3_extent.YMin
+        #     y_end = clip3_extent.YMax
+
+        #     log.debug(f'final_x_start: {x_start} and x_end: {x_end}')
+        #     log.debug(f'final_y_start: {y_start} and y_end: {y_end}')
+        #     ept_extent = str(x_start) + ', ' + str(x_end) + '], [' + str(y_start) + ', ' + str(y_end)
+
+        #     parts.append(['_pt' + str(p), ept_extent])
+
+        # arcpy.env.outputCoordinateSystem =\ srOut
+
+    else:
+        fishnet_int_mask = arcpy.CopyFeatures_management(maskFcOut)
+
+        arcpy.AddField_management(fishnet_int_mask, pt_field_name, 'TEXT', field_length='10')
+        arcpy.CalculateField_management(fishnet_int_mask, pt_field_name, '!OBJECTID!', 'PYTHON3')
+
+        splits = 1
+        ept_extent = str(geom.extent.XMin) + ', ' + str(geom.extent.XMax) + '], [' + str(geom.extent.YMin) + ', ' + str(geom.extent.YMax)
+        parts.append(['_pt1', ept_extent])
+
+    return parts, square_area, fishnet_int_mask, pt_field_name
+
+
+
+def try_to_delete(rasRes, log):
+    if arcpy.Exists(rasRes):
+        try:
+            arcpy.Delete_management(rasRes)
+        except arcpy.ExecuteError:
+            log.warning('could not remove using arcpy.Delete, trying os.remove')
+            os.remove(rasRes)
+
+
+
+
+
+
+import os
+import re
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse
+from time import sleep
+import logging
+
+import re
+import requests
+from bs4 import BeautifulSoup, NavigableString
+import pandas as pd
+from typing import List, Dict, Tuple
+
+
+def parse_apache_listing(url: str) -> List[Dict[str, str]]:
+    """
+    Parse an Apache directory listing and extract file information.
+    Extracts actual filenames from href attributes and metadata from
+    the text immediately following each link.
+    
+    Args:
+        url: URL of the Apache directory listing
+        
+    Returns:
+        List of dictionaries containing file information
+    """
+    try:
+        # Fetch the page
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        
+        # Parse with BeautifulSoup
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Find the pre tag that contains the file listing
+        pre_tag = soup.find('pre')
+        if not pre_tag:
+            print(f"Warning: No <pre> tag found at {url}")
+            return []
+        
+        files = []
+        
+        # Ensure base URL ends with /
+        base_url = url if url.endswith('/') else url + '/'
+        
+        # Find all anchor tags within the pre section
+        links = pre_tag.find_all('a')
+        
+        for link in links:
+            href = link.get('href', '')
+            
+            # Skip non-.laz files
+            if not href.endswith('.laz'):
+                continue
+            
+            # Get the actual filename from href
+            actual_filename = href
+            
+            # Get the displayed link text
+            link_text = link.get_text()
+            
+            # Get the text that comes IMMEDIATELY after this link tag
+            # This is the key fix - we look at the next sibling text node
+            next_text = link.next_sibling
+            
+            # If next_sibling is a NavigableString, use it; otherwise get its text
+            if isinstance(next_text, NavigableString):
+                following_text = str(next_text)
+            else:
+                following_text = ""
+            
+            # Pattern to extract date, time, and size from the following text
+            # Example: " 26-Jun-2023 17:36             5410"
+            metadata_pattern = r'\s+(\d{2}-\w{3}-\d{4})\s+(\d{2}:\d{2})\s+(\d+)'
+            
+            match = re.search(metadata_pattern, following_text)
+            
+            if match:
+                date = match.group(1)
+                time = match.group(2)
+                size_bytes = int(match.group(3))
+                
+                # Determine if filename is truncated in display
+                is_truncated = link_text.endswith('..>') and not actual_filename.endswith('..>')
+                
+                file_record = {
+                    'filename': actual_filename,
+                    'displayed_name': link_text if is_truncated else actual_filename,
+                    'date': date,
+                    'time': time,
+                    'size_bytes': size_bytes,
+                    'size_mb': round(size_bytes / (1024 * 1024), 2),
+                    'url': url,
+                    'download_url': base_url + href
+                }
+                
+                if is_truncated:
+                    file_record['note'] = 'Display name truncated (full name in filename field)'
+                
+                files.append(file_record)
+            else:
+                # If we can't find metadata, still record the file
+                print(f"Warning: Could not find metadata for {actual_filename}")
+                print(f"  Following text: {repr(following_text[:100])}")
+                files.append({
+                    'filename': actual_filename,
+                    'displayed_name': link_text,
+                    'date': 'Unknown',
+                    'time': 'Unknown',
+                    'size_bytes': 0,
+                    'size_mb': 0.0,
+                    'url': url,
+                    'download_url': base_url + href,
+                    'note': 'Metadata extraction failed'
+                })
+        
+        return files
+        
+    except requests.RequestException as e:
+        print(f"Error fetching {url}: {e}")
+        return []
+    except Exception as e:
+        print(f"Error parsing {url}: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
+    # """
+    # Parse an Apache directory listing and extract file information.
+    # Handles both full filenames and truncated filenames with '..>'
+    
+    # Args:
+    #     url: URL of the Apache directory listing
+        
+    # Returns:
+    #     List of dictionaries containing file information including download links
+    # """
+    # try:
+    #     # Fetch the page
+    #     response = requests.get(url, timeout=30)
+    #     response.raise_for_status()
+        
+    #     # Parse with BeautifulSoup
+    #     soup = BeautifulSoup(response.text, 'html.parser')
+        
+    #     # Find the pre tag that contains the file listing
+    #     pre_tag = soup.find('pre')
+    #     if not pre_tag:
+    #         print(f"Warning: No <pre> tag found at {url}")
+    #         return []
+        
+    #     # Get all anchor tags (links) within the pre section
+    #     links = pre_tag.find_all('a')
+        
+    #     # Create a mapping of filenames to their href values
+    #     filename_to_href = {}
+    #     for link in links:
+    #         href = link.get('href', '')
+    #         link_text = link.get_text()
+    #         # Only process .laz files or truncated names
+    #         if link_text.endswith('.laz') or link_text.endswith('..>'):
+    #             filename_to_href[link_text] = href
+        
+    #     # Get the text content for regex parsing
+    #     listing_text = pre_tag.get_text()
+        
+    #     files = []
+        
+    #     # Ensure base URL ends with /
+    #     base_url = url if url.endswith('/') else url + '/'
+        
+    #     # Pattern 1: Full filename (Iowa, Nebraska Northeast first URL)
+    #     # Example: "USGS_LPC_IA_EasternIA_2019_B19_15TWF850570.laz     21-Oct-2022 01:19               28237"
+    #     pattern1 = r'([^\s]+\.laz)\s+(\d{2}-\w{3}-\d{4})\s+(\d{2}:\d{2})\s+(\d+)'
+        
+    #     # Pattern 2: Truncated filename (Kansas, Nebraska Northeast Phase 2)
+    #     # Example: "USGS_LPC_KS_Statewide4County_2017_A18_14S_NJ_85..> 15-Nov-2018 01:46               68289"
+    #     pattern2 = r'([^\s]+\.\.>)\s+(\d{2}-\w{3}-\d{4})\s+(\d{2}:\d{2})\s+(\d+)'
+        
+    #     # Try pattern 1 (full filenames)
+    #     for match in re.finditer(pattern1, listing_text):
+    #         filename = match.group(1)
+    #         date = match.group(2)
+    #         time = match.group(3)
+    #         size_bytes = int(match.group(4))
+            
+    #         # Get the href for this filename
+    #         href = filename_to_href.get(filename, filename)
+    #         download_url = base_url + href
+            
+    #         files.append({
+    #             'filename': filename,
+    #             'date': date,
+    #             'time': time,
+    #             'size_bytes': size_bytes,
+    #             'size_mb': round(size_bytes / (1024 * 1024), 2),
+    #             'url': url,
+    #             'download_url': download_url
+    #         })
+        
+    #     # If no matches with pattern 1, try pattern 2 (truncated filenames)
+    #     if not files:
+    #         for match in re.finditer(pattern2, listing_text):
+    #             filename = match.group(1)
+    #             date = match.group(2)
+    #             time = match.group(3)
+    #             size_bytes = int(match.group(4))
+                
+    #             # Get the href for this filename
+    #             href = filename_to_href.get(filename, filename.replace('..>', ''))
+    #             download_url = base_url + href
+                
+    #             files.append({
+    #                 'filename': filename,
+    #                 'date': date,
+    #                 'time': time,
+    #                 'size_bytes': size_bytes,
+    #                 'size_mb': round(size_bytes / (1024 * 1024), 2),
+    #                 'url': url,
+    #                 'download_url': download_url,
+    #                 'note': 'Filename truncated in directory listing'
+    #             })
+        
+    #     return files
+        
+    # except requests.RequestException as e:
+    #     print(f"Error fetching {url}: {e}")
+    #     return []
+    # except Exception as e:
+    #     print(f"Error parsing {url}: {e}")
+    #     return []
+
+def create_metadata_json(out_path, pdal_exe, log):
+            json_file_with_laz_dir = out_path.replace('.laz', '.json')
+            json_file = json_file_with_laz_dir.replace('LAZ', 'json')
+            log.debug(f'json_file is: {json_file}')
+            if not os.path.isfile(json_file):
+                pdal_call = pdal_exe + ' info --metadata ' + out_path + ' > ' + json_file
+                # the > means redirect the output to a file instead of the console, so we don't need to capture it in Python and write it out ourselves
+                subprocess.Popen(pdal_call, shell=True, creationflags=CREATE_NO_WINDOW)
+            # alternative - capture the subprocess output in a file
+            # with open(json_file, "w") as f:
+            #     subprocess.run(
+            #         [pdal_exe, "info", "--metadata", laz_file],
+            #         stdout=f,
+            #         stderr=subprocess.PIPE,
+            #         check=True
+            #     )
+
+def usgs_download_laz(
+    page_url: str,
+    output_dir: str,
+    pdal_exe: str,
+    log: logging.Logger,
+    timeout: int = 60,
+    max_retries: int = 5,
+    retry_delay: int = 5,
+    user_agent: str = "Mozilla/5.0"
+):
+    """
+    Download LAZ files from a USGS Apache directory listing.
+    Skips existing files with matching size.
+    Retries failed downloads up to max_retries times.
+
+    Parameters
+    ----------
+    page_url : str
+        Apache directory URL containing LAZ files
+    output_dir : str
+        Local directory for downloads
+    pdal_exe : str
+        Local pdal executable path
+    timeout : int
+        HTTP timeout (seconds)
+    max_retries : int
+        Maximum download retry attempts per file
+    retry_delay : int
+        Seconds to wait between retries
+    user_agent : str
+        HTTP user-agent
+    """
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+
+        session = requests.Session()
+        session.headers.update({"User-Agent": user_agent})
+
+#         log.info(f"Scanning: {page_url}")
+#         resp = session.get(page_url, timeout=timeout)
+#         resp.raise_for_status()
+
+#         soup = BeautifulSoup(resp.text, "html.parser")
+
+        laz_files = []
+
+#         for link in soup.find_all("a", href=True):
+#             href = link["href"]
+#             if href.lower().endswith(".laz"):
+#                 filename = os.path.basename(urlparse(href).path)
+
+#                 # Extract file size from Apache listing line
+#                 line_text = link.parent.get_text(" ", strip=True)
+#                 size_match = re.search(
+#                     rf"{re.escape(filename)}\s+\d+\-\w+\-\d+\s+\d+:\d+\s+(\d+)",
+#                     line_text
+#                 )
+
+#                 expected_size = int(size_match.group(1)) if size_match else None
+# ##                expected_size = extract_size_from_line(link)
+                
+#                 laz_files.append((filename, urljoin(page_url, href), expected_size))
+
+        files = parse_apache_listing(page_url)
+
+        for f in files:
+            laz_files.append((f['filename'], f['download_url'], f['size_bytes']))
+        log.info(f"last laz_file: {laz_files[-1]}")
+
+        log.info(f"Found {len(laz_files)} LAZ files")
+
+        for filename, url, expected_size in laz_files:
+            out_path = os.path.join(output_dir, filename)
+            # alt_out_path = os.path.join(alt_output_dir, filename)
+
+            # Skip valid existing file
+            if (os.path.exists(out_path) and expected_size):# or (os.path.exists(alt_out_path) and expected_size):
+                # if os.path.exists(out_path):
+                if os.path.getsize(out_path) == expected_size:
+                    log.info(f"Path Exists (size OK): {out_path}")
+                    return_path = out_path
+                    # if '-m' not in platform.node().lower():
+                    if 'E:' not in out_path:
+                        create_metadata_json(out_path, pdal_exe, log)
+                    continue
+                else:
+                    log.info(f"Re-downloading (size mismatch): {filename}") 
+            # elif (os.path.exists(alt_out_path) and expected_size):
+            #     # elif os.path.exists(alt_out_path):
+            #     if os.path.getsize(alt_out_path) == expected_size:
+            #         log.info(f"Alt Path Exists (size OK): {alt_out_path}")
+            #         return_path = alt_out_path
+            #         create_metadata_json(out_path, pdal_exe, log)
+            #         continue
+            #     else:
+            #         log.info(f"Re-downloading (size mismatch): {filename}") 
+
+            success = False
+
+            for attempt in range(1, max_retries + 1):
+                try:
+                    log.info(f"Downloading ({attempt}/{max_retries}): {filename}")  
+
+                    with session.get(url, stream=True, timeout=timeout) as r:
+                        r.raise_for_status()
+                        with open(out_path, "wb") as f:
+                            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                                if chunk:
+                                    f.write(chunk)
+
+                    downloaded_size = os.path.getsize(out_path)
+
+                    if expected_size and downloaded_size != expected_size:
+                        raise ValueError(
+                            f"Size mismatch (expected {expected_size}, got {downloaded_size})"
+                        )
+
+                    log.info(f"Download complete: {filename}")
+                    return_path = out_path
+                    # if '-m' not in platform.node().lower():
+                    if 'E:' not in out_path:
+                        create_metadata_json(out_path, pdal_exe, log)
+                    success = True
+                    break
+
+                except Exception as e:
+                    log.warning(f"Attempt {attempt} failed: {e}")
+
+                    if os.path.exists(out_path):
+                        os.remove(out_path)
+
+                    if attempt < max_retries:
+                        sleep(retry_delay)
+
+            if not success:
+                log.warning(f"FAILED after {max_retries} attempts: {filename}")
+
+    except TypeError as e:
+        print('handling as exception')
+##        log.debug(e.message)
+        if sys.version_info.major == 2:
+            arcpy.AddError(e.message)
+            print(e.message)
+            log.warning(e.message)
+        elif sys.version_info.major == 3:
+            arcpy.AddError(e)
+            print(e)
+            if log is not None:
+                log.warning(e)
+
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+
+        # Concatenate information together concerning the error into a message string
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        # Return python error messages for use in script tool or Python Window
+        arcpy.AddError(pymsg)
+        # Print Python error messages for use in Python / Python Window
+        print(pymsg + "\n")
+        if log is not None:
+            log.warning(pymsg)
+
+        if arcpy.GetMessages(2) not in pymsg:
+            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+            arcpy.AddError(msgs)
+            print(msgs)
+            if log is not None:
+                log.warning(msgs)
+
+    except:
+        print('handling as except')
+        # Get the traceback object
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+
+        # Concatenate information together concerning the error into a message string
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        # Return python error messages for use in script tool or Python Window
+        arcpy.AddError(pymsg)
+        # Print Python error messages for use in Python / Python Window
+        print(pymsg + "\n")
+        if log is not None:
+            log.warning(pymsg)
+
+        if arcpy.GetMessages(2) not in pymsg:
+            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+            arcpy.AddError(msgs)
+            print(msgs)
+            if log is not None:
+                log.warning(msgs)
+
+    finally:
+        return return_path, len(laz_files)
+
+
+import json
+import os
+import pickle
+import pdal
+
+
+def get_laz_bounds_and_crs(laz_file, pkl_path, write_pickle=True):
+    """
+    Extract X/Y/Z bounds and CRS from a LAZ file.
+    Optionally writes results to a pickle file with the same basename.
+
+    Parameters
+    ----------
+    laz_file : str
+        Path to LAS/LAZ file
+    pkl_path : str
+        Path to pickle file
+    write_pickle : bool, optional
+        If True, write results to pkl_path
+
+    Returns
+    -------
+    dict
+        Dictionary containing bounds and CRS information
+    """
+
+    pipeline_def = {
+        "pipeline": [
+            {
+                "type": "readers.las",
+                "filename": laz_file
+            }
+        ]
+    }
+
+    pipeline = pdal.Pipeline(json.dumps(pipeline_def))
+    pipeline.execute()
+
+    metadata = pipeline.metadata
+    readers_meta = metadata["metadata"]["readers.las"]
+
+    result = {
+        "source_file": os.path.abspath(laz_file),
+        "bounds": {
+            "minx": readers_meta.get("minx"),
+            "maxx": readers_meta.get("maxx"),
+            "miny": readers_meta.get("miny"),
+            "maxy": readers_meta.get("maxy"),
+            "minz": readers_meta.get("minz"),
+            "maxz": readers_meta.get("maxz")
+        },
+        "crs": {
+            "authority": readers_meta.get("srs", {}).get("authority"),
+            "horizontal": readers_meta.get("srs", {}).get("horizontal"),
+            "vertical": readers_meta.get("srs", {}).get("vertical"),
+            "wkt": readers_meta.get("srs", {}).get("wkt")
+        }
+    }
+
+    if write_pickle:
+
+        with open(pkl_path, "wb") as f:
+            pickle.dump(result, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+        result["pickle_file"] = os.path.abspath(pkl_path)
+
+    return result
+
+
+##if __name__ == "__main__":
+##    laz_path = "input.laz"
+##    info = get_laz_bounds_and_crs(laz_path)
+##    print(info)
+
+
+
+def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon, 
+         pdal_exe, procDir, get_lidar_method,
+         ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup, messages):
+    
+    arguments = [monthly_wesm_ept_mashup, dem_polygon, pdal_exe, procDir, get_lidar_method, ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup]
+                                                       
+    for a in arguments:
+        if a == arguments[0]:
+            arg_str = str(a) + '\n'
+        else:
+            arg_str += str(a) + '\n'
+
+    messages.addMessage("Tool: Executing with parameters:\n" + arg_str)
+
+    arcpy.env.overwriteOutput = True
+
+    arcpy.CheckOutExtension("Spatial")
+    arcpy.CheckOutExtension("3D")
+
+    arcpy.env.ZResolution = "0.01"
+
+    try:
+        huc12, huc8 = df.figureItOut(dem_polygon)#tElevFile)
+        # the DEP huc DEM naming convention
+        pattern27 = 'e[cfpxv][0-9]m\\d{10,16}'
+        pattern26 = '[0-9]m\\d{10,16}'
+        pattern25 = '[0-9]m_d{10,16}'
+        pattern22 = '[+_][0-9]m[+_]'
+
+        if procDir is not None:
+            # if os.path.isdir(procDir):
+            #     # log.info('nuking: ' + procDir)
+            #     df.nukedir(procDir)
+
+            if not os.path.isdir(procDir):
+                os.makedirs(procDir)
+
+            arcpy.env.scratchWorkspace = procDir
+            sfldr = arcpy.env.scratchFolder
+        else:
+            sfldr = arcpy.env.scratchFolder
+            procDir = sfldr
+
+        if lidar_download_directory is None:
+            lidar_download_directory = procDir
+
+        if not os.path.isdir(lidar_download_directory):
+            os.makedirs(lidar_download_directory)
+
+        sgdb = arcpy.env.scratchGDB
+        arcpy.env.scratchWorkspace = sgdb
+        arcpy.env.workspace = sgdb
+
+        if procDir is None:
+            procDir = sfldr
+
+        # create export directory for just huc12 laz files, if doesn't exist
+        po_procDir = Path(procDir)
+        po_all_laz_dir = po_procDir.joinpath('laz_for_huc12')
+        if not os.path.isdir(po_all_laz_dir):
+            os.makedirs(po_all_laz_dir)
+
+        if lidar_download_directory is None:
+            lidar_download_directory = sfldr
+
+        #figure out where to create log files
+        node = platform.node()
+        logProc = df.defineLocalProc(node)
+        if not os.path.isdir(logProc):
+            logProc = sfldr
+
+        if cleanup:
+            log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)
+            arcpy.SetLogHistory = False
+        else:
+            # log to file and console
+            log, nowYmd, logName, startTime = df.setupLoggingNew(logProc, sys.argv[0], huc12)
+            arcpy.SetLogHistory = True
+
+        # if not os.path.isfile(flib_metadata_template):
+        #     log.warning('flib_metadata does not exist')
+        # if not os.path.isfile(derivative_metadata):
+        #     log.warning('derivative_metadata does not exist')
+        log.info("Beginning execution: " + time.asctime())
+        log.debug('sys.argv is: ' + str(sys.argv) + '\n')
+        log.info("Processing HUC: " + huc12)
+        log.info(f"procDir: {procDir}")
+        log.info(f"lidar_download_directory: {lidar_download_directory}")
+
+        assert os.path.isfile(pdal_exe), f"PDAL executable not found: {pdal_exe}"
+
+        fElevDesc = arcpy.da.Describe(dem_polygon)
+        srOut = fElevDesc['spatialReference']
+        srOutCode = srOut.PCSCode
+
+        assert srOutCode < 32768, "EPSG spatial reference code too large, PDAL will not recognize"
+
+        log.info("Output will be in EPSG Code (spatial reference): " + str(srOutCode))#sys.argv[9])
+        log.info("Log file at " + logName)
+        messages.addMessage("Log file at " + logName)
+
+
+    ## If you set a scratch workspace first you can control where the scratchGDB or scratchFolder are created
+    ## otherwise it defaults to a user's temp folder
+    ## if you don't set anything it will go to 'in_memory'
+        inm = 'in_memory'
+
+        # also set output to VCS 5703, NAVD88 Meters
+        srOut = arcpy.SpatialReference(int(srOutCode), 5703)
+        # since final output is in centimeters, create one without VCS
+        srOutNoVCS = arcpy.SpatialReference(int(srOutCode))
+        arcpy.env.outputCoordinateSystem = srOut
+        srSfx = '_'+str(srOutCode)
+
+        assert int(arcpy.GetCount_management(dem_polygon).getOutput(0)) < 2, 'multiple features in polygon feature class'
+        assert int(arcpy.GetCount_management(dem_polygon).getOutput(0)) > 0, 'no features in polygon feature class'
+        maskFc = arcpy.CopyFeatures_management(dem_polygon, opj(inm, 'maskFcPrelim'))
+        maskFc_area = [s[0] for s in arcpy.da.SearchCursor(maskFc, ['SHAPE@AREA'])][0]
+
+        if 'id' not in df.getfields(maskFc):
+            arcpy.AddField_management(maskFc, 'id', 'LONG')
+            arcpy.CalculateField_management(maskFc, 'id', 1, 'PYTHON')
+
+        log.info("maskFcPrelim complete at: " + time.asctime())
+
+        # ## Set up geodatabase to store the multipoint files and terrains (necessary all inputs be in feature dataset
+        # # Vertical units are in meters (float) so use a meter-based reference
+        # FDSet = arcpy.CreateFeatureDataset_management(sgdb, "Lidar_pts", srOut)
+        maskFcOut = projIfNeeded(maskFc, os.path.join(str(sgdb), 'get_laz_bnds' + srSfx), srOut)
+        log.info("maskFcOut complete at: " + time.asctime())
+        
+##----------------------------------------------------------------------
+
+    # # check for collection change (different priorities) to restrict further data
+        fixedFolder = str(arcpy.CreateFolder_management(sfldr, 'fixed'))
+
+        allTilesList = []
+
+        #eptDir = os.path.dirname(os.path.dirname(monthly_wesm_ept_mashup))
+        wesm_huc12_all = arcpy.analysis.Clip(monthly_wesm_ept_mashup, maskFcOut, opj('in_memory', 'meets_3dep'))
+        wesm_huc12 = arcpy.Select_analysis(wesm_huc12_all, 'wesm_' + huc12, where_clause= "lpc_category = 'Meets' OR lpc_category = 'Meets with variance' OR lpc_category = 'Expected to meet'")
+        select_ql0_ql1 = arcpy.Select_analysis(wesm_huc12, where_clause = "ql = 'QL 1' OR ql = 'QL 0'")
+        count_ql0_ql1 = int(str(arcpy.GetCount_management(select_ql0_ql1)))
+        if count_ql0_ql1 >= 1:
+            ql1 = True
+        else:
+            ql1 = False
+        # code fails on QL1 data for 071200030402, downloaded LAS for 79951 work id was 143 GB and caused ExtractLas to fail
+        # assert count_ql0_ql1 < 1, 'DEM builder not yet configured for QL1 or QL0 density data, email bkgelder@iastate.edu to request upgrade'
+        if ql1:
+            log.warning('You have selected an area with QL0 or QL1 lidar, this will take a while!')
+
+##----------------------------------------------------------------------
+
+
+##----------------------------------------------------------------------
+        work_id_name = 'workunit_id'
+        build_threshold = 0.99#99 - reduced to 0.99 for Lake Erie at Toledo (04100009)
+        if df.testForZero(wesm_huc12):
+            prev_merged, merged_area, addOrderField = organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log)
+
+        if df.testForZero(prev_merged):
+            url_list = df.getfields(wesm_huc12, 'url*')
+            if get_lidar_method == "get_USGS_LAZ":
+            # if get_USGS_LAZ:
+                bounds_list = []
+                with arcpy.da.SearchCursor(prev_merged, ['SHAPE@', work_id_name, 'lpc_link'] + url_list, sql_clause = [None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:
+                    for srow in scur:
+                        log.debug(f'{work_id_name} is: {srow[1]} and lpc_link is: {srow[2]} ')
+                        # dl_dir = os.path.join('E:\\DEP\\USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
+                        # handle projects that do not have two project folders in the path, like https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/LPC/Projects/USGS_LPC_WI_Forest_2016_LAS_2019/
+                        laz_grandpa_dir = os.path.basename(os.path.dirname(srow[2]))
+                        if laz_grandpa_dir == 'Projects':
+                            dl_dir = os.path.join(lidar_download_directory, os.path.basename(srow[2]), 'LAZ')
+                        else:
+                            dl_dir = os.path.join(lidar_download_directory, os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
+                        # alt_dl_dir = opj('M:/DEP/USGS_LPC', os.path.basename(os.path.dirname(srow[2])), os.path.basename(srow[2]), 'LAZ')
+
+                        json_dir = dl_dir.replace('LAZ', 'json')
+                        df.create_needed_dirs_and_gdbs(json_dir, log)
+
+                        bounds_dir = dl_dir.replace('LAZ', 'bounds')
+                        df.create_needed_dirs_and_gdbs(bounds_dir, log)
+                        out_gdb = opj(bounds_dir, 'laz_bounds_' + str(srow[1]) + '.gdb')
+                        out_fc_name = 'laz_bounds_' + str(srow[1])
+                        out_fc = os.path.join(out_gdb, out_fc_name)
+                        # for mobile computers - check if the network path exists and if so, use the M drive alternative
+                        try:
+                            alt_out_fc = os.path.join('M:\\', os.path.relpath(out_fc, start='E:\\'))
+                        except:
+                            log.debug(f'could not create alt_out_fc for {out_fc}, using out_fc for both')
+                            alt_out_fc = out_fc
+
+                        if not arcpy.Exists(out_fc) and not arcpy.Exists(alt_out_fc):
+                            page_url = srow[2] + '/LAZ/'
+                            try:
+                                return_path, len_laz = usgs_download_laz(page_url = page_url, output_dir = dl_dir, pdal_exe = pdal_exe, log = log)
+                            except:
+                                log.warning(f'failed download {page_url}')
+                                return_path = None
+                                len_laz = None
+
+                            if '-m' not in platform.node().lower():
+                                create_bounds_from_json(json_dir, out_gdb, out_fc_name, work_id_name, srow[1], log = log, create_gdb=True)
+                                bounds_count = int(arcpy.GetCount_management(out_fc).getOutput(0))
+
+                                if bounds_count != len_laz:
+                                    log.warning(f'Bounds count {bounds_count} does not match laz file count {len_laz} for work unit {srow[1]}')
+                        if arcpy.Exists(out_fc):
+                            bounds_list.append(out_fc)
+                        elif arcpy.Exists(alt_out_fc) and alt_out_fc != out_fc:
+                            bounds_list.append(alt_out_fc)
+
+                if len(bounds_list) > 0:
+                    log.info(f'bounds_list: {bounds_list}')
+                    out_fc_merge = arcpy.Merge_management(bounds_list, os.path.join('in_memory', 'out_fc_merge'))
+
+                    out_fc_clip = arcpy.Clip_analysis(out_fc_merge, maskFc)
+
+                    # copy the HUC12 laz files to a single directory for easier access in future processing
+                    with arcpy.da.SearchCursor(out_fc_clip, ['OBJECTID', 'laz_file']) as scur:
+                        for srow in scur:
+                            laz_file = srow[1].replace('\\laz\\', '\\USGS_LPC\\')
+                            if not os.path.isfile(laz_file):
+                                laz_file = laz_file.replace('E:\\DEP\\USGS_LPC', 'M:\\DEP\\USGS_LPC')
+                            po_laz_file = Path(laz_file)
+                            dest = po_all_laz_dir.joinpath(po_laz_file.name)
+                            if not os.path.isfile(dest):
+                                shutil.copy(po_laz_file, dest)
+
+                    df.create_needed_dirs_and_gdbs(wesm_huc12_tiles, log)
+                    wesm_huc12_tiles = arcpy.CopyFeatures_management(out_fc_clip, wesm_huc12_tiles)
+                                
+
+                        
+            elif get_lidar_method == "get_PDAL_LAZ":
+                eleDir = lidar_download_directory
+                # requests to EPT must be in 3857
+                prev_merged_projected_3857 = arcpy.management.Project(prev_merged, 'proj_trial', 3857)
+                # max_area = 0
+                fishnet_tiles_list = []
+                with arcpy.da.SearchCursor(prev_merged_projected_3857, ['SHAPE@', work_id_name] + url_list, sql_clause=[None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:
+                    for srow in scur:
+                        log.debug(f'{work_id_name} is: {srow[1]}')
+                        geom = srow[0]
+                        geom_extent = geom.extent
+                        las_size_threshold = 750
+                        parts, square_area, fishnet_tiles, pt_field_name = queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1)
+
+                        arcpy.env.outputCoordinateSystem = srOut
+                        for part in parts:
+                            work_id = srow[1]
+                            work_id_part = str(srow[1]) + part[0]
+                            extent_request = part[1]
+
+                            geom_srOut = geom.projectAs(arcpy.SpatialReference(srOutCode))
+                            valid_geom_name = arcpy.ValidateTableName('geom_proj_' + work_id_part, sgdb)
+                            geom_srOut_copy = arcpy.CopyFeatures_management(geom_srOut, valid_geom_name)
+                            arcpy.management.AddField(geom_srOut_copy, work_id_name, "LONG")
+                            arcpy.management.CalculateField(geom_srOut_copy, work_id_name, work_id, "PYTHON")
+
+                            # get the first non-None url, that will tell us address of EPT.JSON
+                            urls = srow[1:]
+                            for u in urls:
+                                if u is not None:
+                                    url = u
+                            ept_address = url
+
+                            ept_zlas_filename = "_".join(["ept", huc12, str(work_id_part) + ".zlas"])
+                            ept_zlas_full_filename = os.altsep.join([eleDir.replace(os.path.sep, os.path.altsep), ept_zlas_filename])
+
+                            ept_las_filename = ept_zlas_filename.replace(".zlas", ".las")
+
+                            ept_laz_filename = ept_zlas_filename.replace(".zlas", ".laz")
+                            ept_laz_full_filename = os.altsep.join([eleDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
+                            ept_laz_path = Path(ept_laz_full_filename)
+                            # check for a local backup copy, if exists, update path to avoid re-downloading
+                            new_path = Path('M:/', *ept_laz_path.parts[1:])
+                            alt_ept_laz_full_filename = new_path#ept_laz_path.replace(anchor = 'M:')
+                            if os.path.isfile(alt_ept_laz_full_filename):
+                                log.debug(f'using alt laz file {alt_ept_laz_full_filename}')
+                                ept_laz_full_filename = str(alt_ept_laz_full_filename)
+                            # local_ept_laz_full_filename = os.altsep.join([procDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
+
+                            # pipeline json requires / not \ for path separator
+                            ept_las_full_filename = os.altsep.join([procDir.replace(os.path.sep, os.path.altsep), ept_las_filename])
+                            # NEEDS UPDATE - check for files in lidar_download_directory as well - getting ready below
+                            # dl_ept_laz_full_filename = ept_laz_full_filename.replace(eptDir, eleDir)
+                            # dl_ept_zlas_full_filename = ept_zlas_full_filename.replace(eptDir, eleDir)
+                            if os.path.isfile(ept_laz_full_filename) and not os.path.isfile(ept_las_full_filename):
+                                log.info('converting laz to las from archive')
+                                log.info(f"arguments: {ept_laz_full_filename}, {procDir}")
+                                las_result = arcpy.conversion.ConvertLas(ept_laz_full_filename, procDir)#, compression = 'ZLAS')
+                                log.info(las_result)
+                            elif os.path.isfile(ept_zlas_full_filename) and not os.path.isfile(ept_las_full_filename):
+                                log.info('converting zlas to las')
+                                log.info(f"arguments: {ept_zlas_full_filename}, {procDir}")
+                                las_result = arcpy.conversion.ConvertLas(ept_zlas_full_filename, procDir)#, compression = 'ZLAS')
+                                log.info(las_result)
+                            # if zlas does not exist, get las then convert to zlas
+                            if not os.path.isfile(ept_zlas_full_filename) and not os.path.isfile(ept_laz_full_filename):
+                                log.info('Getting LAS from EPT')
+                                log.info(ept_zlas_filename)
+
+                                ept_json_filename = "_".join(["get", "ept", huc12, str(work_id_part) + ".json"])
+
+                                df.create_needed_dirs_and_gdbs(ept_las_full_filename, log)
+                                df.create_needed_dirs_and_gdbs(eleDir, log)
+                                ept_json_full_filename = create_ept_json_pipeline(ept_json_filename, eleDir, ept_las_full_filename, extent_request, ept_address, srOutCode)
+                                df.create_needed_dirs_and_gdbs(ept_json_full_filename, log)
+
+                                if not os.path.exists(ept_las_full_filename):
+                                    run_string = " ".join([pdal_exe, "pipeline", ept_json_full_filename])
+                                    # estimate download time based on 102500040309 (area 1175 km2) in 4 parts
+                                    m2_per_sec = 1175.2*1000**2/len(parts)/2200
+                                    log.debug(f'pdal run_string: {run_string}')
+                                    log.info(f'Estimated pdal download time (for QL2 lidar): {round(square_area/(m2_per_sec * len(parts) * 60), 2)} minutes for {ept_json_filename}')
+                                    co = subprocess.call(run_string, creationflags=CREATE_NO_WINDOW)
+                                    # co = subprocess.run(run_string)
+                                    log.debug(f'completed pdal run_string')
+
+                                # archive as zlas for use later in this script and re-use
+                                stats = os.stat(ept_las_full_filename)
+                                if stats.st_size > las_size_threshold:
+                                    if not os.path.isfile(ept_laz_full_filename) and not os.path.isfile(ept_zlas_full_filename):
+                                        # takes too long, laz is much faster to create
+                                        # log.info('converting las to zlas for archive')
+                                        # zlas_result = arcpy.conversion.ConvertLas(ept_las_full_filename, ele, compression = 'ZLAS', las_options = None)
+                                        # log.info(zlas_result)
+
+                                        log.debug('converting las to laz for archive')
+                                        laz_json_filename = "_".join(["laz", "ept", huc12, str(work_id_part) + ".json"])
+                                        laz_json_full_filename = create_laz_json_pipeline(laz_json_filename, eleDir, ept_las_full_filename, ept_laz_full_filename)
+                                        laz_run_string = " ".join([pdal_exe, "pipeline", laz_json_full_filename])
+                                        log.debug(f'pdal run_string: {laz_run_string}')
+                                        co = subprocess.call(laz_run_string, creationflags=CREATE_NO_WINDOW)
+                                        # co = subprocess.run(laz_run_string)
+                                        log.debug(f'ran pdal run_string')
+
+                                        # ADD CODE to do local then copy, SLOW on network drives 
+                                        # laz_result = arcpy.conversion.ConvertLas(ept_las_full_filename, eleDir, compression = 'LAZ', las_options = None)
+                                        # log.debug(laz_result)
+
+                                    # arcpy.Delete_management(ept_las_full_filename)
+                                else:
+                                    poly35 = geom_extent.polygon
+                                    p35 = arcpy.management.CopyFeatures(poly35, opj(sgdb, 'failed_' + valid_geom_name))
+                                    log.warning(f"{ept_las_full_filename} has very small file size; plotting extent as poly: {p35}")
+                                    ## Use to get requested bounds
+                                    # geom_extent.JSON
+                                    # '{"xmin":-11386571.4549,"ymin":5310909.4501999989,"xmax":-11370238.307800001,"ymax":5314697.4098999985,"spatialReference":{"wkid":102100,"latestWkid":3857}}'
+
+                                    ## Use to plot query bounds from PDAL Debug or from EPT.JSON file header
+                                    # arcpy.env.outputCoordinateSystem = 3857
+                                    # ept_json_extent = arcpy.Extent(-11583422,5262814,-11396830,5449406)
+                                    # ept_json_extent_polygon = ept_json_extent.polygon
+                                    # ept_json_polygon = arcpy.management.CopyFeatures(ept_json_extent_polygon, opj(sgdb, 'poly37'))
+                            elif os.path.isfile(ept_las_full_filename):
+                                stats = os.stat(ept_las_full_filename)
+                            else:
+                                log.warning("can't get good LAS data, skipping to next project")
+                                continue
+
+                        # copy the laz files to a single directory for easier access in future processing
+                        cur_cwd = os.getcwd()
+                        os.chdir(eleDir)
+                        lazs = glob.glob(ept_laz_filename[:16] + '*.laz')
+                        for laz_file in lazs:
+                            po_ele_dir = Path(eleDir)
+                            po_laz_file = po_ele_dir.joinpath(laz_file)
+                            dest = po_all_laz_dir.joinpath(laz_file)
+                            if not os.path.isfile(dest):
+                                shutil.copy(po_laz_file, dest)
+                        os.chdir(cur_cwd)
+
+                        # add the laz file paths to the attribute table of the fishnet tiles
+                        arcpy.management.AddField(fishnet_tiles, "laz_file", "TEXT", field_length=200)
+                        arcpy.management.AddField(fishnet_tiles, work_id_name, "LONG")
+                        with arcpy.da.UpdateCursor(fishnet_tiles, ['SHAPE@', 'laz_file', work_id_name, pt_field_name]) as ucur:
+                            for urow in ucur:
+                                baselaz = '_'.join(['ept', huc12, str(work_id), 'pt' + urow[-1] + '.laz'])
+                                laz_path = os.path.join(eleDir, baselaz)
+                                urow[1] = laz_path
+                                urow[2] = work_id#_part
+                                ucur.updateRow(urow)
+
+                        fishnet_tiles_list.append(fishnet_tiles)
+
+                log.info('processing EPT lidar feature classes into unioned polygon feature class')
+                ept_lidar_fcs = arcpy.ListFeatureClasses(os.path.basename(geom_srOut_copy.getOutput(0))[:10] + '*')
+                # wesm_huc12_tiles = arcpy.Union_analysis(ept_lidar_fcs, wesm_huc12_tiles)
+                # wesm_huc12_tiles2 = arcpy.Merge_management(ept_lidar_fcs, wesm_huc12_tiles + '_merge')
+                wesm_huc12_tiles = arcpy.Merge_management(fishnet_tiles_list, wesm_huc12_tiles)# + '_list_merge')
+
+
+##----------------------------------------------------------------------
+            # add collection start and end dates to the attribute table of the fishnet tiles for any projects that meet the build threshold, so we can use that info later in the processing to determine which tiles to prioritize for processing and which to maybe skip or process last based on how recent the data is
+            df.joinDict(wesm_huc12, work_id_name, monthly_wesm_ept_mashup, work_id_name, ['collect_start', 'collect_end'])
+            df.joinDict(wesm_huc12_tiles, work_id_name, monthly_wesm_ept_mashup, work_id_name, ['collect_start', 'collect_end'])
+
+            
+    except AssertionError:
+        log.warning('assertion failure on: ' + huc12)
+        sys.exit(1)
+    except:
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+        pymsg = 'PYTHON ERRORS:\nTraceback info:\n' + tbinfo + '\nError Info:\n' + str(sys.exc_info()[1])
+        msgs = 'ArcPy ERRORS:\n' + arcpy.GetMessages(2) + '\n'
+        log.warning(pymsg)
+        log.warning(msgs)
+        log.warning('failure on: ' + huc12)
+        sys.exit(1)
+    finally:
+        log.warning('Finished at ' + time.asctime())
+        handlers = log.handlers
+        for h in handlers:
+            log.info('shutting it down!')
+            log.removeHandler(h)
+            h.close()
+
+
+
+import arcpy
+import pickle
+import os
+import glob
+
+def build_bounds_of_pkls(pkl_dir, out_gdb, out_fc_name, out_fc, work_id_name, work_id):
+    '''
+    # --------------------------------
+    # Inputs
+    # --------------------------------
+    pkl_dir = r"E:\\DEP\\USGS_LPC\\IA_NorthCentral_2020_D20\\IA_NorthCentral_2_2020\\pkl"
+    out_gdb = r"E:\\DEP\\USGS_LPC\\IA_NorthCentral_2020_D20\\IA_NorthCentral_2_2020\\bounds\\laz_bounds.gdb"
+    out_fc_name = "laz_bounds"
+    out_fc = os.path.join(out_gdb, out_fc_name)
+    '''
+    mem_fc = "in_memory\\laz_bounds_tmp"
+
+    # --------------------------------
+    # Create file geodatabase if needed
+    # --------------------------------
+    arcpy.env.overwriteOutput = True
+    gdb_dir, gdb_name = os.path.split(out_gdb)
+
+    if not arcpy.Exists(out_gdb):
+        arcpy.management.CreateFileGDB(gdb_dir, gdb_name)
+
+    # --------------------------------
+    # Create in-memory feature class
+    # --------------------------------
+    if arcpy.Exists(mem_fc):
+        arcpy.management.Delete(mem_fc)
+
+    spatial_ref = None  # will be set from first valid PKL
+
+    arcpy.management.CreateFeatureclass(
+        out_path="in_memory",
+        out_name="laz_bounds_tmp",
+        geometry_type="POLYGON"
+    )
+
+    arcpy.management.AddField(
+        mem_fc,
+        "laz_file",
+        "TEXT",
+        field_length=200
+    )
+
+    arcpy.management.AddField(
+        mem_fc,
+        work_id_name,
+        "LONG"
+    )
+
+    # --------------------------------
+    # Loop over PKL files
+    # --------------------------------
+    pkl_files = glob.glob(os.path.join(pkl_dir, "*.pkl"))
+
+    inserted = 0
+    skipped = 0
+
+    with arcpy.da.InsertCursor(mem_fc, ["SHAPE@", "laz_file", work_id_name]) as cursor:
+        for pkl_path in pkl_files:
+            try:
+                with open(pkl_path, "rb") as f:
+                    data = pickle.load(f)
+                print(pkl_path)
+
+                bounds = data["bounds"]
+                laz_path = data["source_file"]
+                wkt = data["crs"]["wkt"]
+
+                minx = bounds["minx"]
+                miny = bounds["miny"]
+                maxx = bounds["maxx"]
+                maxy = bounds["maxy"]
+
+                # Initialize spatial reference from first PKL
+                if spatial_ref is None:
+                    spatial_ref = arcpy.SpatialReference()
+                    spatial_ref.loadFromString(wkt)
+                    arcpy.management.DefineProjection(mem_fc, spatial_ref)
+
+                # Build polygon
+                array = arcpy.Array([
+                    arcpy.Point(minx, miny),
+                    arcpy.Point(maxx, miny),
+                    arcpy.Point(maxx, maxy),
+                    arcpy.Point(minx, maxy),
+                    arcpy.Point(minx, miny)
+                ])
+
+                polygon = arcpy.Polygon(array, spatial_ref)
+
+                cursor.insertRow([polygon, laz_path, work_id])
+                inserted += 1
+
+            except Exception as e:
+                skipped += 1
+                arcpy.AddWarning(f"Skipped {os.path.basename(pkl_path)}: {e}")
+
+    # --------------------------------
+    # Copy to file GDB
+    # --------------------------------
+    if arcpy.Exists(out_fc):
+        arcpy.management.Delete(out_fc)
+
+    arcpy.management.CopyFeatures(mem_fc, out_fc)
+
+    # --------------------------------
+    # Cleanup
+    # --------------------------------
+    arcpy.management.Delete(mem_fc)
+
+    print(f"Done. Inserted {inserted} features. Skipped {skipped} files.")
+
+##----------------------------------------------------------------------
+import json
+import re
+
+def get_horizontal_epsg(json_path):
+    """
+    Reads a PDAL LAS/LAZ info JSON file and returns the
+    horizontal projected CRS EPSG code.
+    """
+    with open(json_path, "r") as f:
+        data = json.load(f)
+
+    # Navigate to the horizontal WKT string
+    horizontal_wkt = data["metadata"]["srs"]["horizontal"]
+
+    # The EPSG code is the last AUTHORITY["EPSG","<code>"] entry in the WKT,
+    # which identifies the overall projected CRS
+    matches = re.findall(r'AUTHORITY\["EPSG","(\d+)"\]', horizontal_wkt)
+
+    if not matches:
+        raise ValueError("No EPSG authority code found in horizontal WKT.")
+
+    # The last AUTHORITY entry in a WKT string is the CRS-level code
+    epsg_code = int(matches[-1])
+    return epsg_code
+
+    
+import arcpy
+import json
+import os
+
+def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work_id_field_name, work_id_field_value, log, spatial_reference=None, create_gdb=True):
+    """
+    Process a directory of JSON files containing LAS metadata and create a feature class
+    with polygon boundaries and file path attributes.
+    
+    Parameters:
+    -----------
+    json_directory : str
+        Path to directory containing JSON files
+    output_gdb : str
+        Path to output geodatabase (will be created if it doesn't exist)
+    feature_class_name : str
+        Name for the output feature class
+    work_id_field_name : str
+        adds a field with this name and populates it with a unique ID from the WESM (default: None)
+    log : logging.Logger
+        Logger object for logging messages
+    spatial_reference : arcpy.SpatialReference or int, optional
+        Spatial reference for output. If None, uses EPSG from first JSON file
+    create_gdb : bool, optional
+        If True, creates the geodatabase if it doesn't exist (default: True)
+    
+    Returns:
+    --------
+    str : Path to created feature class
+    """
+    
+    try:
+        # Check if geodatabase exists, create if needed
+        if not arcpy.Exists(output_gdb):
+            if create_gdb:
+                # Get the parent directory and gdb name
+                gdb_path = os.path.dirname(output_gdb)
+                gdb_name = os.path.basename(output_gdb)
+                
+                log.info(f"Geodatabase does not exist. Creating: {output_gdb}")
+                arcpy.CreateFileGDB_management(gdb_path, gdb_name)
+                log.info(f"Created geodatabase: {gdb_name}")
+                log.info("-" * 60)
+            else:
+                log.error(f"Error: Geodatabase does not exist: {output_gdb}")
+                log.error("Set create_gdb=True to create it automatically.")
+                return None
+        # Create output feature class path
+        output_fc = os.path.join(output_gdb, feature_class_name)
+        
+        # Check if feature class already exists
+        if arcpy.Exists(output_fc):
+            log.info(f"Feature class {feature_class_name} already exists. Deleting...")
+            arcpy.Delete_management(output_fc)
+        
+        # Get list of JSON files in directory
+        json_files = [f for f in os.listdir(json_directory) 
+                     if f.lower().endswith('.json')]
+        
+        if not json_files:
+            log.error(f"No JSON files found in {json_directory}")
+            return None
+        
+        log.info(f"Found {len(json_files)} JSON files to process")
+        log.info("-" * 60)
+        
+        # Read first JSON to get spatial reference if not provided
+        first_json = os.path.join(json_directory, json_files[0])
+        with open(first_json, 'r') as f:
+            first_data = json.load(f)
+        
+        if spatial_reference is None:
+            # Try to get EPSG code from JSON
+            # Handle different JSON structures (simple ProjectedCRS vs CompoundCRS)
+            epsg_code = None
+            try:
+                log.info(f"Attempting to determine spatial reference from JSON metadata: {first_json}")
+                epsg_code = get_horizontal_epsg(json_path=first_json)
+                # srs_json = first_data['metadata']['srs']['json']
+                
+                # # Check if it's a CompoundCRS (has 'components')
+                # if srs_json.get('type') == 'CompoundCRS' and 'components' in srs_json:
+                #     # Get the horizontal (projected) component EPSG
+                #     for component in srs_json['components']:
+                #         if component.get('type') == 'ProjectedCRS':
+                #             epsg_code = component['id']['code']
+                #             break
+                # # Check if it's a simple ProjectedCRS
+                # elif srs_json.get('type') == 'ProjectedCRS' and 'id' in srs_json:
+                #     epsg_code = srs_json['id']['code']
+                
+                if epsg_code:
+                    spatial_reference = arcpy.SpatialReference(epsg_code)
+                    log.info(f"Using spatial reference: EPSG:{epsg_code}")
+                else:
+                    raise KeyError("EPSG code not found")
+                    
+            except (KeyError, TypeError) as e:
+                log.warning(f"Could not determine spatial reference from JSON: {e}")
+                log.info("Using default: WGS 1984")
+                spatial_reference = arcpy.SpatialReference(4326)
+        
+        # Create feature class
+        arcpy.CreateFeatureclass_management(
+            out_path=output_gdb,
+            out_name=feature_class_name,
+            geometry_type="POLYGON",
+            spatial_reference=spatial_reference
+        )
+        
+        # Add fields for attributes
+        arcpy.AddField_management(output_fc, "laz_file", "TEXT", field_length=500)#LAS_FilePath
+        arcpy.AddField_management(output_fc, "FileName", "TEXT", field_length=255)
+        arcpy.AddField_management(output_fc, "FileSize_MB", "DOUBLE")
+        arcpy.AddField_management(output_fc, "PointCount", "LONG")
+        arcpy.AddField_management(output_fc, "MinX", "DOUBLE")
+        arcpy.AddField_management(output_fc, "MinY", "DOUBLE")
+        arcpy.AddField_management(output_fc, "MaxX", "DOUBLE")
+        arcpy.AddField_management(output_fc, "MaxY", "DOUBLE")
+        arcpy.AddField_management(output_fc, "MinZ", "DOUBLE")
+        arcpy.AddField_management(output_fc, "MaxZ", "DOUBLE")
+        arcpy.AddField_management(output_fc, "EPSG", "LONG")
+        arcpy.AddField_management(output_fc, work_id_field_name, "LONG")
+        arcpy.AddField_management(output_fc, "JSON_File", "TEXT", field_length=255)
+        
+        log.info(f"Created feature class: {feature_class_name}")
+        log.info("Fields added: LAS_FilePath, FileName, FileSize_MB, PointCount, MinX, MinY, MaxX, MaxY, MinZ, MaxZ, EPSG, JSON_File")
+        log.info("-" * 60)
+        
+        # Process each JSON file
+        success_count = 0
+        error_count = 0
+        
+        with arcpy.da.InsertCursor(output_fc, [
+            "SHAPE@", "laz_file", "FileName", "FileSize_MB", "PointCount",
+            "MinX", "MinY", "MaxX", "MaxY", "MinZ", "MaxZ", "EPSG", work_id_field_name, "JSON_File"
+        ]) as cursor:
+            
+            for json_file in json_files:
+                json_path = os.path.join(json_directory, json_file)
+                
+                try:
+                    # Read JSON file
+                    with open(json_path, 'r') as f:
+                        data = json.load(f)
+                    
+                    # Extract metadata
+                    metadata = data['metadata']
+                    las_filepath = data.get('filename', '')
+                    # if '-m10' in platform.node():# make it point to the final location of the laz files, not a temporary download location
+                    #     las_filepath = las_filepath.replace('E:\\DEP\\USGS_LPC', 'M:\\DEP\\USGS_LPC')
+                    file_size_mb = data.get('file_size', 0) / (1024 * 1024)  # Convert to MB
+                    
+                    # Get bounding box coordinates
+                    minx = metadata['minx']
+                    miny = metadata['miny']
+                    maxx = metadata['maxx']
+                    maxy = metadata['maxy']
+                    minz = metadata.get('minz', None)
+                    maxz = metadata.get('maxz', None)
+                    point_count = metadata.get('count', 0)
+                    
+                    # Get EPSG code - handle both simple and compound CRS
+                    epsg = None
+                    try:
+                        srs_json = metadata['srs']['json']
+                        
+                        # Check if it's a CompoundCRS (has 'components')
+                        if srs_json.get('type') == 'CompoundCRS' and 'components' in srs_json:
+                            # Get the horizontal (projected) component EPSG
+                            for component in srs_json['components']:
+                                if component.get('type') == 'ProjectedCRS':
+                                    epsg = component['id']['code']
+                                    break
+                        # Check if it's a simple ProjectedCRS
+                        elif srs_json.get('type') == 'ProjectedCRS' and 'id' in srs_json:
+                            epsg = srs_json['id']['code']
+                    except (KeyError, TypeError):
+                        epsg = None
+                    
+                    # Create polygon from bounding box
+                    array = arcpy.Array([
+                        arcpy.Point(minx, miny),
+                        arcpy.Point(maxx, miny),
+                        arcpy.Point(maxx, maxy),
+                        arcpy.Point(minx, maxy),
+                        arcpy.Point(minx, miny)  # Close the polygon
+                    ])
+                    polygon = arcpy.Polygon(array, spatial_reference)
+                    
+                    # Extract filename from path
+                    las_filename = os.path.basename(las_filepath)
+                    
+                    # Insert row
+                    cursor.insertRow([
+                        polygon,
+                        las_filepath,
+                        las_filename,
+                        file_size_mb,
+                        point_count,
+                        minx,
+                        miny,
+                        maxx,
+                        maxy,
+                        minz,
+                        maxz,
+                        epsg,
+                        work_id_field_value,
+                        json_file
+                    ])
+                    
+                    success_count += 1
+                    log.info(f"Processed: {json_file}")
+                    
+                except Exception as e:
+                    error_count += 1
+                    log.error(f"Error processing {json_file}: {str(e)}")
+        
+        log.info("-" * 60)
+        log.info(f"Processing complete!")
+        log.info(f"Successfully processed: {success_count}")
+        log.info(f"Errors: {error_count}")
+        log.info(f"Output feature class: {output_fc}")
+        
+        return output_fc
+        
+    except Exception as e:
+        log.error(f"Error creating feature class: {str(e)}")
+        return None
+
+##----------------------------------------------------------------------
+## below should be commented out when using as a Python Toolbox (.pyt) - in 2025, .pyt cannot handle running code in the main block
+## remove the comments below for use from the windows command line
+
+if __name__ == "__main__":
+    if len(sys.argv) == 1:
+        #Paste arguments into here for use within Python Window
+        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+        # cleanup = False
+        parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+    "C:/Users/bkgelder/Documents/hydro_dems/cmd_get_laz.pyt",
+    "M:/DEP/Elevation_databases/ept.gdb/ept_resources_2026_01_01",
+    "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100008/idepACPF071000080502.gdb/buf071000080502",
+    "C:/Users/bkgelder/.conda/envs/pdal_python/Library/bin/pdal.exe",
+    "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_071000080502",
+    "get_USGS_LAZ",
+    "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100008/idepACPF071000080502.gdb/wesm_ept_resources_2026_02_01_071000080502",
+    "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100008/idepACPF071000080502.gdb/wesm_tiles_2026_02_16_071000080502",
+    "M:/DEP/USGS_LPC",
+    "False"]
+        for i in parameters[2:]:
+            sys.argv.append(i)
+
+    else:
+        #For use via Windows Command Line
+        #above 'parameters' come in via command line arguments, nothing else needed
+        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+        # clean up the folder after done processing
+        # cleanup = True
+
+    # inputs then outputs, change "" to Python None
+    (monthly_wesm_ept_mashup, dem_polygon, 
+         pdal_exe, procDir, get_lidar_method,
+         ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup
+        ) = [i if i != "" else None for i in sys.argv[1:]]
+
+    # switch a text 'True' into a real Python True
+    cleanup = True if cleanup == "True" else False
+
+    messages = msgStub()
+
+    doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon, 
+         pdal_exe, procDir, get_lidar_method,
+         ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup, messages)#msgStub())
+
+    arcpy.AddMessage("Back from doLazDownloadCopy!")
