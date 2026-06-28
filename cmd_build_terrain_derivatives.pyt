@@ -1127,7 +1127,7 @@ def buildLASRasters(lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx
                 addMetadata(bareEarthReturnMinFile_sized, paraDict, derivative_metadata, log)
 
         if int1rMaxFile is not None or int1rMinFile is not None or intBeMaxFile is not None:
-            if demListVal == '2':# only run for 2m DEMs, otherwise too slow
+            if demListVal == '2' or demListVal == '1':# should only run for 2m, otherwise too slow, but 1m needed for IA
                 log.debug('---Creating intensity rasters')
                 if int1rMaxFile is None and int1rMinFile is not None: 
                     log.warning('Faking int1rMaxFile value due to requested int1rMinFile')
@@ -1214,7 +1214,7 @@ def buildLASRasters(lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx
         # allReturnsMinCm = Int(Times(allReturnsMin, 100))
         # allReturnsMinCm.save(frMinFile_sized)#locDict['firstReturnMinFile'])#allReturnsMinFile)
 
-        if demListVal == '2':# only run for 2m DEMs, otherwise too slow
+        if demListVal == '2' or demListVal == '1':# should only run for 2m, otherwise too slow, but 1m needed for IA
             if cnt1rFile is not None:
                 log.debug('---Counting First Returns')
                 cnt1rFile_sized = updateResolution(cnt1rFile, named_cell_size, demListVal, pattern22, log)
@@ -1945,7 +1945,8 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                 #         maskRastOutName = opj(sgdb, maskRastBase + demPtString)#demListVal)
                 #         cntBeFileRasterObj = createCountsFromMultipoints(sgdb, maskRastOutName, demListVal, demPtString, huc12, finalMPinm, finalMP, log, cntBeFile, init_res, pattern22)
 
-                terrainList = createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOutName, procDir, terrains, huc12, lidar_metadata_info, pyramid_args, flib_metadata_template, tElevFile, init_res, pattern22, interpDict, srOutNoVCS)
+                if not arcpy.Exists(tElevFile):
+                    terrainList = createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOutName, procDir, terrains, huc12, lidar_metadata_info, pyramid_args, flib_metadata_template, tElevFile, init_res, pattern22, interpDict, srOutNoVCS)
 
                 buildLASRasters(lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx, maskRastOutName, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, cntBeFile, init_res, internal_regions, lidar_metadata_info, derivative_metadata, pattern22)
 #                 lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx, maskRastOut, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, cntBeFile, named_cell_size, internal_regions, lidar_metadata_info, derivative_metadata, pattern22 = lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx, maskRastOutName, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, cntBeFile, init_res, internal_regions, lidar_metadata_info, derivative_metadata, pattern22
