@@ -919,7 +919,7 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         
         depFlowpaths = opj(depBase, 'DEP_Flowpaths')
 
-        depDocumentation = opj(basedataDir, 'Documentation')
+        depDocumentation = opj(depBase, 'Documentation')
 
         depMetadata = opj(depBase.replace(uversion, ""), 'toolMetadata')
 
@@ -939,6 +939,8 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         firstReturnDir = os.path.join(lidarOutputDir, '_'.join(['surf', 'el', 'Lib']))# + outEPSG)# + uversion)
         countDir = os.path.join(lidarOutputDir, '_'.join(['count', 'Lib']))# + outEPSG)# + uversion)
         intDir = os.path.join(lidarOutputDir, '_'.join(['int', 'Lib']))# + outEPSG)# + uversion)
+
+        derivDir = os.path.join(lidarOutputDir, '_'.join(['deriv', 'Lib', interpType]))
 
         copyDir = os.path.join(lidarOutputDir, '_'.join(['copy', 'gdb', interpType]))# + '_' + outEPSG)# + uversion)
 
@@ -1008,6 +1010,19 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         "intBeMinFile" : os.path.join(intDir, huc8, "_".join(['be_int_min', str(cellSize) + 'm', huc12 + '.tif'])),
         # bare earth return max intensity file
         "intBeMaxFile" : os.path.join(intDir, huc8, "_".join(['be_int_max', str(cellSize) + 'm', huc12 + '.tif'])),
+
+        # standard hillsade file
+        "hillshade" : os.path.join(derivDir, huc8, "_".join(['hs', str(cellSize) + 'm', huc12 + '.tif'])),
+        # slope file
+        "slope_pct" : os.path.join(derivDir, huc8, "_".join(['slp', str(cellSize) + 'm', huc12 + '.tif'])),
+        # curvature file
+        "curvature" : os.path.join(derivDir, huc8, "_".join(['curv', str(cellSize) + 'm', huc12 + '.tif'])),
+        # profile curvature file
+        "profCurvature" : os.path.join(derivDir, huc8, "_".join(['prof_curv', str(cellSize) + 'm', huc12 + '.tif'])),
+        # plan curvature file
+        "planCurvature" : os.path.join(derivDir, huc8, "_".join(['plan_curv', str(cellSize) + 'm', huc12 + '.tif'])),
+        # geomorphon file
+        "geomorphon" : os.path.join(derivDir, huc8, "_".join(['geomorphon', str(cellSize) + 'm', huc12 + '.tif'])),
 
         # documentation folder
         "docFolder" : depDocumentation,
