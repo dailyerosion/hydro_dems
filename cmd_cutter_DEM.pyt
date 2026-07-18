@@ -493,20 +493,18 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
     ##                except:
                     else:
                         log.warning('minElOverall.maximum is None, no valid cells/points to cut for sfx: ' + sfx)
-                        log.warning('Typical error follows')
-                        error = '''WARNING - PYTHON ERRORS:
-    Traceback info:
-    File "O:\DEP\Scripts\basics\cmd_cutter.py", line 316, in <module>
-        cutCostDist = CostDistance(goodSlope, cutCost, '', cp + 'bklink' + sfx + ofSfx)#maxCostDist
-
-    Error Info:
-    ERROR 999999: Error executing function.
-    Class not registered
-
-    ERROR 010004: All cells in Raster D:\DEP_Proc\CutProc\Cut_070101061007\ifthe_ras7 have the NODATA value. Stop execution.
-    ERROR 010067: Error in executing grid expression.
-    Failed to execute (CostDistance).'''
-                        log.warning(error)
+                        log.warning('Typical error follows in source code, but this is not the error for this case')
+    ####                        error = '''WARNING - PYTHON ERRORS:
+    ####    Traceback info:
+    ####    File "O:\DEP\Scripts\basics\cmd_cutter.py", line 316, in <module>
+    ####        cutCostDist = CostDistance(goodSlope, cutCost, '', cp + 'bklink' + sfx + ofSfx)#maxCostDist
+    ####    Error Info:
+    ####    ERROR 999999: Error executing function.
+    ####    Class not registered
+    ####    ERROR 010004: All cells in Raster D:\DEP_Proc\CutProc\Cut_070101061007\ifthe_ras7 have the NODATA value. Stop execution.
+    ####    ERROR 010067: Error in executing grid expression.
+    ####    Failed to execute (CostDistance).'''
+    ####                        log.warning(error)
 
                         
     ####                    winsound.Beep(500, 1000)
