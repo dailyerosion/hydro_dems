@@ -402,6 +402,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
             dfsList.append(dfsFC)
 
             df.copyfc(verbose, dfsFC, sgdb)
+            log.debug('done with dfs copy if needed')
 
 
 
@@ -496,17 +497,25 @@ class msgStub:
 # 	"9.0",
 # 	"500",
 # 	"D:/DEP_Proc/DEMProc/Cut_dem2013_3m_110300110104"]
-
+#     "False"]
 #         for i in parameters[2:]:
 #             sys.argv.append(i)
 #     else:
+#         #For use via Windows Command Line
+#         #above 'parameters' come in via command line arguments, nothing else needed
 #         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
 #         # DO NOT clean up the folder after done processing - matcher needs this data
 #         cleanup = False
 
+#     # switch a text 'True' into a real Python True
+#     cleanup = True if cleanup == "True" else False
+
 #     messages = msgStub()
 
-#     input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir = [i for i in sys.argv[1:]]
+#     # inputs then outputs, change "" to Python None
+#     (input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, 
+#      area_threshold, procDir
+#      ) = [i if i != "" else None for i in sys.argv[1:]]#[i for i in sys.argv[1:]]
 
 #     doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir, cleanup, messages)
 #     arcpy.AddMessage("Back from doing!")
