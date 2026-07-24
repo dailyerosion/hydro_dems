@@ -508,7 +508,8 @@ class msgStub:
 #         cleanup = False
 
 #     # switch a text 'True' into a real Python True
-#     cleanup = True if cleanup == "True" else False
+#     # make sure puncher cleanup is False until we log the outputs elsewhere so they aren't deleted
+#     cleanup = False#cleanup = True if cleanup == "True" else False
 
 #     messages = msgStub()
 
