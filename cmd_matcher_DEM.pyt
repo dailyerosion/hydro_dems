@@ -582,7 +582,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
 
     ##                selFull = '(' + ofElFld + ' - ' + minElFld + ') > 67 OR ' + maxFrOfDistFld + ' >= ' + str(3 * ProcSize)
     ##        selFull = '(' + ofElFld + ' - ' + minElFld + ') > ' + str(3.0 * RMSE) + ' AND (' + ofElFld + ' - ' + minElFld + ')*0.01 / ' + minFrDistFld + ' >= 0.05'
-            selFull = frDepthFld + ' > ' + str(2.0 * float(match_depth)) + ' AND ' + frMaxSlopeFld + ' > 5.0'
+            selFull = frDepthFld + ' > ' + str(2.0 * float(match_depth)) + ' AND ' + frMaxSlopeFld + ' > 7.5'#5.0' - higher res DEMs need higher slope threshold
             ## instead of frPctDrop could analyze by water 'piling' up near edge
 
     ####        df.condDelete(verbose, wsPolys)

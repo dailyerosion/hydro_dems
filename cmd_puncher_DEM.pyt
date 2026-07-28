@@ -31,6 +31,8 @@ import traceback
 import time
 import platform
 
+# from shapely import area
+
 sys.path.append("C:\\DEP\\Scripts\\basics")
 import dem_functions as df
 
@@ -250,6 +252,8 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         gridfield = 'gridcode'
 
         dfsList = []
+        wsList = []
+        fr0List = []
 
         ######------------------------------------------------------------------------------
 
@@ -312,7 +316,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
 
             minHoles2Punch = ZonalStatistics(rgToPunch, 'VALUE', holes2PunchMulti, 'MINIMUM')
             holes2Punch = Con(minHoles2Punch == holes2PunchMulti, holes2PunchMulti)
-##            holes2Punch.save(opj(procDir, 'snkunq' + sfx))
+            holes2Punch.save(opj(procDir, 'snkunq' + sfx))
             prevMaxValue = int(holes2Punch.maximum)
 
         ## Fill in the little fill regions (force flow to deeper/larger depressions), flow is not forced elsewhere
@@ -349,9 +353,12 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
             log.debug("After wsLvl for " + str(sfx) + ' at ' + str(time.asctime()))
 
             ## Needed for matcher, not for puncher
-            wsPolys = arcpy.RasterToPolygon_conversion(wsLvl, opj(inm, 'ws_polys' + sfx), 'SIMPLIFY')
+            wsPolysMultiFr = arcpy.RasterToPolygon_conversion(wsLvl, opj(inm, 'ws_polys_multi_features' + sfx), 'SIMPLIFY')
+            # 'dissolve' the features with the same gridcode (watershed number) into one single multipart feature in attribute table
+            wsPolys = arcpy.Dissolve_management(wsPolysMultiFr, opj(inm, 'ws_polys' + sfx), gridfield)
             df.tryAddField(wsPolys, frFld, 'LONG')
             arcpy.CalculateField_management(wsPolys, frFld, '!' + gridfield + '!', 'python')
+            wsList.append(wsPolys)
             df.copyfc(verbose, wsPolys, sgdb)
 
             wsMinFilledEl = ZonalStatistics(wsLvl, 'VALUE', fillLvl, 'MINIMUM')
@@ -361,6 +368,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
             fr0 = Con(fillLvl == wsMinFilledEl, wsLvl)
             # fr0 = Con(fillLvlPrev == wsMinFilledEl, wsLvl)
             fr0.save(opj(procDir, 'fr0' + sfx))
+            fr0List.append(fr0)
 
         ## Convert all fill regions to polygons to store search data
             try:
@@ -382,19 +390,44 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
             df.tryAddField(dfsFC, frFld, 'LONG')
             df.tryAddField(dfsFC, fillLvlFld, 'LONG')
             df.tryAddField(dfsFC, minElFld, 'LONG')
+            df.tryAddField(dfsFC, 'dfs_area', 'DOUBLE')
+            df.tryAddField(dfsFC, 'compactness', 'DOUBLE')
             
-            with arcpy.da.UpdateCursor(dfsFC, [frFld, fillLvlFld, minElFld, gridfield]) as ucur:
+            with arcpy.da.UpdateCursor(dfsFC, [frFld, fillLvlFld, minElFld, gridfield, 'dfs_area', "SHAPE@AREA", 'compactness', "SHAPE@LENGTH"]) as ucur:
                 for urow in ucur:
-                    urow[0] = urow[-1]
+                    urow[0] = urow[3]
                     urow[1] = index
                     urow[2] = valueDict1[urow[0]][0]
+                    urow[4] = urow[5]
+                    urow[6] = 4 * 3.14159 * urow[5] / (urow[7]**2)
                     ucur.updateRow(urow)
 
+            df.joinDict(wsPolys, frFld, dfsFC, frFld, [minElFld])
             log.debug('done with loading dfs at ' + time.asctime())
 
             ## calc max FR depth and volume
             zstFrDepth = ZonalStatisticsAsTable(fr0, 'value', rDepth, opj(inm, 'zst_' + frDepthFld + sfx), '', 'ALL')
-            df.joinDict(dfsFC, frFld, zstFrDepth, 'value', ['MAX', 'SUM'], [frDepthFld, frVolFld])
+            df.joinDict(dfsFC, frFld, zstFrDepth, 'value', ['MAX', 'SUM', 'MEAN', 'MEDIAN', 'MAJORITY'], [frDepthFld, frVolFld, 'FR0_MEAN_DPTH', 'FR0_MEDIAN', 'FR0_MAJORITY'])
+            df.joinDict(wsPolys, frFld, zstFrDepth, 'value', ['MAX', 'SUM', 'MEAN', 'MEDIAN', 'MAJORITY'], [frDepthFld, frVolFld, 'FR0_MEAN_DPTH', 'FR0_MEDIAN', 'FR0_MAJORITY'])
+            df.joinDict(wsPolys, frFld, dfsFC, frFld, ['dfs_area'])
+            df.copytbl(verbose, zstFrDepth, sgdb)
+
+            wsDpthFld = 'WS_MEAN_DPTH'
+            dfsWsFractionFld = 'DFS_WS_FRACT'
+            df.tryAddField(wsPolys, wsDpthFld, 'DOUBLE')
+            df.tryAddField(wsPolys, dfsWsFractionFld, 'DOUBLE')
+            with arcpy.da.UpdateCursor(wsPolys, [wsDpthFld, frVolFld, 'SHAPE@AREA', dfsWsFractionFld, 'dfs_area']) as ucur:
+                for urow in ucur:
+                    volume = urow[1] * float(ProcSize)**2
+                    ws_area = urow[2]
+                    urow[0] = volume/ws_area
+                    urow[3] = urow[4]/ws_area
+                    ucur.updateRow(urow)
+
+            # nonZeroDepth = Con(rDepth > 0, rDepth)
+            # zstFrNzDepth = ZonalStatisticsAsTable(fr0, 'value', nonZeroDepth, opj(inm, 'zst_nz_' + frDepthFld + sfx), '', 'ALL')
+            # df.joinDict(dfsFC, frFld, zstFrNzDepth, 'value', ['MEAN', 'MEDIAN', 'MAJORITY'], ['FR_NZ_MEAN', 'FR_NZ_MEDIAN', 'FR_NZ_MAJORITY'])
+            # df.copytbl(verbose, zstFrNzDepth, sgdb)
 
             zstFrSlope = ZonalStatisticsAsTable(fr0, 'value', slopePct, opj(inm, 'zst_fr_slope' + sfx), '', 'ALL')
             df.joinDict(dfsFC, frFld, zstFrSlope, 'value', ['MAX', 'MEAN'], [frMaxSlopeFld, frMeanSlopeFld])
@@ -422,25 +455,47 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         ## End additional stuff
         ## copy the fill region database
         arcpy.env.workspace = sgdb#inm
-        log.debug("dfsList: {dfsList}")
+        log.debug(f"dfsList: {dfsList}")
         merged = arcpy.Merge_management(dfsList, opj(inm, 'merged'))
 
         depressionsCopy = arcpy.CopyFeatures_management(merged, depressions_fc)
 
+        merged_ws = arcpy.Merge_management(wsList, opj(inm, 'merged_ws'))
+        ws_output = opj(os.path.dirname(str(depressionsCopy)), 'ws_fr0_' + huc12)
+        wsCopy = arcpy.CopyFeatures_management(merged_ws, ws_output)
 
+        # fr0_merged = arcpy.Merge_management(fr0List, opj(inm, 'fr0_merged'))
+        fr0_output = opj("M:\\DEP\\LiDAR_Current\\fr0", huc8, 'fr0_' + huc12 + '.tif')
+        fr0_stack_string = ";".join([str(f) for f in fr0List])
+        log.info(f"Stacking {fr0_stack_string} to {fr0_output}")
+        df.create_needed_dirs_and_gdbs(fr0_output, log)
+        fr0_stacked = arcpy.CompositeBands_management(fr0_stack_string, fr0_output)
+
+        dontDrainWhere = "WS_MEAN_DPTH >= 30 AND DFS_WS_FRACT >= 0.7 AND dfs_area >= 100"
+        dontDrainWhere2 = "Shape_Area < 2000 AND Shape_Area > 200 AND FR0_MEAN_DPTH >= 50 AND FR0_MEDIAN > FR0_MEAN_DPTH"
+        dontDrain = arcpy.Select_analysis(merged_ws, opj(inm, 'dontDrain'), dontDrainWhere)
+        df.copyfc(verbose, dontDrain, sgdb)
+        dontDrainList = [row[0] for row in arcpy.da.SearchCursor(dontDrain, [frFld])]
+        # ptr = arcpy.PolygonToRaster_management(dontDrain, frFld, opj(inm, 'dontDrainRaster'), 'MAXIMUM', '', ProcSize)
 
         ##--------------------------------------------------------
         ## Create the punchedDEM (drains to all sinks greater than min depth or min area)
         punchedDEM = Con(IsNull(demWithHoles) == 1, input_dem, demWithHoles)
 
+        allow_internal_drains = True
+        if allow_internal_drains:
+            # ## generate a raster of all hole locations for easy recreation of punched DEM
+            arcpy.env.workspace = os.path.dirname(str(holes2Punch))
+            holeRasters = arcpy.ListRasters('snkunq_*')
+            punchSinks = CellStatistics(holeRasters, 'MINIMUM')
+            arcpy.env.workspace = sgdb#inm
+            # punchSinks.save(holesTif)
+            places2Drain = df.conByList(dontDrainList, "VALUE", punchSinks, procDir)
+            isn = IsNull(places2Drain)
+            drainedPunchedDEM = Con(isn, punchedDEM, '', 'VALUE = 1')
+            punchedDEM = drainedPunchedDEM
+
         punchedDEM.save(output_dem)
-
-        # ## generate a raster of all hole locations for easy recreation of punched DEM
-        # arcpy.env.workspace = cp
-        # holeRasters = arcpy.ListRasters('snkunq_*')
-        # punchSinks = CellStatistics(holeRasters, 'MINIMUM')
-        # punchSinks.save(holesTif)
-
 
     except:
         # Get the traceback object
