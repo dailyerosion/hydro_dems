@@ -318,7 +318,7 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
             log.debug('beginning sfx ' + sfx + ' and ofPass ' + ofSfx + ' at ' + time.asctime())
             goodDslvAllLayer = arcpy.MakeFeatureLayer_management(goodDslvAll, "rgn_Lyr" + sfx + ofSfx, '"' + ofPassFld + '" = ' + str(ofPass), sgdb)
             if df.testForZero(goodDslvAllLayer):#int(arcpy.GetCount_management(goodDslvAllLayer).getOutput(0)) > 0:
-                goodDslvAllLyrFc = arcpy.CopyFeatures_management(goodDslvAllLayer, opj(inm + "dp_cls_bfr2_lyr" + sfx + ofSfx))
+                goodDslvAllLyrFc = arcpy.CopyFeatures_management(goodDslvAllLayer, opj(inm, "dp_cls_bfr2_lyr" + sfx + ofSfx))
                 df.copyfc(verbose, goodDslvAllLyrFc, sgdb)
 
                 goodDnLayer = arcpy.MakeFeatureLayer_management(goodDnDslvAll, "dn_Lyr" + sfx + ofSfx, '"' + ofPassFld + '" = ' + str(ofPass), sgdb)
@@ -373,10 +373,10 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
                         log.debug('did lcp3 FrPoly for sfx ' + sfx + ' at ' + time.asctime())
 
                         zstSrchLcpFrSlp = ZonalStatisticsAsTable(lcpFr, 'value', slopePct, opj(inm, 'zst_srch_lcp_fr_slp1' + sfx))
-                        df.addCalcJoin(lcpFrPoly, gridfield2, zstSrchLcpFrSlp, 'value', ['LCP_FR_MAX_SLP', 'DOUBLE'], '!MAX!')
+                        df.addCalcJoin(lcpFrPoly, gridfield2, zstSrchLcpFrSlp, 'value', [lcpMaxSlpFld, 'DOUBLE'], '!MAX!')
                         log.debug('did lcp3 stats 1 for sfx ' + sfx + ' at ' + time.asctime())
                         zstSrchLcpFrCrv = ZonalStatisticsAsTable(lcpFr, 'value', proCrv, opj(inm, 'zst_srch_lcp_fr_crv1' + sfx))
-                        df.addCalcJoin(lcpFrPoly, gridfield2, zstSrchLcpFrCrv, 'value', ['LCP_FR_MEAN_CRV', 'DOUBLE'], '!MEAN!')
+                        df.addCalcJoin(lcpFrPoly, gridfield2, zstSrchLcpFrCrv, 'value', [lcpMeanCrvFld, 'DOUBLE'], '!MEAN!')
                         log.debug('did lcp3 stats 2 for sfx ' + sfx + ' at ' + time.asctime())
                         zstSrchLcpFrEl = ZonalStatisticsAsTable(lcpFr, 'value', raster_input, opj(inm, 'zst_srch_lcp_fr_el1' + sfx))
                         df.addCalcJoin(lcpFrPoly, gridfield2, zstSrchLcpFrEl, 'value', [lcpMaxElFld, 'DOUBLE'], '!MAX!')
@@ -395,10 +395,10 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
                             lcpNrFrPoly = arcpy.RasterToPolyline_conversion(lcpNrFr, opj(inm, 'lcp5_cuts' + sfx + ofSfx), simplify = 'NO_SIMPLIFY')
 
                             zstSrchLcpNrFrSlp = ZonalStatisticsAsTable(lcpNrFr, 'value', slopePct, opj(inm, 'zst_srch_lcp_fr_slp3' + sfx))
-                            df.addCalcJoin(lcpNrFrPoly, gridfield2, zstSrchLcpNrFrSlp, 'value', ['LCP_FR_MAX_SLP', 'DOUBLE'], '!MAX!')
+                            df.addCalcJoin(lcpNrFrPoly, gridfield2, zstSrchLcpNrFrSlp, 'value', [lcpMaxSlpFld, 'DOUBLE'], '!MAX!')
                             log.debug('did lcpNr stats 1 for sfx ' + sfx + ' at ' + time.asctime())
                             zstSrchLcpNrFrCrv = ZonalStatisticsAsTable(lcpNrFr, 'value', proCrv, opj(inm, 'zst_srch_lcp_fr_crv3' + sfx))
-                            df.addCalcJoin(lcpNrFrPoly, gridfield2, zstSrchLcpNrFrCrv, 'value', ['LCP_FR_MEAN_CRV', 'DOUBLE'], '!MEAN!')
+                            df.addCalcJoin(lcpNrFrPoly, gridfield2, zstSrchLcpNrFrCrv, 'value', [lcpMeanCrvFld, 'DOUBLE'], '!MEAN!')
                             log.debug('did lcpNr stats 2 for sfx ' + sfx + ' at ' + time.asctime())
                             zstSrchLcpNrFrEl = ZonalStatisticsAsTable(lcpNrFr, 'value', raster_input, opj(inm, 'zst_srch_lcp_fr_el3' + sfx))
                             df.addCalcJoin(lcpNrFrPoly, gridfield2, zstSrchLcpNrFrEl, 'value', [lcpMaxElFld, 'DOUBLE'], '!MAX!')
@@ -649,21 +649,20 @@ class msgStub:
 #         cleanup = False
 
 #         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-# 	"C:/DEP/Scripts/basics/cmd_cutter_DEM.pyt",
-# 	"//EL3354-02/M$/DEP_bkg_search_newtest/LiDAR_Current/elev_PLib_mean18/07080105/ep3m070801050901.tif",
-# 	"//EL3354-02/D$/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
-# 	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/dfs2cut_070801050901",
-# 	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/good_int_dslv_all",
-# 	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/good_up_pts_all",
-# 	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/good_dn_pts_all",
-# 	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/search_070801050901_mean18.pkl",
-# 	"//EL3354-02/M$/DEP_bkg_search_newtest/LiDAR_Current/elev_CLib_mean18/07080105/ec3m070801050901.tif",
-# 	"//EL3354-02/D$/DEP_bkg_search_newtest/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/cuts_prelim_mean18_dem2013_3m_070801050901",
-# 	"//EL3354-02/D$/DEP_bkg_search_newtest/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/cuts_final_mean18_dem2013_3m_070801050901",
-# 	"//EL3354-02/D$/DEP_bkg_search_newtest/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/dprsns2cut_mean18_dem2013_3m_070801050901",
-# 	"D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901",
-# 	"18.0"]
-
+#         "C:/DEP/Scripts/basics/cmd_cutter_DEM.pyt",
+#         "//EL3354-02/M$/DEP_bkg_search_newtest/LiDAR_Current/elev_PLib_mean18/07080105/ep3m070801050901.tif",
+#         "//EL3354-02/D$/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
+#         "D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/dfs2cut_070801050901",
+#         "D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/good_int_dslv_all",
+#         "D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/good_up_pts_all",
+#         "D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/good_dn_pts_all",
+#         "D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901/search_070801050901_mean18.pkl",
+#         "//EL3354-02/M$/DEP_bkg_search_newtest/LiDAR_Current/elev_CLib_mean18/07080105/ec3m070801050901.tif",
+#         "//EL3354-02/D$/DEP_bkg_search_newtest/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/cuts_prelim_mean18_dem2013_3m_070801050901",
+#         "//EL3354-02/D$/DEP_bkg_search_newtest/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/cuts_final_mean18_dem2013_3m_070801050901",
+#         "//EL3354-02/D$/DEP_bkg_search_newtest/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/dprsns2cut_mean18_dem2013_3m_070801050901",
+#         "D:/DEP_Proc_bkg_search_newtest/DEMProc/Cut_dem2013_3m_070801050901",
+#         "18.0"]
 #         for i in parameters[2:]:
 #             sys.argv.append(i)
 #     else:
