@@ -579,6 +579,9 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         for i in range(len(frRasters)):#decomp_count):
             log.info(f'decomposing dfs and ws polygons, iteration {i}')
             dfsFC = arcpy.Select_analysis(stacked_dfs, opj(sgdb, 'dfs_frToPoly_' + str(i)), fillLvlFld + ' = ' + str(i))
+            dfs_count = arcpy.GetCount_management(dfsFC)
+            if dfs_count.getOutput(0) == '0':
+                log.warning(f'dfs_count is zero for: {dfsFC}')
             wsPolys = arcpy.Select_analysis(stacked_ws, opj(sgdb, 'ws_polys_' + str(i)), fillLvlFld + ' = ' + str(i))
             stacked_dfs_list.append(dfsFC)
             stacked_ws_list.append(wsPolys)
