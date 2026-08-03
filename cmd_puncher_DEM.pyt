@@ -133,7 +133,7 @@ class Tool(object):
         """The source code of the tool."""
         cleanup = False
         params = parameters
-        doPuncher(params[0].valueAsText, params[1].valueAsText, params[2].valueAsText, params[3].valueAsText, params[4].valueAsText, params[5].valueAsText, params[6].valueAsText, cleanup, messages)
+        doPuncher(params[0].valueAsText, params[1].valueAsText, params[2].valueAsText, params[3].valueAsText, params[4].valueAsText, params[5].valueAsText, params[6].valueAsText, params[7].valueAsText, params[8].valueAsText, cleanup, messages)
         return
 
     def postExecute(self, parameters):
@@ -143,10 +143,10 @@ class Tool(object):
 
 
 
-def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir, cleanup, messages):
+def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, cleanup, messages):
 
     try:
-        arguments = [input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir, cleanup]
+        arguments = [input_dem, plib_metadata, slope_pct, depth_threshold, area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, cleanup]
 
         for a in arguments:
             if a == arguments[0]:
@@ -261,10 +261,15 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         index = 0
         sfx = '_' + str(index)
 
-        meterNdDEM = 0.01 * Raster(input_dem)
-        ProcSize = meterNdDEM.meanCellHeight
-        slopePct = Slope(meterNdDEM, 'PERCENT_RISE')
-        slopePct.save(opj(procDir, 'slope_pct'))
+        input_raster = Raster(input_dem)
+        ProcSize = input_raster.meanCellHeight
+        if slope_pct == "":#is not None:
+            # assume ACPF standard - DEM in centimeters, convert to meters for slope calculation
+            # hopefully raster coordinate system metadata will make this assumption unnecessary in the future
+            meterNdDEM = 0.01 * input_raster
+            slopePct = Slope(meterNdDEM, 'PERCENT_RISE')
+            # slopePct.save(opj(procDir, 'slope_pct'))
+            slope_pct = slopePct
 
         ## Ideas for filtering noise from the DEM
         # also try Perona Malik filter???
@@ -391,9 +396,9 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
             df.tryAddField(dfsFC, fillLvlFld, 'LONG')
             df.tryAddField(dfsFC, minElFld, 'LONG')
             df.tryAddField(dfsFC, 'dfs_area', 'DOUBLE')
-            df.tryAddField(dfsFC, 'compactness', 'DOUBLE')
+            df.tryAddField(dfsFC, 'fr_compactness', 'DOUBLE')
             
-            with arcpy.da.UpdateCursor(dfsFC, [frFld, fillLvlFld, minElFld, gridfield, 'dfs_area', "SHAPE@AREA", 'compactness', "SHAPE@LENGTH"]) as ucur:
+            with arcpy.da.UpdateCursor(dfsFC, [frFld, fillLvlFld, minElFld, gridfield, 'dfs_area', "SHAPE@AREA", 'fr_compactness', "SHAPE@LENGTH"]) as ucur:
                 for urow in ucur:
                     urow[0] = urow[3]
                     urow[1] = index
@@ -415,13 +420,17 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
             wsDpthFld = 'WS_MEAN_DPTH'
             dfsWsFractionFld = 'DFS_WS_FRACT'
             df.tryAddField(wsPolys, wsDpthFld, 'DOUBLE')
+            df.tryAddField(wsPolys, 'ws_area', 'DOUBLE')
             df.tryAddField(wsPolys, dfsWsFractionFld, 'DOUBLE')
-            with arcpy.da.UpdateCursor(wsPolys, [wsDpthFld, frVolFld, 'SHAPE@AREA', dfsWsFractionFld, 'dfs_area']) as ucur:
+            df.tryAddField(wsPolys, fillLvlFld, 'LONG')
+            with arcpy.da.UpdateCursor(wsPolys, [wsDpthFld, frVolFld, 'SHAPE@AREA', dfsWsFractionFld, 'dfs_area', 'ws_area', fillLvlFld]) as ucur:
                 for urow in ucur:
                     volume = urow[1] * float(ProcSize)**2
                     ws_area = urow[2]
+                    urow[5] = ws_area
                     urow[0] = volume/ws_area
                     urow[3] = urow[4]/ws_area
+                    urow[6] = index
                     ucur.updateRow(urow)
 
             # nonZeroDepth = Con(rDepth > 0, rDepth)
@@ -429,7 +438,7 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
             # df.joinDict(dfsFC, frFld, zstFrNzDepth, 'value', ['MEAN', 'MEDIAN', 'MAJORITY'], ['FR_NZ_MEAN', 'FR_NZ_MEDIAN', 'FR_NZ_MAJORITY'])
             # df.copytbl(verbose, zstFrNzDepth, sgdb)
 
-            zstFrSlope = ZonalStatisticsAsTable(fr0, 'value', slopePct, opj(inm, 'zst_fr_slope' + sfx), '', 'ALL')
+            zstFrSlope = ZonalStatisticsAsTable(fr0, 'value', slope_pct, opj(inm, 'zst_fr_slope' + sfx), '', 'ALL')
             df.joinDict(dfsFC, frFld, zstFrSlope, 'value', ['MAX', 'MEAN'], [frMaxSlopeFld, frMeanSlopeFld])
             log.debug('done with adding stats to dfs at ' + time.asctime())
             dfsList.append(dfsFC)
@@ -456,26 +465,35 @@ def doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_thresh
         ## copy the fill region database
         arcpy.env.workspace = sgdb#inm
         log.debug(f"dfsList: {dfsList}")
-        merged = arcpy.Merge_management(dfsList, opj(inm, 'merged'))
-
-        depressionsCopy = arcpy.CopyFeatures_management(merged, depressions_fc)
+        merged_dfs = arcpy.Merge_management(dfsList, opj(inm, 'merged'))
 
         merged_ws = arcpy.Merge_management(wsList, opj(inm, 'merged_ws'))
+        df.joinDict(merged_dfs, frFld, merged_ws, frFld, [wsDpthFld, dfsWsFractionFld]) 
+
+        depressionsCopy = arcpy.CopyFeatures_management(merged_dfs, depressions_fc)
         ws_output = opj(os.path.dirname(str(depressionsCopy)), 'ws_fr0_' + huc12)
-        wsCopy = arcpy.CopyFeatures_management(merged_ws, ws_output)
+## - save!
+        wsCopy = arcpy.CopyFeatures_management(merged_ws, ws_fc)#ws_output)
 
         # fr0_merged = arcpy.Merge_management(fr0List, opj(inm, 'fr0_merged'))
-        fr0_output = opj("M:\\DEP\\LiDAR_Current\\fr0", huc8, 'fr0_' + huc12 + '.tif')
+        # fr0_output = opj("M:\\DEP\\LiDAR_Current\\fr0", huc8, 'fr0_' + huc12 + '.tif')
         fr0_stack_string = ";".join([str(f) for f in fr0List])
         log.info(f"Stacking {fr0_stack_string} to {fr0_output}")
         df.create_needed_dirs_and_gdbs(fr0_output, log)
         fr0_stacked = arcpy.CompositeBands_management(fr0_stack_string, fr0_output)
 
-        dontDrainWhere = "WS_MEAN_DPTH >= 30 AND DFS_WS_FRACT >= 0.7 AND dfs_area >= 100"
-        dontDrainWhere2 = "Shape_Area < 2000 AND Shape_Area > 200 AND FR0_MEAN_DPTH >= 50 AND FR0_MEDIAN > FR0_MEAN_DPTH"
-        dontDrain = arcpy.Select_analysis(merged_ws, opj(inm, 'dontDrain'), dontDrainWhere)
-        df.copyfc(verbose, dontDrain, sgdb)
-        dontDrainList = [row[0] for row in arcpy.da.SearchCursor(dontDrain, [frFld])]
+# join these fields over to the dfs polygon feature class for use in cutting and analysis
+        lagoons_where = "WS_MEAN_DPTH >= 30 AND DFS_WS_FRACT >= 0.7 AND dfs_area >= 100"
+## - save! remove any cuts that try to cross this, either up or down
+        drains_lagoons = arcpy.Select_analysis(merged_dfs, opj(inm, 'drains_lagoons'), lagoons_where)
+        df.copyfc(verbose, drains_lagoons, sgdb)
+
+        slurrystore_where = "dfs_area < 2000 AND dfs_area > 200 AND FR0_MEAN_DPTH >= 50 AND FR0_MEDIAN > FR0_MEAN_DPTH AND fr_compactness > 0.6"
+        drains_slurrystore = arcpy.Select_analysis(merged_dfs, opj(inm, 'drains_slurrystore'), slurrystore_where)
+        df.copyfc(verbose, drains_slurrystore, sgdb)
+
+        drains_merged = arcpy.Merge_management([drains_lagoons, drains_slurrystore], drains_fc)
+        dontDrainList = [row[0] for row in arcpy.da.SearchCursor(drains_merged, [frFld])]
         # ptr = arcpy.PolygonToRaster_management(dontDrain, frFld, opj(inm, 'dontDrainRaster'), 'MAXIMUM', '', ProcSize)
 
         ##--------------------------------------------------------
@@ -533,45 +551,44 @@ class msgStub:
     def addWarningMessage(self,text):
         arcpy.AddWarningMessage(text)
 
-##----------------------------------------------------------------------
-## below should be commented out when using as a Python Toolbox (.pyt) - in 2025, .pyt cannot handle running code in the main block
-## remove the comments below for use from the windows command line
+# # ----------------------------------------------------------------------
+# # below should be commented out when using as a Python Toolbox (.pyt) - in 2025, .pyt cannot handle running code in the main block
+# # remove the comments below for use from the windows command line
 
 # if __name__ == "__main__":
 
 #     if len(sys.argv) == 1:
-#         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-#         cleanup = False
+#         arcpy.AddMessage("Whoo, hoo! Running from Python Window! Args will be added to sys.argv for testing purposes.")
 
 #         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-# 	"C:/DEP/Scripts/basics/cmd_puncher_DEM.pyt",
-# 	"//10.27.15.155/M$/DEP/LiDAR_Current/elev_FLib_mean18/11030011/ef_3m_110300110104.tif",
-# 	"//10.27.15.155/M$/DEP/LiDAR_Current/elev_PLib_mean18/11030011/ep_3m_110300110104.tif",
-# 	"//10.27.15.155/M$/DEP/toolMetadata/PLib_DEMs2022_mTemplate.xml",
-# 	"//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
-# 	"9.0",
-# 	"500",
-# 	"D:/DEP_Proc/DEMProc/Cut_dem2013_3m_110300110104"]
-#   #  "False"]
+#         "C:/DEP/Scripts/basics/cmd_puncher_DEM.pyt",
+#         "//10.27.15.155/M$/DEP/LiDAR_Current/elev_FLib_mean18/11030011/ef_3m_110300110104.tif",
+#         "//10.27.15.155/M$/DEP/toolMetadata/PLib_DEMs2022_mTemplate.xml",
+#         "//10.27.15.155/M$/DEP/LiDAR_Current/fill_regions/11030011/ef_3m_110300110104.tif",
+#         "9.0",
+#         "500",
+#         "D:/DEP_Proc/DEMProc/Cut_dem2013_3m_110300110104",
+#         "//10.27.15.155/M$/DEP/LiDAR_Current/elev_PLib_mean18/11030011/ep_3m_110300110104.tif",
+#         "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
+#         "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
+#         "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
+#         "False"]
+# ## now comes the code to add the parameters to sys.argv for testing in the Python Window
 #         for i in parameters[2:]:
 #             sys.argv.append(i)
 #     else:
 #         #For use via Windows Command Line
 #         #above 'parameters' come in via command line arguments, nothing else needed
 #         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-#         # DO NOT clean up the folder after done processing - matcher needs this data
-#         cleanup = False
-
-#     # switch a text 'True' into a real Python True
-#     # make sure puncher cleanup is False until we log the outputs elsewhere so they aren't deleted
-#     cleanup = False#cleanup = True if cleanup == "True" else False
+#         #clean up the folder after done processing
+#         cleanup = True
 
 #     messages = msgStub()
 
 #     # inputs then outputs, change "" to Python None
-#     (input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, 
-#      area_threshold, procDir
+#     (input_dem, plib_metadata, slope_pct, depth_threshold, 
+#      area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, cleanup
 #      ) = [i if i != "" else None for i in sys.argv[1:]]#[i for i in sys.argv[1:]]
 
-#     doPuncher(input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir, cleanup, messages)
+#     doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, cleanup, messages)
 #     arcpy.AddMessage("Back from doing!")

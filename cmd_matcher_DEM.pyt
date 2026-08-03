@@ -546,7 +546,10 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         # punchedDEMNoHoles = Con(IsNull(punchGdb) == 1, fill_or_void_tif, punch_tif)
         # bestestDEM = punchedDEMNoHoles#Raster(punchGdb)
 
-        slopePct = Raster(opj(proc_dir, 'slope_pct'))
+        slopeRaster = opj("E:\\DEP_Checkout\\LiDAR_Current\\deriv_Lib_mnmx18", huc8, "slp_2m_" + huc12 + ".tif")
+        if not arcpy.Exists(slopeRaster):
+            slopeRaster = slopeRaster.replace("E:\\DEP_Checkout", "M:\\DEP")
+        slopePct = Raster(slopeRaster)#opj(proc_dir, 'slope_pct'))
         flats2 = Con(slopePct == 0.0, 1, 0)
         noInteriorFlatsDEM = Con(flats2 == 0, fill_or_void_tif, '')
 
@@ -568,21 +571,36 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         fr0_name = os.path.basename(fr0_rasters)
         frRasters = arcpy.ListRasters(fr0_name[:4] + '*')#'fr0_*')
         frRasters.sort()
+
+        stacked_dfs = opj('E:\\DEP_Checkout\\Man_Data_ACPF\\dep_ACPF2024', huc8, 'idepACPF' + huc12 + '.gdb\\drains_mnmx18_dem2013_2m_' + huc12)
+        stacked_ws = opj('E:\\DEP_Checkout\\Man_Data_ACPF\\dep_ACPF2024', huc8, 'idepACPF' + huc12 + '.gdb\\ws_mnmx18_dem2013_2m_' + huc12)
+        stacked_dfs_list = []
+        stacked_ws_list = []
+        for i in range(len(frRasters)):#decomp_count):
+            log.info(f'decomposing dfs and ws polygons, iteration {i}')
+            dfsFC = arcpy.Select_analysis(stacked_dfs, opj(sgdb, 'dfs_frToPoly_' + str(i)), fillLvlFld + ' = ' + str(i))
+            wsPolys = arcpy.Select_analysis(stacked_ws, opj(sgdb, 'ws_polys_' + str(i)), fillLvlFld + ' = ' + str(i))
+            stacked_dfs_list.append(dfsFC)
+            stacked_ws_list.append(wsPolys)
+
         for i, item in enumerate(frRasters[:]):
             log.info('working on frRaster: ' + str(item))
             arcpy.env.workspace = proc_dir
             sfx = '_' + item.split('_')[-1]
-            dfsFC = dfs_polys[:-2] + sfx
+            # dfsFC = dfs_polys[:-2] + sfx
             # dfsFC = os.path.join(sgdb, 'dfs_frToPoly' + sfx)
+            dfsFC = stacked_dfs_list[i]
             dfsList.append(dfsFC)
             # add identifier for medians
             df.tryAddField(dfsFC, medianFrFld, "SHORT")
             # wsPolys = os.path.join(sgdb, 'ws_polys' + sfx)
-            wsPolys = ws_polys[:-2] + sfx
+            wsPolys = stacked_ws_list[i]
+            # wsPolys = ws_polys[:-2] + sfx
 
     ##                selFull = '(' + ofElFld + ' - ' + minElFld + ') > 67 OR ' + maxFrOfDistFld + ' >= ' + str(3 * ProcSize)
     ##        selFull = '(' + ofElFld + ' - ' + minElFld + ') > ' + str(3.0 * RMSE) + ' AND (' + ofElFld + ' - ' + minElFld + ')*0.01 / ' + minFrDistFld + ' >= 0.05'
-            selFull = frDepthFld + ' > ' + str(2.0 * float(match_depth)) + ' AND ' + frMaxSlopeFld + ' > 7.5'#5.0' - higher res DEMs need higher slope threshold
+            frMaxSlopeThresh = 7.5 if ProcSize <= 2 else 5.0#' - higher res DEMs need higher slope threshold
+            selFull = frDepthFld + ' > ' + str(2.0 * float(match_depth)) + ' AND ' + frMaxSlopeFld + ' > ' + str(frMaxSlopeThresh)
             ## instead of frPctDrop could analyze by water 'piling' up near edge
 
     ####        df.condDelete(verbose, wsPolys)
