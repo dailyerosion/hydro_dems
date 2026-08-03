@@ -14,7 +14,9 @@ import sys
 import os
 import time
 import subprocess
+import pdal
 import platform
+import getpass
 import glob
 import traceback
 import re
@@ -399,7 +401,7 @@ def prepPolygonBoundary(dem_polygon, log, sgdb, srOut, srSfx, maskRastBase, demL
     try:
         assert int(arcpy.GetCount_management(dem_polygon).getOutput(0)) < 2, 'multiple features in polygon feature class'
         assert int(arcpy.GetCount_management(dem_polygon).getOutput(0)) > 0, 'no features in polygon feature class'
-        maskFc = arcpy.CopyFeatures_management(dem_polygon)
+        maskFc = arcpy.CopyFeatures_management(dem_polygon, opj(sgdb, 'maskFc'))
         maskFc_area = [s[0] for s in arcpy.da.SearchCursor(maskFc, ['SHAPE@AREA'])][0]
 
         # # geom_copy = arcpy.management.CopyFeatures(huc12fc, opj(sgdb, 'huc' + huc12))
@@ -603,7 +605,7 @@ def terrain_args_from_inputs(terrain):
     terrain_arguments = ', '.join(terrain_arguments_list)
     return terrain_arguments
 
-def createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOut, procDir, terrains, huc12, lidar_metadata_info, pyramid_args, dem_metadata_template, tElevFile_initial, named_cell_size):
+def createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOut, procDir, terrains, huc12, lidar_metadata_info, pyramid_args, dem_metadata_template, tElevFile_initial, named_cell_size, pattern22, interpDict, srOutNoVCS):
     try:
         # log.debug('snapRaster for Terrain to raster: ' + arcpy.env.snapRaster)
         interpTechnique = 'NATURAL_NEIGHBORS'
@@ -663,9 +665,10 @@ def createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOut, pr
             arcpy.env.outputCoordinateSystem = srOutNoVCS
 
             log.debug('tElevFile name will be ' + tElevFile_interp)
+            arcpy.BuildPyramids_management(maskedDEMint)
+            # arcpy.CopyRaster_management(maskedDEMint, tElevFile_interp, pixel_type = '16_BIT_SIGNED', format = 'TIFF')
             maskedDEMint.save(tElevFile_interp)
             log.debug(f'Saved DEM for: {demPtString}')
-            arcpy.BuildPyramids_management(maskedDEMint)
 
             # f_dict = copy_md_summary_args(rastr)
 
@@ -676,8 +679,10 @@ def createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOut, pr
             # f_dict.update({'\n' + key + sep: tElevFile_interp})
 
             ## update metadata
-            log.debug('---Adding metadata')
+            # log.debug(f'---Skipping metadata for {tElevFile_interp}')
+            log.debug(f'---Adding metadata to {tElevFile_interp}')
             addMetadata(tElevFile_interp, paraDict, dem_metadata_template, log)
+            log.debug('---Added metadata')
 
 
     except Exception as e:
@@ -1091,7 +1096,7 @@ def updateResolution(filepath, init_res, new_res, pattern, log):
     return updated_filepath
 
 
-def buildLASRasters(lasdAll, lasdGround, log, demListVal, demPtString, huc12, srSfx, maskRastOut, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, named_cell_size, internal_regions, lidar_metadata_info, derivative_metadata, pattern22):
+def buildLASRasters(lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx, maskRastOut, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, cntBeFile, named_cell_size, internal_regions, lidar_metadata_info, derivative_metadata, pattern22):
 ##def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, frMinFile, intBeMaxFile, intBeMinFile, lastReturnMinFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, int_regions, ptr):
     '''creates multiple rasters from a las dataset, including min/max intensity of
     first return and bare earth surfaces, first return max and min surface, and z_range'''
@@ -1107,89 +1112,91 @@ def buildLASRasters(lasdAll, lasdGround, log, demListVal, demPtString, huc12, sr
                 }
 
         if bareEarthReturnMinFile is not None or intBeMaxFile is not None:
-            log.debug('---Creating LR Min surface')
-            if sys.version_info.minor < 9:
-                beLayer = arcpy.MakeLasDatasetLayer_management(lasdGround, 'ground_layer', [2,8], 'Last Return')
-            else:
-                beLayer = arcpy.MakeLasDatasetLayer_management(lasdGround, 'ground_layer', [2,8], 'LAST')
+            log.debug('---Creating LR Min layer')
 
             beReturnsMinTempFile = os.path.join(procDir, '_'.join(['tmp_bemin', demPtString + 'm', huc12, 'out.tif']))
+            log.debug('---Creating LR Min raster')
             beReturnsMin = arcpy.LasDatasetToRaster_conversion(beLayer, beReturnsMinTempFile, interpolation_type = 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'FLOAT')
+            log.debug('---Creating LR Min cm raster')
             beReturnsMinCm = Int(Times(beReturnsMin, 100))
             if bareEarthReturnMinFile is not None:
                 bareEarthReturnMinFile_sized = updateResolution(bareEarthReturnMinFile, named_cell_size, demListVal, pattern22, log)
+                log.debug('---Saving LR Min cm raster')
                 beReturnsMinCm.save(bareEarthReturnMinFile_sized)#locDict['bareEarthReturnMinFile'])#.replace('fr', 'be'))
+                log.debug('---Adding metadata to LR Min cm raster')
                 addMetadata(bareEarthReturnMinFile_sized, paraDict, derivative_metadata, log)
 
         if int1rMaxFile is not None or int1rMinFile is not None or intBeMaxFile is not None:
-            if int1rMaxFile is None and int1rMinFile is not None: 
-                log.warning('Faking int1rMaxFile value due to requested int1rMinFile')
-                int1rMaxFile_faked = int1rMinFile.replace('fr_int_min', 'fr_int_max')
-                int1rMaxFile = int1rMaxFile_faked
-            elif int1rMaxFile is None and intBeMaxFile is not None:
-                log.warning('Faking int1rMaxFile value due to requested intBeMaxFile')
-                int1rMaxFile_faked = intBeMaxFile.replace('be_int_max', 'fr_int_max')
-                int1rMaxFile = int1rMaxFile_faked
-            log.debug('---Creating FR Max Intensity')
-            recode_tf = False
-            log.debug(f'ir.max: {internal_regions.maximum},ir.min: {internal_regions.minimum}')
-            int1rMaxFile_sized = updateResolution(int1rMaxFile, named_cell_size, demListVal, pattern22, log)
-            if internal_regions.maximum - internal_regions.minimum != 0:
-                log.info('multiple regions')
-                # int1rMaxFile_sized_temp = opj(os.path.dirname(int1rMaxFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
-                int1rMaxFile_sized_temp = os.path.join(procDir, '_'.join(['tmp_frmax', demPtString + 'm', huc12, 'out.tif']))
-                lasd1rMaxIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMaxFile_sized_temp, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
-                int_zs_max = ZonalStatistics(internal_regions, 'VALUE', int1rMaxFile_sized_temp, 'MAXIMUM')
-                if int_zs_max.minimum < 256 and int_zs_max.maximum > 256:
-                    int_lt_256 = LessThan(int_zs_max, 256)
-                    recode_areas = ZonalStatistics(internal_regions, 'VALUE', int_lt_256, 'MAXIMUM')
-                    multiplied_intensities = Raster(int1rMaxFile_sized_temp) * 256
-                    recoded_intensities = Con(recode_areas, multiplied_intensities, int1rMaxFile_sized_temp)
-                    if int1rMaxFile is not None:
-                        recoded_intensities.save(int1rMaxFile_sized)
-                        arcpy.Delete_management(int1rMaxFile_sized_temp)
-                    recode_tf = True
+            if demListVal == '2' or demListVal == '1':# should only run for 2m, otherwise too slow, but 1m needed for IA
+                log.debug('---Creating intensity rasters')
+                if int1rMaxFile is None and int1rMinFile is not None: 
+                    log.warning('Faking int1rMaxFile value due to requested int1rMinFile')
+                    int1rMaxFile_faked = int1rMinFile.replace('fr_int_min', 'fr_int_max')
+                    int1rMaxFile = int1rMaxFile_faked
+                elif int1rMaxFile is None and intBeMaxFile is not None:
+                    log.warning('Faking int1rMaxFile value due to requested intBeMaxFile')
+                    int1rMaxFile_faked = intBeMaxFile.replace('be_int_max', 'fr_int_max')
+                    int1rMaxFile = int1rMaxFile_faked
+                log.debug('---Creating FR Max Intensity')
+                recode_tf = False
+                log.debug(f'ir.max: {internal_regions.maximum},ir.min: {internal_regions.minimum}')
+                int1rMaxFile_sized = updateResolution(int1rMaxFile, named_cell_size, demListVal, pattern22, log)
+                if internal_regions.maximum - internal_regions.minimum != 0:
+                    log.info('multiple regions')
+                    # int1rMaxFile_sized_temp = opj(os.path.dirname(int1rMaxFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
+                    int1rMaxFile_sized_temp = os.path.join(procDir, '_'.join(['tmp_frmax', demPtString + 'm', huc12, 'out.tif']))
+                    lasd1rMaxIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMaxFile_sized_temp, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
+                    int_zs_max = ZonalStatistics(internal_regions, 'VALUE', int1rMaxFile_sized_temp, 'MAXIMUM')
+                    if int_zs_max.minimum < 256 and int_zs_max.maximum > 256:
+                        int_lt_256 = LessThan(int_zs_max, 256)
+                        recode_areas = ZonalStatistics(internal_regions, 'VALUE', int_lt_256, 'MAXIMUM')
+                        multiplied_intensities = Raster(int1rMaxFile_sized_temp) * 256
+                        recoded_intensities = Con(recode_areas, multiplied_intensities, int1rMaxFile_sized_temp)
+                        if int1rMaxFile is not None:
+                            recoded_intensities.save(int1rMaxFile_sized)
+                            arcpy.Delete_management(int1rMaxFile_sized_temp)
+                        recode_tf = True
+                    else:
+                        if int1rMaxFile is not None:
+                            log.info('all regions equal max intensity')
+                            arcpy.CopyRaster_management(int1rMaxFile_sized_temp, int1rMaxFile_sized)
+                            arcpy.Delete_management(int1rMaxFile_sized_temp)
                 else:
+                    log.info('one region')
                     if int1rMaxFile is not None:
-                        log.info('all regions equal max intensity')
-                        arcpy.CopyRaster_management(int1rMaxFile_sized_temp, int1rMaxFile_sized)
-                        arcpy.Delete_management(int1rMaxFile_sized_temp)
-            else:
-                log.info('one region')
+                        lasd1rMaxIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
+
                 if int1rMaxFile is not None:
-                    lasd1rMaxIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
+                    addMetadata(int1rMaxFile_sized, paraDict, derivative_metadata, log)
 
-            if int1rMaxFile is not None:
-                addMetadata(int1rMaxFile_sized, paraDict, derivative_metadata, log)
+                if int1rMinFile is not None:
+                    log.debug('---Creating FR Min Intensity')
+                    int1rMinFile_sized = updateResolution(int1rMinFile, named_cell_size, demListVal, pattern22, log)
+                    if recode_tf:
+                        # int1rMinFile_sized_temp = opj(os.path.dirname(int1rMinFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
+                        int1rMinFile_sized_temp = os.path.join(procDir, '_'.join(['tmp_frmin', demPtString + 'm', huc12, 'out.tif']))
+                        lasd1rMinIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMinFile_sized_temp, 'INTENSITY', 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
+                        multiplied_intensities = Raster(int1rMinFile_sized_temp) * 256
+                        recoded_intensities = Con(recode_areas, multiplied_intensities, int1rMinFile_sized_temp)
+                        recoded_intensities.save(int1rMinFile_sized)
+                        arcpy.Delete_management(int1rMinFile_sized_temp)
+                    else:
+                        lasd1rMinIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMinFile_sized, 'INTENSITY', 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
+                    addMetadata(int1rMinFile_sized, paraDict, derivative_metadata, log)
 
-            if int1rMinFile is not None:
-                log.debug('---Creating FR Min Intensity')
-                int1rMinFile_sized = updateResolution(int1rMinFile, named_cell_size, demListVal, pattern22, log)
-                if recode_tf:
-                    # int1rMinFile_sized_temp = opj(os.path.dirname(int1rMinFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
-                    int1rMinFile_sized_temp = os.path.join(procDir, '_'.join(['tmp_frmin', demPtString + 'm', huc12, 'out.tif']))
-                    lasd1rMinIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMinFile_sized_temp, 'INTENSITY', 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
-                    multiplied_intensities = Raster(int1rMinFile_sized_temp) * 256
-                    recoded_intensities = Con(recode_areas, multiplied_intensities, int1rMinFile_sized_temp)
-                    recoded_intensities.save(int1rMinFile_sized)
-                    arcpy.Delete_management(int1rMinFile_sized_temp)
-                else:
-                    lasd1rMinIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMinFile_sized, 'INTENSITY', 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
-                addMetadata(int1rMinFile_sized, paraDict, derivative_metadata, log)
-
-            if intBeMaxFile is not None:
-                log.debug('---Creating BE Max Intensity')
-                intBeMaxFile_sized = updateResolution(intBeMaxFile, named_cell_size, demListVal, pattern22, log)
-                if recode_tf:
-                    # intBeMaxFile_sized_temp = opj(os.path.dirname(intBeMaxFile_sized), 'temp_' + os.path.basename(intBeMaxFile_sized))
-                    intBeMaxFile_sized_temp = os.path.join(procDir, '_'.join(['tmp_bemax', demPtString + 'm', huc12, 'out.tif']))
-                    lasdBeMaxIntensity = arcpy.LasDatasetToRaster_conversion(beLayer, intBeMaxFile_sized_temp, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
-                    multiplied_intensities = Raster(intBeMaxFile_sized_temp) * 256
-                    recoded_intensities = Con(recode_areas, multiplied_intensities, intBeMaxFile_sized_temp)
-                    recoded_intensities.save(intBeMaxFile_sized)
-                else:
-                    lasdBeMaxIntensity = arcpy.LasDatasetToRaster_conversion(beLayer, intBeMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
-                addMetadata(intBeMaxFile_sized, paraDict, derivative_metadata, log)
+                if intBeMaxFile is not None:
+                    log.debug('---Creating BE Max Intensity')
+                    intBeMaxFile_sized = updateResolution(intBeMaxFile, named_cell_size, demListVal, pattern22, log)
+                    if recode_tf:
+                        # intBeMaxFile_sized_temp = opj(os.path.dirname(intBeMaxFile_sized), 'temp_' + os.path.basename(intBeMaxFile_sized))
+                        intBeMaxFile_sized_temp = os.path.join(procDir, '_'.join(['tmp_bemax', demPtString + 'm', huc12, 'out.tif']))
+                        lasdBeMaxIntensity = arcpy.LasDatasetToRaster_conversion(beLayer, intBeMaxFile_sized_temp, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
+                        multiplied_intensities = Raster(intBeMaxFile_sized_temp) * 256
+                        recoded_intensities = Con(recode_areas, multiplied_intensities, intBeMaxFile_sized_temp)
+                        recoded_intensities.save(intBeMaxFile_sized)
+                    else:
+                        lasdBeMaxIntensity = arcpy.LasDatasetToRaster_conversion(beLayer, intBeMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
+                    addMetadata(intBeMaxFile_sized, paraDict, derivative_metadata, log)
 
         if surfaceElevFile is not None:
             log.debug('---Creating FR Max surface')
@@ -1207,21 +1214,34 @@ def buildLASRasters(lasdAll, lasdGround, log, demListVal, demPtString, huc12, sr
         # allReturnsMinCm = Int(Times(allReturnsMin, 100))
         # allReturnsMinCm.save(frMinFile_sized)#locDict['firstReturnMinFile'])#allReturnsMinFile)
 
-        if cnt1rFile is not None:
-            log.debug('---Counting First Returns')
-            cnt1rFile_sized = updateResolution(cnt1rFile, named_cell_size, demListVal, pattern22, log)
-            cfrFileTemp = 'cnt_fr_' + demPtString + "m_" + huc12 + srSfx + '.tif'
-            lasdCount = arcpy.LasPointStatsAsRaster_management(lasdAll, os.path.join(procDir, cfrFileTemp), 'POINT_COUNT', 'CELLSIZE', sampling_value = demListVal)
-            cfrFileRasterObj = clipCountRaster(lasdCount, maskRastOut, cnt1rFile_sized)
-            addMetadata(cnt1rFile_sized, paraDict, derivative_metadata, log)
+        if demListVal == '2' or demListVal == '1':# should only run for 2m, otherwise too slow, but 1m needed for IA
+            if cnt1rFile is not None:
+                log.debug('---Counting First Returns')
+                cnt1rFile_sized = updateResolution(cnt1rFile, named_cell_size, demListVal, pattern22, log)
+                cfrFileTemp = 'cnt_fr_' + demPtString + "m_" + huc12 + srSfx + '.tif'
+                lasdCount = arcpy.LasPointStatsAsRaster_management(lasdAll, os.path.join(procDir, cfrFileTemp), 'POINT_COUNT', 'CELLSIZE', sampling_value = demListVal)
+                cfrFileRasterObj = clipCountRaster(lasdCount, maskRastOut, cnt1rFile_sized)
+                addMetadata(cnt1rFile_sized, paraDict, derivative_metadata, log)
 
-        if cntPlsFile is not None:
-            log.debug('---Counting All Returns')
-            cntPlsFile_sized = updateResolution(cntPlsFile, named_cell_size, demListVal, pattern22, log)
-            cntPlsFileTemp = 'cnt_pls_' + demPtString + "m_" + huc12 + srSfx + '.tif'
-            lasdCount = arcpy.LasPointStatsAsRaster_management(lasdAll, os.path.join(procDir, cntPlsFileTemp), 'PULSE_COUNT', 'CELLSIZE', sampling_value = demListVal)
-            cntPlsFileRasterObj = clipCountRaster(lasdCount, maskRastOut, cntPlsFile_sized)
-            addMetadata(cntPlsFile_sized, paraDict, derivative_metadata, log)
+            if cntPlsFile is not None:
+                log.debug('---Counting All Returns')
+                cntPlsFile_sized = updateResolution(cntPlsFile, named_cell_size, demListVal, pattern22, log)
+                cntPlsFileTemp = 'cnt_pls_' + demPtString + "m_" + huc12 + srSfx + '.tif'
+                lasdCount = arcpy.LasPointStatsAsRaster_management(lasdAll, os.path.join(procDir, cntPlsFileTemp), 'PULSE_COUNT', 'CELLSIZE', sampling_value = demListVal)
+                cntPlsFileRasterObj = clipCountRaster(lasdCount, maskRastOut, cntPlsFile_sized)
+                addMetadata(cntPlsFile_sized, paraDict, derivative_metadata, log)
+
+            if cntBeFile is not None:
+                log.debug('---Counting BE Returns')
+                cntBeFile_sized = updateResolution(cntBeFile, named_cell_size, demListVal, pattern22, log)#.replace('_be_', '_belas_')
+                cntBeFileTempSize = 'cnt_be_laspsr_' + demPtString + "m_" + huc12 + srSfx + '.tif'
+                be_lasdCount = arcpy.LasPointStatsAsRaster_management(beLayer, os.path.join(procDir, cntBeFileTempSize), 'PULSE_COUNT', 'CELLSIZE', sampling_value = demListVal)
+                # save the count raster with nulls converted to zeros, so that metadata can be added
+                be_nulls = IsNull(be_lasdCount)#cntPlsFileRasterObj)
+                be_nulls_as_zero = Con(be_nulls, 0, be_lasdCount)#cntPlsFileRasterObj)
+                be_cntPlsFileRasterObj = clipCountRaster(be_lasdCount, maskRastOut, cntBeFile_sized)
+##                        be_nulls_as_zero.save(cntBeFile_sized) 
+                addMetadata(cntBeFile_sized, paraDict, derivative_metadata, log)
 
         # log.debug('---Counting Z Range')
         # zrangeFileTemp = 'zrng_all_' + demPtString + "m_" + huc12 + srSfx + '.tif'
@@ -1366,526 +1386,59 @@ def copy_md_summary_args(md_item):
                 f_dict.update({'\n' + key + sep: value})
     return f_dict
 
-def addMetadata(outDEM, paraDict, template_file_path, log = None):
-    # Set the standard-format metadata XML file's path
-    # need to load metadata editor via 'import arcpy.metadata as md'
-    # outDEM = raster to receive updated metadata
-    # paraDict = dictionary of key/value pairs to be stored in metadata
-    #   values stored include things like analyst, lidar acquisition date, etc.
-    # template_file_path = a template to load a basic summary from
-    # log = otional logging of error messages to a log file
-    # scriptPath = sys.path[0]
-    try:
-        src_file_path = template_file_path
+def addMetadata(outDEM, paraDict, template_file_path, log=None):
+    """ Claude AI contributed revision of addMetadata function to fix some bugs and improve functionality.
+    Set the standard-format metadata XML file's path
+    need to load metadata editor via 'import arcpy.metadata as md'
+    outDEM = raster to receive updated metadata
+    paraDict = dictionary of key/value pairs to be stored in metadata
+      values stored include things like analyst, lidar acquisition date, etc.
+    template_file_path = a template to load a basic summary from
+    log = otional logging of error messages to a log file
+    scriptPath = sys.path[0]
+    """
+    def _log(msg):
+        """Safe logger that works whether log is provided or not."""
+        if log:
+            log.info(msg)
 
+    try:
         # Get the target item's Metadata object
-        tgt_item_md = md.Metadata(outDEM)    
+        tgt_item_md = md.Metadata(outDEM)
 
-        # Import the ACPF metadata content to the target item
+        if tgt_item_md is None:
+            _log(f'Could not retrieve metadata object for {outDEM}')
+            return
+
         if not tgt_item_md.isReadOnly:
-            tgt_item_md.importMetadata(src_file_path)
+            _log(f'Adding metadata to {outDEM}')
+
+            # Import template metadata and save before further edits
+            tgt_item_md.importMetadata(template_file_path)
+            tgt_item_md.save()  # FIX: Save after import before modifying
+
+            # Set title
             tgt_item_md.title = os.path.split(outDEM)[1]
-            tgt_item_md.credits = 'Analyst: %s' % os.getlogin()#getpass.getuser()
 
-            src_desc = tgt_item_md.summary
-            if src_desc == None:
-                src_desc = ''
-            for key, value in paraDict.items():  
-                src_desc = src_desc + ('%s %s' % (key, value))
+            # FIX: Use getpass.getuser() instead of os.getlogin()
+            tgt_item_md.credits = 'Analyst: %s' % getpass.getuser()
+
+            # Build and set summary
+            src_desc = tgt_item_md.summary or ''  # FIX: cleaner None handling
+            for key, value in paraDict.items():
+                src_desc += f'{key} {value}\n'   # Added newline for readability
             tgt_item_md.summary = src_desc
-            
+
+            # FIX: Removed unused tgt_item_md.copy() call before save
             tgt_item_md.save()
+            _log(f'Metadata saved successfully for {outDEM}')
 
-    except TypeError as e:
-        print('handling as exception')
-##        log.debug(e.message)
-        if sys.version_info.major == 2:
-            arcpy.AddError(e.message)
-            print(e.message)
-            log.warning(e.message)
-        elif sys.version_info.major == 3:
-            arcpy.AddError(e)
-            print(e)
-            if log is not None:
-                log.warning(e)
-
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-
-        # Concatenate information together concerning the error into a message string
-        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-        # Return python error messages for use in script tool or Python Window
-        arcpy.AddError(pymsg)
-        # Print Python error messages for use in Python / Python Window
-        print(pymsg + "\n")
-        if log is not None:
-            log.warning(pymsg)
-
-        if arcpy.GetMessages(2) not in pymsg:
-            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-            arcpy.AddError(msgs)
-            print(msgs)
-            if log is not None:
-                log.warning(msgs)
-
-    except:
-        print('handling as except')
-        # Get the traceback object
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-
-        # Concatenate information together concerning the error into a message string
-        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-        # Return python error messages for use in script tool or Python Window
-        arcpy.AddError(pymsg)
-        # Print Python error messages for use in Python / Python Window
-        print(pymsg + "\n")
-        if log is not None:
-            log.warning(pymsg)
-
-        if arcpy.GetMessages(2) not in pymsg:
-            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-            arcpy.AddError(msgs)
-            print(msgs)
-            if log is not None:
-                log.warning(msgs)
-
-def create_cl2_json_pipeline(cl2_json_filename, eleDir, all_las_file, cl2_las_full_filename):
-    '''Writes a json pipeline for use by pdal (point data abstraction library)'''
-
-    cl2_json_full_filename = os.altsep.join([eleDir, cl2_json_filename])
-
-    json_str = '''{
-"pipeline": [
-{
-    "filename": "''' + all_las_file + '''",
-    "type": "readers.las",
-    "tag": "readdata"
-},
-{
-    "tag": "getclass2",
-    "type": "filters.range",
-    "limits": "Classification[2:2]"
-},
-{
-    "filename": "''' + cl2_las_full_filename + '''",
-    "tag": "writerslas",
-    "type": "writers.las"
-}]}'''
-
-    json_file_obj = open(cl2_json_full_filename, 'w')
-    json_file_obj.write(json_str)
-    json_file_obj.close()
-
-    return cl2_json_full_filename
-
-
-def create_laz_json_pipeline(laz_json_filename, saveDir, all_las_file, laz_full_filename):
-    '''Writes a json pipeline for use by pdal (point data abstraction library)'''
-
-    laz_json_full_filename = os.altsep.join([saveDir, laz_json_filename])
-
-    json_str = '''{
-"pipeline": [
-{
-    "filename": "''' + all_las_file + '''",
-    "type": "readers.las",
-    "tag": "readdata"
-},
-{
-    "filename": "''' + laz_full_filename + '''",
-    "tag": "writerslas",
-    "type": "writers.las"
-}]}'''
-
-    json_file_obj = open(laz_json_full_filename, 'w')
-    json_file_obj.write(json_str)
-    json_file_obj.close()
-
-    return laz_json_full_filename
-
-
-def create_ept_json_pipeline(ept_json_filename, eleDir, ept_las_full_filename, extent_request, ept_address, srOutCode):
-    '''Writes a json pipeline for use by pdal (point data abstraction library)'''
-
-    ept_json_full_filename = os.altsep.join([eleDir, ept_json_filename])
-
-    json_str = '''{
-"pipeline": [
-{
-    "bounds": "([''' + extent_request + '''])",
-    "filename": "''' + ept_address + '''",
-    "type": "readers.ept",
-    "tag": "readdata"
-},
-{
-    "out_srs": "EPSG:''' + str(srOutCode) + '''",
-    "tag": "reprojectUTM",
-    "type": "filters.reprojection"
-},
-{
-    "filename": "''' + ept_las_full_filename + '''",
-    "tag": "writerslas",
-    "type": "writers.las"
-}]}'''
-
-    json_file_obj = open(ept_json_full_filename, 'w')
-    json_file_obj.write(json_str)
-    json_file_obj.close()
-
-    return ept_json_full_filename
-
-def organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log):
-    """Organize the 3DEP projects by acquisition date so we use the
-    most recent data first, then fill in with older data"""
-    valid_order = arcpy.ValidateFieldName('order', os.path.dirname(wesm_huc12.getOutput(0)))
-    addOrderField = arcpy.AddField_management(wesm_huc12, valid_order, 'SHORT')
-
-    # wesm_fields =
-    ordered_work_ids = [s[0] for s in arcpy.da.SearchCursor(wesm_huc12, [work_id_name], sql_clause = [None, 'ORDER BY collect_start DESC'])]
-    merged_area = 0
-    for cnt, o in enumerate(ordered_work_ids):
-        if merged_area <= maskFc_area * build_threshold:
-            log.debug(o)
-            if o < 0:
-                selected = arcpy.Select_analysis(wesm_huc12, 'select_wkid_neg' + str(abs(o)), work_id_name + ' = ' + str(o))
-            else:
-                selected = arcpy.Select_analysis(wesm_huc12, 'select_wkid_' + str(o), work_id_name + ' = ' + str(o))
-            arcpy.CalculateField_management(selected, valid_order, cnt+1, 'PYTHON3')
-            if cnt > 0:
-                erased = arcpy.Erase_analysis(selected, prev_merged)
-                if df.testForZero(erased):
-                    merged = arcpy.Merge_management([erased, prev_merged])
-                    merged_area += [s[0] for s in arcpy.da.SearchCursor(erased, ['SHAPE@AREA'])][0]
-            else:
-                merged = selected
-                merged_area += [s[0] for s in arcpy.da.SearchCursor(selected, ['SHAPE@AREA'])][0]
-            prev_merged = merged
-            log.debug(f"merged_area: {merged_area}")
-    log.info(f'merged_area was: {merged_area} and maskFc_area was: {maskFc_area}')
-
-    # if merged_area >= maskFc_area * 0.9999:
-    #     if 'tcdFdSet' not in locals():
-    #         tcdFdSet = arcpy.CopyFeatures_management(maskFc, os.path.join(str(FDSet), 'ept_las_area'))
-
-#             bigVoids = arcpy.Erase_analysis(maskFcOut, tcdFdSet_local)
-#             wesm_clipped = arcpy.analysis.Clip(wesm_huc12, bigVoids)
-
-    return prev_merged, merged_area, addOrderField
-
-def queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1):#maskFc_3857, maskFc_3857_desc)
-    """Subdivide the EPT request into one or four parts based on size"""
-    parts = []
-        # if more than 500 sq km, split into 4
-    x_range = geom_extent.XMax - geom_extent.XMin
-    y_range = geom_extent.YMax - geom_extent.YMin
-    square_area = (x_range)*(y_range)
-    log.debug(f'Square area in km^2 is: {round(square_area/pow(1000,2), 1)}')
-    log.debug(f'Geometry area in km^2 is: {round(geom.area/pow(1000,2), 1)}')
-
-    if square_area / (1000**2) > 150.0 or ql1:
-        if ql1:
-            x_net_size = 2000
         else:
-            x_net_size = 5000
-        y_net_size = x_net_size
-        log.debug(f'x/y_net_size for fishnet: {x_net_size}')
-
-        maskfc_5070 = arcpy.Project_management(maskFcOut, opj(sgdb, 'maskfc_5070'), 5070)
-        mask_5070_extent = arcpy.da.Describe(maskfc_5070)['extent']
-
-        origin_coords = f"{mask_5070_extent.XMin} {mask_5070_extent.YMin}"
-        y_axis_coords = f"{mask_5070_extent.XMin} {mask_5070_extent.YMin + y_net_size}"
-        rows = ceil((mask_5070_extent.YMax - mask_5070_extent.YMin) / y_net_size)
-        cols = ceil((mask_5070_extent.XMax - mask_5070_extent.XMin) / x_net_size)
-
-        # the geometry extents are coming in 5070
-        sr_5070 = arcpy.SpatialReference(5070)
-        arcpy.env.outputCoordinateSystem = sr_5070
-
-        fishnet_name = opj(sgdb, 'fishnet')
-        log.debug(f"fishnet args are: {fishnet_name, [geom_extent.XMin, geom_extent.YMin], None, x_net_size, y_net_size}")
-        # fishnet = arcpy.CreateFishnet_management(opj(sgdb, 'fishnet'), origin_coord =  + str(geom_extent.XMin, geom_extent.YMin], None, x_net_size, y_net_size)
-        fishnet2 = arcpy.CreateFishnet_management(fishnet_name, origin_coords, y_axis_coords, x_net_size, y_net_size, rows, cols, geometry_type = "POLYGON")
-
-        fishnet_int_mask = arcpy.Intersect_analysis([fishnet2, maskFcOut])
-
-        pt_field_name = 'PT_Identifier'
-        arcpy.AddField_management(fishnet_int_mask, pt_field_name, 'TEXT', field_length='10')
-        arcpy.CalculateField_management(fishnet_int_mask, pt_field_name, '!FID_' + os.path.basename(fishnet_name) + '!', 'PYTHON3')
-
-        # # PDAL requests must be in 3857
-        # arcpy.env.outputCoordinateSystem = 3857
-        fishnet_int_mask_3857 = arcpy.management.Project(fishnet_int_mask, opj(sgdb, 'fishnet_3857'), 3857)
-
-        with arcpy.da.SearchCursor(fishnet_int_mask_3857, ['OID@', 'SHAPE@', pt_field_name]) as scur:
-            for p, srow in enumerate(scur):
-                oid = srow[0]
-                geom_fish = srow[1]
-                pt_code = srow[2]
-                # splits.append(parts, geom_fish)
-
-                clip3_extent = geom_fish.extent
-                x_start = clip3_extent.XMin
-                x_end = clip3_extent.XMax
-                y_start = clip3_extent.YMin
-                y_end = clip3_extent.YMax
-
-                log.debug(f'fishnet_int_mask oid: {oid}')
-                log.debug(f'final_x_start: {x_start} and x_end: {x_end}')
-                log.debug(f'final_y_start: {y_start} and y_end: {y_end}')
-                ept_extent = str(x_start) + ', ' + str(x_end) + '], [' + str(y_start) + ', ' + str(y_end)
-
-
-                parts.append(['_pt' + str(pt_code), ept_extent])
-
-        # # splits = 4 # for splitting manually, not fishnet
-        # # switch to do intersect/clip in 3857
-        # arcpy.env.outputCoordinateSystem = 3857
-        # for p in range(0,splits):
-        #     p_div = p // pow(splits, 0.5)
-        #     p_mod = p % pow(splits, 0.5)
-        #     x_start = geom_extent.XMin + x_range * (p_div + 0) / pow(splits, 0.5)
-        #     x_end = geom_extent.XMin + x_range * (p_div + 1) /pow(splits, 0.5)
-        #     y_start = geom_extent.YMin + y_range * (p_mod + 0) /pow(splits, 0.5)
-        #     y_end = geom_extent.YMin + y_range * (p_mod + 1) /pow(splits, 0.5)
-        #     log.debug(f'p_div: {p_div}, p_mod: {p_mod}')
-        #     log.debug(f'x_start: {x_start} and x_end: {x_end}')
-        #     log.debug(f'y_start: {y_start} and y_end: {y_end}')
-        #     # refine request by intersecting preliminary extent polygon with HUC12 buffered boundary - helps in NE-SW and SE-NW watersheds
-        #     ext1 = arcpy.Extent(x_start, y_start, x_end, y_end)
-        #     poly1 = ext1.polygon
-
-        #     maskFc_3857 = arcpy.management.Project(maskFcOut, opj(sgdb, 'maskfc_3857'), 3857)
-        #     maskFc_3857_desc = arcpy.da.Describe(maskFc_3857)
-        #     maskFc_3857_extent = maskFc_3857_desc['extent']
-        #     # Should always be False
-        #     #poly1.disjoint(maskFc_3857_extent)
-        #     poly1_3857_int = poly1.intersect(maskFc_3857_extent, 4)
-
-        #     clip3 = arcpy.analysis.Clip(maskFc_3857, poly1_3857_int)
-        #     clip3_extent = arcpy.da.Describe(clip3)['extent']
-
-        #     x_start = clip3_extent.XMin
-        #     x_end = clip3_extent.XMax
-        #     y_start = clip3_extent.YMin
-        #     y_end = clip3_extent.YMax
-
-        #     log.debug(f'final_x_start: {x_start} and x_end: {x_end}')
-        #     log.debug(f'final_y_start: {y_start} and y_end: {y_end}')
-        #     ept_extent = str(x_start) + ', ' + str(x_end) + '], [' + str(y_start) + ', ' + str(y_end)
-
-        #     parts.append(['_pt' + str(p), ept_extent])
-
-        # arcpy.env.outputCoordinateSystem =\ srOut
-
-    else:
-        splits = 1
-        ept_extent = str(geom.extent.XMin) + ', ' + str(geom.extent.XMax) + '], [' + str(geom.extent.YMin) + ', ' + str(geom.extent.YMax)
-        parts.append(['_pt1', ept_extent])
-
-    return parts, square_area
-
-
-def getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, eleDir, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir, ql1):
-    try:
-        if df.testForZero(prev_merged):
-            # requests to EPT must be in 3857
-            prev_merged_projected_3857 = arcpy.management.Project(prev_merged, 'proj_trial', 3857)
-            # max_area = 0
-            url_list = df.getfields(wesm_huc12, 'url*')
-            with arcpy.da.SearchCursor(prev_merged_projected_3857, ['SHAPE@', work_id_name] + url_list, sql_clause = [None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:#work_id_name, 'SHAPE@AREA', 'lpc_link']) as scur:
-            # with arcpy.da.SearchCursor(prev_merged_projected_3857, ['SHAPE@', work_id_name] + url_list, work_id_name + ' = -1117', sql_clause = [None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:#work_id_name, 'SHAPE@AREA', 'lpc_link']) as scur:
-            # with arcpy.da.SearchCursor(prev_merged_projected_3857, ['SHAPE@', work_id_name, 'SHAPE@AREA', 'lpc_link']) as scur:
-                for srow in scur:
-                    log.debug(f'{work_id_name} is: {srow[1]}')
-                    geom = srow[0]
-                    geom_extent = geom.extent
-                    las_size_threshold = 750 #bytes, then assume .las file has points
-                    parts, square_area = queryParts(geom, geom_extent, maskFcOut, srOut, sgdb, log, ql1)#maskFc_3857, maskFc_3857_desc)
-
-                    arcpy.env.outputCoordinateSystem = srOut
-                    for part in parts:
-                        work_id = srow[1]
-                        work_id_part = str(srow[1]) + part[0]
-                        extent_request = part[1]
-
-                        geom_srOut = geom.projectAs(arcpy.SpatialReference(srOutCode))
-                        valid_geom_name = arcpy.ValidateTableName('geom_proj_' + work_id_part, sgdb)
-                        geom_srOut_copy = arcpy.CopyFeatures_management(geom_srOut, valid_geom_name)
-
-                        # get the first non-None url, that will tell us address of EPT.JSON
-                        urls = srow[1:]
-                        for u in urls:
-                            if u is not None:
-                                url = u
-                        ept_address = url
-
-                        ept_zlas_filename = "_".join(["ept", huc12, str(work_id_part) + ".zlas"])
-                        ept_zlas_full_filename = os.altsep.join([eleDir.replace(os.path.sep, os.path.altsep), ept_zlas_filename])
-
-                        ept_las_filename = ept_zlas_filename.replace(".zlas", ".las")
-
-                        ept_laz_filename = ept_zlas_filename.replace(".zlas", ".laz")
-                        ept_laz_full_filename = os.altsep.join([eleDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
-                        ept_laz_path = Path(ept_laz_full_filename)
-                        # check for a local backup copy, if exists, update path to avoid re-downloading
-                        new_path = Path('M:/', *ept_laz_path.parts[1:])
-                        alt_ept_laz_full_filename = new_path#ept_laz_path.replace(anchor = 'M:')
-                        if os.path.isfile(alt_ept_laz_full_filename):
-                            log.debug(f'using alt laz file {alt_ept_laz_full_filename}')
-                            ept_laz_full_filename = str(alt_ept_laz_full_filename)
-                        # local_ept_laz_full_filename = os.altsep.join([procDir.replace(os.path.sep, os.path.altsep), ept_laz_filename])
-
-                        # pipeline json requires / not \ for path separator
-                        ept_las_full_filename = os.altsep.join([procDir.replace(os.path.sep, os.path.altsep), ept_las_filename])
-                        # NEEDS UPDATE - check for files in lidar_download_directory as well - getting ready below
-                        # dl_ept_laz_full_filename = ept_laz_full_filename.replace(eptDir, eleDir)
-                        # dl_ept_zlas_full_filename = ept_zlas_full_filename.replace(eptDir, eleDir)
-                        if os.path.isfile(ept_laz_full_filename) and not os.path.isfile(ept_las_full_filename):
-                            log.info('converting laz to las from archive')
-                            log.info(f"arguments: {ept_laz_full_filename}, {procDir}")
-                            las_result = arcpy.conversion.ConvertLas(ept_laz_full_filename, procDir)#, compression = 'ZLAS')
-                            log.info(las_result)
-                        elif os.path.isfile(ept_zlas_full_filename) and not os.path.isfile(ept_las_full_filename):
-                            log.info('converting zlas to las')
-                            log.info(f"arguments: {ept_zlas_full_filename}, {procDir}")
-                            las_result = arcpy.conversion.ConvertLas(ept_zlas_full_filename, procDir)#, compression = 'ZLAS')
-                            log.info(las_result)
-                        # if zlas does not exist, get las then convert to zlas
-                        if not os.path.isfile(ept_zlas_full_filename) and not os.path.isfile(ept_laz_full_filename):
-                            log.info('Getting LAS from EPT')
-                            log.info(ept_zlas_filename)
-
-                            ept_json_filename = "_".join(["get", "ept", huc12, str(work_id_part) + ".json"])
-
-                            df.create_needed_dirs_and_gdbs(ept_las_full_filename, log)
-                            df.create_needed_dirs_and_gdbs(eleDir, log)
-                            ept_json_full_filename = create_ept_json_pipeline(ept_json_filename, eleDir, ept_las_full_filename, extent_request, ept_address, srOutCode)
-                            df.create_needed_dirs_and_gdbs(ept_json_full_filename, log)
-
-                            if not os.path.exists(ept_las_full_filename):
-                                run_string = " ".join([pdal_exe, "pipeline", ept_json_full_filename])
-                                # estimate download time based on 102500040309 (area 1175 km2) in 4 parts
-                                m2_per_sec = 1175.2*1000**2/len(parts)/2200
-                                log.debug(f'pdal run_string: {run_string}')
-                                log.info(f'Estimated pdal download time (for QL2 lidar): {round(square_area/(m2_per_sec * len(parts) * 60), 2)} minutes for {ept_json_filename}')
-                                co = subprocess.call(run_string, creationflags=CREATE_NO_WINDOW)
-                                # co = subprocess.run(run_string)
-                                log.debug(f'completed pdal run_string')
-
-                            # archive as zlas for use later in this script and re-use
-                            stats = os.stat(ept_las_full_filename)
-                            if stats.st_size > las_size_threshold:
-                                if not os.path.isfile(ept_laz_full_filename) and not os.path.isfile(ept_zlas_full_filename):
-                                    # takes too long, laz is much faster to create
-                                    # log.info('converting las to zlas for archive')
-                                    # zlas_result = arcpy.conversion.ConvertLas(ept_las_full_filename, ele, compression = 'ZLAS', las_options = None)
-                                    # log.info(zlas_result)
-
-                                    log.debug('converting las to laz for archive')
-                                    laz_json_filename = "_".join(["laz", "ept", huc12, str(work_id_part) + ".json"])
-                                    laz_json_full_filename = create_laz_json_pipeline(laz_json_filename, eleDir, ept_las_full_filename, ept_laz_full_filename)
-                                    laz_run_string = " ".join([pdal_exe, "pipeline", laz_json_full_filename])
-                                    log.debug(f'pdal run_string: {laz_run_string}')
-                                    co = subprocess.call(laz_run_string, creationflags=CREATE_NO_WINDOW)
-                                    # co = subprocess.run(laz_run_string)
-                                    log.debug(f'ran pdal run_string')
-
-                                    # ADD CODE to do local then copy, SLOW on network drives 
-                                    # laz_result = arcpy.conversion.ConvertLas(ept_las_full_filename, eleDir, compression = 'LAZ', las_options = None)
-                                    # log.debug(laz_result)
-
-                                # arcpy.Delete_management(ept_las_full_filename)
-                            else:
-                                log.warning(f"{ept_las_full_filename} has very small file size; plotting extent as poly")
-                                poly35 = geom_extent.polygon
-                                p35 = arcpy.management.CopyFeatures(poly35, opj(sgdb, 'failed_' + valid_geom_name))
-                                ## Use to get requested bounds
-                                # geom_extent.JSON
-                                # '{"xmin":-11386571.4549,"ymin":5310909.4501999989,"xmax":-11370238.307800001,"ymax":5314697.4098999985,"spatialReference":{"wkid":102100,"latestWkid":3857}}'
-
-                                ## Use to plot query bounds from PDAL Debug or from EPT.JSON file header
-                                # arcpy.env.outputCoordinateSystem = 3857
-                                # ept_json_extent = arcpy.Extent(-11583422,5262814,-11396830,5449406)
-                                # ept_json_extent_polygon = ept_json_extent.polygon
-                                # ept_json_polygon = arcpy.management.CopyFeatures(ept_json_extent_polygon, opj(sgdb, 'poly37'))
-                        else:
-                            if os.path.isfile(ept_las_full_filename):
-                                stats = os.stat(ept_las_full_filename)
-                            else:
-                                log.warning("can't get good LAS data, skipping to next project")
-                                continue
-
-                        # if co.returncode == 0:
-                        if os.path.exists(ept_las_full_filename) and stats.st_size > las_size_threshold:
-                            cl2Las = processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom_srOut, ept_las_full_filename, srOut, inm, FDSet, procDir, allTilesList, log, time, work_id)
-                            #remove invalid geometry
-                            if cl2Las is None:
-                                log.warning('deleting ' + str(geom_srOut_copy))
-                                delete = arcpy.Delete_management(geom_srOut_copy)
-                                # remove from dates
-                                prev_merged = arcpy.Select_analysis(prev_merged, where_clause = work_id_name + ' <> ' + str(work_id))
-                            else:
-                                cl2LasNotNone = cl2Las
-                        elif os.path.exists(ept_las_full_filename):
-                            log.warning('EPT LAS file too small, no points')
-                            run_string += ' --debug'
-                            log.warning(f'Invalid call was {run_string}')
-
-                        else:
-                            log.warning('No valid output from ept.json request')
-                            log.warning(f'Invalid call was {run_string}')
-                            sys.exit(1)
-
-        #revert to previous good cl2Las if last is None
-        if cl2Las is None:
-            cl2Las = cl2LasNotNone
-
-        return cl2Las, geom_srOut_copy
+            _log(f'Metadata is read-only for {outDEM}, skipping.')
 
     except Exception as e:
-        print('handling as exception')
-##        log.debug(e.message)
-        if sys.version_info.major == 2:
-            arcpy.AddError(e.message)
-            print(e.message)
-        elif sys.version_info.major == 3:
-            arcpy.AddError(e)
-            print(e)
-
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-
-        # Concatenate information together concerning the error into a message string
-        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-        # Return python error messages for use in script tool or Python Window
-        arcpy.AddError(pymsg)
-        # Print Python error messages for use in Python / Python Window
-        print(pymsg + "\n")
-
-        if arcpy.GetMessages(2) not in pymsg:
-            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-            arcpy.AddError(msgs)
-            print(msgs)
-
-    except:
-        print('handling as except')
-        # Get the traceback object
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-
-        # Concatenate information together concerning the error into a message string
-        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-        # Return python error messages for use in script tool or Python Window
-        arcpy.AddError(pymsg)
-        # Print Python error messages for use in Python / Python Window
-        print(pymsg + "\n")
-
-        if arcpy.GetMessages(2) not in pymsg:
-            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-            arcpy.AddError(msgs)
-            print(msgs)
+        _log(f'Error adding metadata to {outDEM}: {e}')
+        raise  # Re-raise so the caller knows something went wrong
 
 
 def try_to_delete(rasRes, log):
@@ -1897,78 +1450,11 @@ def try_to_delete(rasRes, log):
             os.remove(rasRes)
 
 
-# def doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon, 
-        #  pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-        #  tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-        #  int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup, messages):
-
-    return tElevFile
-
-
-##----------------------------------------------------------------------
-
-
-
-if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        #Paste arguments into here for use within Python Window
-        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-        # cleanup = False
-        parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-    "C:/Temp/cmd_build_terrain_derivatives_main.pyt",
-    "E:/DEP_Checkout/Man_Data_ACPF/dep_ACPF2023/07080103/idepACPF070801030408.gdb/buf070801030408",
-    "E:/DEP_Checkout/Man_Data_ACPF/dep_ACPF2023/07080103/idepACPF070801030408.gdb/wesm_tiles_2026_02_10_070801030408",
-    "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_070801030408/laz_all_points",
-    "C:/Users/bkgelder/.conda/envs/pdal_python/Library/bin/pdal.exe",
-    "1,2,3",
-    "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_070801030408",
-    "E:/DEP_Checkout/Basedata_Summaries/Basedata_26915.gdb/Snap1m",
-    "",
-    "",
-    "E:/DEP_Checkout/LiDAR_Current/elev_TLib_mean18/07080103/et_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07080103/be_min_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07080103/fr_max_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/count_Lib/07080103/cnt_be_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/count_Lib/07080103/cnt_fr_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/count_Lib/07080103/cnt_pls_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/int_Lib/07080103/fr_int_min_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/int_Lib/07080103/fr_int_max_1m_070801030408.tif",
-    "E:/DEP_Checkout/LiDAR_Current/int_Lib/07080103/be_int_max_1m_070801030408.tif",
-    "False"]
-        for i in parameters[2:]:
-            sys.argv.append(i)
-
-    else:
-        #For use via Windows Command Line
-        #above 'parameters' come in via command line arguments, nothing else needed
-        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-        # clean up the folder after done processing
-        # cleanup = True
-
-    # inputs then outputs, change "" to Python None
-    (dem_boundary, wesm_huc12_tiles, laz_download_dir,#lidar_download_directory, #monthly_wesm_ept_mashup, dem_polygon, 
-         pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-         tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-         int1rMinFile, int1rMaxFile, intBeMaxFile, cleanup
-        ) = [i if i != "" else None for i in sys.argv[1:]]
-
-    # switch a text 'True' into a real Python True
-    cleanup = True if cleanup == "True" else False
-
-    messages = msgStub()
-
-#     doLidarDEMs(monthly_wesm_ept_mashup, dem_polygon, 
-#          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-#          tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-#          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup, messages)#msgStub())
-
-#     arcpy.AddMessage("Back from doEPT!")
-
-# def doLidarDEMs(wesm_huc12,
-#          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-#          tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
-#          int1rMinFile, int1rMaxFile, intBeMaxFile, ept_wesm_project_file, lidar_download_directory, cleanup, messages):
-    arguments = [dem_boundary, wesm_huc12_tiles, laz_download_dir, #lidar_download_directory, #monthly_wesm_ept_mashup, dem_polygon, 
+def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir, 
+        pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
+        tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+        int1rMinFile, int1rMaxFile, intBeMaxFile, cleanup, messages):
+    arguments = [dem_boundary, wesm_huc12_tiles, laz_download_dir, 
         pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
         tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
         int1rMinFile, int1rMaxFile, intBeMaxFile, cleanup]
@@ -2100,7 +1586,7 @@ if __name__ == "__main__":
         vals = list(interpDict.values())
         vals_lower = [v.lower() for v in vals]
         for v in vals_lower:
-            print(v)
+            # print(v)
             if v in tElevFile:
                 interpFound = True
                 interpType = v
@@ -2188,114 +1674,221 @@ if __name__ == "__main__":
 ##----------------------------------------------------------------------
         build_threshold = 0.99#99 - reduced to 0.99 for Lake Erie at Toledo (04100009)
         if df.testForZero(wesm_huc12_tiles):
-            # prev_merged, merged_area, addOrderField = organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log)
-
-            # cl2Las, geom_srOut_copy = getLidarFiles(wesm_huc12, work_id_name, pdal_exe, prev_merged, addOrderField, log, sgdb, sfldr, srOut, srOutCode, huc12, lidar_download_directory, maskFcOut, fixedFolder, inm, FDSet, allTilesList, procDir, ql1)
 
             arcpy.env.outputCoordinateSystem = srOut
 
-            # os.chdir(lidar_download_directory)
-            # lazs = glob.glob('*.laz')
-            # allTilesList = lazs
-            # log.debug('tileList is ' + str(allTilesList))
             allTilesList = []
 
-            with arcpy.da.SearchCursor(wesm_huc12_tiles, ['SHAPE@', 'laz_file', work_id_name]) as scur:#, sql_clause = [None, 'ORDER BY order DESC']) as scur:
-            # with arcpy.da.SearchCursor(wesm_huc12, ['SHAPE@', work_id_name] + url_list, sql_clause = [None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:#work_id_name, 'SHAPE@AREA', 'lpc_link']) as scur:
+            # with arcpy.da.SearchCursor(wesm_huc12_tiles, ['SHAPE@', 'laz_file', work_id_name]) as scur:#, sql_clause = [None, 'ORDER BY order DESC']) as scur:
+            with arcpy.da.SearchCursor(wesm_huc12_tiles, ['SHAPE@', 'laz_file', work_id_name, 'ql', 'dem_gsd_meters', 'horiz_crs', 'vert_crs']) as scur:
                 for srow in scur:
                     work_id = srow[2]
                     storage_laz = srow[1]
                     geom = srow[0]
+                    ql = srow[3]
+                    vert_crs = srow[-1]
+                    hor_crs = srow[-2]
+                    # if 'DEP\\laz' in storage_laz:
+                    #     log.info('found DEP\\laz in storage_laz path, replacing with DEP\\USGS_LPC')
+                    #     if 'DEP\\laz' in storage_laz:
+                    #         log.info('found DEP\\laz in storage_laz path, replacing with DEP\\USGS_LPC')
+                    #         ept_las = storage_laz.replace('DEP\\laz', 'DEP\\USGS_LPC')
+                    # elif 'E:\\DEP_Checkout' in storage_laz:
+                    #     log.info('found E:\\DEP_Checkout in storage_laz path, replacing with M:\\DEP')
+                    #     ept_las = storage_laz.replace('E:\\DEP_Checkout', 'M:\\DEP')
+                    # else:
+                    #     ept_las = storage_laz
+                    if os.path.exists(storage_laz):#ept_las):
 
-                    # print(srow)
-                    # ept_las_full_filename = laz
-                    # handle some inconsistent paths
-                    if 'DEP\\laz' in storage_laz:
-                        log.info('found DEP\\laz in storage_laz path, replacing with DEP\\USGS_LPC')
-                        if 'DEP\\laz' in storage_laz:
-                            log.info('found DEP\\laz in storage_laz path, replacing with DEP\\USGS_LPC')
-                            ept_las = storage_laz.replace('DEP\\laz', 'DEP\\USGS_LPC')
-                    elif 'E:\\DEP_Checkout' in storage_laz:
-                        log.info('found E:\\DEP_Checkout in storage_laz path, replacing with M:\\DEP')
-                        ept_las = storage_laz.replace('E:\\DEP_Checkout', 'M:\\DEP')
-                    else:
-                        ept_las = storage_laz
-                    if os.path.exists(ept_las):#_full_filename):# and stats.st_size > las_size_threshold:
-                    #     cl2Las = processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom_srOut, ept_las_full_filename, srOut, inm, FDSet, procDir, allTilesList, log, time, work_id)
-
-                    # '''process a cursor row of data by creating a suitable las file from the input las/laz/zlas dataset
-                    # This inlcudes project and clipping las data files into output dataset and also creating a multipoint
-                    # file from the las data if there is any within the extent'''
-                    # try:
-                        ept_las_base = os.path.splitext(os.path.basename(ept_las))[0]
-                        sfx = arcpy.ValidateTableName('_' + ept_las_base, sgdb)
-                        log.debug('lidar file suffix is: ' + sfx)
-
-                        allLasd = arcpy.CreateLasDataset_management(ept_las, opj(sfldr, 'all' + sfx))
-
-                        # extract to tile geometry and project if necessary
-                        nameSfx = '_' + str(srOutCode)
-                        fixedLasBasename = os.path.basename(ept_las)[:-4] + nameSfx + '.las'
-                    ##            log.debug('fixedLasBasename: ' + fixedLasBasename)
-                        # some old 3DEP projects don't alway have boundaries and data lining up...
-                        log.debug(f'ExtractLas arguments are {allLasd}, {fixedFolder}, name_suffix = {nameSfx}, rearrange_points = {"MAINTAIN_POINTS"}, out_las_dataset = {opj(fixedFolder, "fixed" + sfx + ".lasd")}')
-                        if work_id < 0:
-                            tileGeomBuffer5 = geom.buffer(5) #tile Geometry column
-                            log.debug('--- Use ExtractLas, boundary option,')
-                            fixedLasd = arcpy.ExtractLas_3d(allLasd, fixedFolder, name_suffix = nameSfx, rearrange_points = "MAINTAIN_POINTS", out_las_dataset = opj(fixedFolder, 'fixed' + sfx + '.lasd'), compression="NO_COMPRESSION", boundary = tileGeomBuffer5)
+                        storage_laz_altsep = storage_laz.replace(os.path.sep, os.path.altsep)
+                        if arcpy.Exists(storage_laz_altsep.replace('M:/DEP/USGS_LPC/IL_10CountyNRCS_D23/IL_10CoNRCS_1_D23/LAZ', 'E:/DEP_Proc/DEMProc/LAS_dem2013_1m_071300060105/laz_for_huc12')):
+                            storage_laz_altsep = storage_laz_altsep.replace('M:/DEP/USGS_LPC/IL_10CountyNRCS_D23/IL_10CoNRCS_1_D23/LAZ', 'E:/DEP_Proc/DEMProc/LAS_dem2013_1m_071300060105/laz_for_huc12')
+                        fixedLasPath = opj(fixedFolder, os.path.basename(storage_laz).replace('.laz','.las'))
+                        fixedLasPath_altsep = fixedLasPath.replace(os.path.sep, os.path.altsep)##
+                        if ql == 'QL 0':
+                            pipeline_laz_las = '''{
+"pipeline": [
+    {
+    "type": "readers.las",
+    "filename": "''' + storage_laz_altsep + '''",
+    "tag": "source1"
+    },
+    {
+      "type": "filters.decimation",
+      "step": 4,
+      "offset": 0,
+      "tag": "decimated"
+    },
+    {
+    "type": "filters.reprojection",
+    "in_srs": "''' + 'EPSG:' + hor_crs + '''+''' + vert_crs + '''",
+    "out_srs": "''' + 'EPSG:' + str(srOutCode) + '''+5703",
+    "tag": "reprojected_local_NAVD88m"
+    },
+    {
+    "type": "writers.las",
+    "filename": "''' + fixedLasPath_altsep + '''",
+    "tag": "writerslas"
+    }
+]}'''
+                        elif ql == 'QL 1':
+                            pipeline_laz_las = '''{
+"pipeline": [
+    {
+    "type": "readers.las",
+    "filename": "''' + storage_laz_altsep + '''",
+    "tag": "source1"
+    },
+    {
+      "type": "filters.decimation",
+      "step": 4,
+      "offset": 0,
+      "tag": "decimated"
+    },
+    {
+    "type": "filters.reprojection",
+    "in_srs": "''' + 'EPSG:' + hor_crs + '''+''' + vert_crs + '''",
+    "out_srs": "''' + 'EPSG:' + str(srOutCode) + '''+5703",
+    "tag": "reprojected_local_NAVD88m"
+    },
+    {
+    "type": "writers.las",
+    "filename": "''' + fixedLasPath_altsep + '''",
+    "tag": "writerslas"
+    }
+]}'''
                         else:
-                            log.debug('--- Use ExtractLas, no boundary option,')
-                            fixedLasd = arcpy.ExtractLas_3d(allLasd, fixedFolder, name_suffix = nameSfx, rearrange_points = "MAINTAIN_POINTS", out_las_dataset = opj(fixedFolder, 'fixed' + sfx + '.lasd'), compression="NO_COMPRESSION")#, boundary = tileGeomBuffer5)
-                        log.debug(fixedLasd.getMessages())
-                        fixedLasdDescDa = arcpy.da.Describe(fixedLasd)
-                        fixedLasPath = opj(fixedLasdDescDa['path'], fixedLasBasename)
+                            pipeline_laz_las = '''{
+"pipeline": [
+    {
+    "type": "readers.las",
+    "filename": "''' + storage_laz_altsep + '''",
+    "tag": "source1"
+    },
+    {
+    "type": "filters.reprojection",
+    "in_srs": "''' + 'EPSG:' + hor_crs + '''+''' + vert_crs + '''",
+    "out_srs": "''' + 'EPSG:' + str(srOutCode) + '''+5703",
+    "tag": "reprojected_local_NAVD88m"
+    },
+    {
+    "type": "writers.las",
+    "filename": "''' + fixedLasPath_altsep + '''",
+    "tag": "writerslas"
+    }
+]}'''
+                        if ql == 'QL 0' or ql == 'QL 1':
+                            log.debug(f'using decimating pipeline_laz_las')
+                        pl_laz_las = pdal.Pipeline(pipeline_laz_las)
+                        ex = pl_laz_las.execute()
 
-                        log.debug('--- Done creating LAS dataset and extracting LAS at ' + time.asctime())
+                        ept_las_base = os.path.splitext(os.path.basename(storage_laz))[0]
 
-                        if fixedLasdDescDa['pointCount'] > 0:
-                            allTilesList.append(fixedLasPath)
 
-                        if fixedLasPath in allTilesList:#non 0 amount of lidar points in las
-                            allLAZ = fixedLasPath
-                            if allLAZ.endswith('.laz') or allLAZ.endswith('.las'):
-                                """Filters LAS points to class 2 and creates multipoints in FDSet"""
-                                lasBase = os.path.splitext(os.path.basename(allLAZ))[0]
-                                if allLAZ.endswith('.laz'):
-                                    log.debug('--- Using ConvertLas to decompress LAZ')
-                                    las_from_laz = arcpy.ConvertLas_conversion(allLAZ, target_folder=procDir, compression=None, las_options=None)
-                                else:
-                                    las_from_laz = allLAZ
+            # # with arcpy.da.SearchCursor(wesm_huc12, ['SHAPE@', work_id_name] + url_list, sql_clause = [None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:#work_id_name, 'SHAPE@AREA', 'lpc_link']) as scur:
+            #     for srow in scur:
+            #         work_id = srow[2]
+            #         storage_laz = srow[1]
+            #         geom = srow[0]
 
-                                log.debug('--- Create las non-Minnesota Multipoint')
-                                lasMP = arcpy.LASToMultipoint_3d(las_from_laz, inm + "\\pts" + sfx, "1", class_code = [2,8], input_coordinate_system = srOut)
+            #         # print(srow)
+            #         # ept_las_full_filename = laz
+            #         # handle some inconsistent paths
+            #         if 'DEP\\laz' in storage_laz:
+            #             log.info('found DEP\\laz in storage_laz path, replacing with DEP\\USGS_LPC')
+            #             if 'DEP\\laz' in storage_laz:
+            #                 log.info('found DEP\\laz in storage_laz path, replacing with DEP\\USGS_LPC')
+            #                 ept_las = storage_laz.replace('DEP\\laz', 'DEP\\USGS_LPC')
+            #         elif 'E:\\DEP_Checkout' in storage_laz:
+            #             log.info('found E:\\DEP_Checkout in storage_laz path, replacing with M:\\DEP')
+            #             ept_las = storage_laz.replace('E:\\DEP_Checkout', 'M:\\DEP')
+            #         else:
+            #             ept_las = storage_laz
+            #         if os.path.exists(ept_las):#_full_filename):# and stats.st_size > las_size_threshold:
+            #         #     cl2Las = processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom_srOut, ept_las_full_filename, srOut, inm, FDSet, procDir, allTilesList, log, time, work_id)
 
-                            elif allLAZ.endswith('.zlas'):
-                                log.debug('--- Create zlas non-Minnesota Multipoint')
-                                lasMP = arcpy.LASToMultipoint_3d(allLAZ, inm + "\\pts" + sfx, "1", class_code = [2,8], input_coordinate_system = srOut)
-                                las_from_laz = allLAZ
+            #         # '''process a cursor row of data by creating a suitable las file from the input las/laz/zlas dataset
+            #         # This inlcudes project and clipping las data files into output dataset and also creating a multipoint
+            #         # file from the las data if there is any within the extent'''
+            #         # try:
+            #             ept_las_base = os.path.splitext(os.path.basename(ept_las))[0]
+                        sfx = arcpy.ValidateTableName('_' + ept_las_base, sgdb)
+                        # log.debug('lidar file suffix is: ' + sfx)
+
+                        # allLasd = arcpy.CreateLasDataset_management(ept_las, opj(sfldr, 'all' + sfx))
+                        log.debug(f'lidar file suffix is: {sfx}')
+                        lasdAll = arcpy.CreateLasDataset_management(fixedFolder, os.path.join(procDir, 'huc_all.lasd'), spatial_reference=arcpy.SpatialReference(int(srOutCode)))
+
+                    #     # extract to tile geometry and project if necessary
+                    #     nameSfx = '_' + str(srOutCode)
+                    #     fixedLasBasename = os.path.basename(ept_las)[:-4] + nameSfx + '.las'
+                    # ##            log.debug('fixedLasBasename: ' + fixedLasBasename)
+                    #     # some old 3DEP projects don't alway have boundaries and data lining up...
+                    #     log.debug(f'ExtractLas arguments are {allLasd}, {fixedFolder}, name_suffix = {nameSfx}, rearrange_points = {"MAINTAIN_POINTS"}, out_las_dataset = {opj(fixedFolder, "fixed" + sfx + ".lasd")}')
+                    #     # if work_id < 0:
+                    #     #     tileGeomBuffer5 = geom.buffer(5) #tile Geometry column
+                    #     #     log.debug('--- Use ExtractLas, boundary option,')
+                    #     #     fixedLasd = arcpy.ExtractLas_3d(allLasd, fixedFolder, name_suffix = nameSfx, rearrange_points = "MAINTAIN_POINTS", out_las_dataset = opj(fixedFolder, 'fixed' + sfx + '.lasd'), compression="NO_COMPRESSION", boundary = tileGeomBuffer5)
+                    #     # else:
+                    #     #     log.debug('--- Use ExtractLas, no boundary option,')
+                    #     #     fixedLasd = arcpy.ExtractLas_3d(allLasd, fixedFolder, name_suffix = nameSfx, rearrange_points = "MAINTAIN_POINTS", out_las_dataset = opj(fixedFolder, 'fixed' + sfx + '.lasd'), compression="NO_COMPRESSION")#, boundary = tileGeomBuffer5)
+                    #     # log.debug(fixedLasd.getMessages())
+                    #     # fixedLasdDescDa = arcpy.da.Describe(fixedLasd)
+                    #     # fixedLasPath = opj(fixedLasdDescDa['path'], fixedLasBasename)
+
+                    #     # log.debug('--- Done creating LAS dataset and extracting LAS at ' + time.asctime())
+
+                    #     # if fixedLasdDescDa['pointCount'] > 0:
+                    #     #     allTilesList.append(fixedLasPath)
+
+                        if os.path.exists(fixedLasPath_altsep):
+                            # 'Filters LAS points to class 2 and creates multipoints in FDSet'
+                            # lasBase = os.path.splitext(os.path.basename(allLAZ))[0]
+                            log.debug('--- Create las non-Minnesota Multipoint')
+                            if ql == 'QL 0' or ql == 'QL 1':
+                                spacing = '0.125' # meters (UTM)
+                            else:
+                                spacing = '1'
+                            lasMP = arcpy.LASToMultipoint_3d(fixedLasPath_altsep, inm + '\\pts' + sfx, spacing, class_code=[2, 8], input_coordinate_system=srOut)
+
+                        # if fixedLasPath in allTilesList:#non 0 amount of lidar points in las
+                        #     allLAZ = fixedLasPath
+                        #     if allLAZ.endswith('.laz') or allLAZ.endswith('.las'):
+                        #         """Filters LAS points to class 2 and creates multipoints in FDSet"""
+                        #         lasBase = os.path.splitext(os.path.basename(allLAZ))[0]
+                        #         if allLAZ.endswith('.laz'):
+                        #             log.debug('--- Using ConvertLas to decompress LAZ')
+                        #             las_from_laz = arcpy.ConvertLas_conversion(allLAZ, target_folder=procDir, compression=None, las_options=None)
+                        #         else:
+                        #             las_from_laz = allLAZ
+
+                        #         log.debug('--- Create las non-Minnesota Multipoint')
+                        #         lasMP = arcpy.LASToMultipoint_3d(las_from_laz, inm + "\\pts" + sfx, "1", class_code = [2,8], input_coordinate_system = srOut)
+
+                        #     elif allLAZ.endswith('.zlas'):
+                        #         log.debug('--- Create zlas non-Minnesota Multipoint')
+                        #         lasMP = arcpy.LASToMultipoint_3d(allLAZ, inm + "\\pts" + sfx, "1", class_code = [2,8], input_coordinate_system = srOut)
+                        #         las_from_laz = allLAZ
 
                             if lasMP:
-                                ptsName = arcpy.ValidateTableName('pts_' + lasBase, os.path.join(str(FDSet)))
+                                ptsName = arcpy.ValidateTableName('pts' + sfx + '_' + str(srOutCode), os.path.join(str(FDSet)))
                                 ptOut = projIfNeeded(lasMP, os.path.join(str(FDSet), ptsName), srOut)
-
+                                arcpy.Delete_management(lasMP)
                             else:
                                 log.warning('no ptOut created, setting to None')
                                 ptOut = None
-                                
-                            cl2Las = las_from_laz
-
-                        # ready so there is something to return
-                        if 'cl2Las' not in locals():
-                            cl2Las = None
+                        #     cl2Las = las_from_laz
+                        # if 'cl2Las' not in locals():
+                        #     cl2Las = None
                         if 'ptOut' not in locals():
                             ptOut = None
-                        log.info('ptOut: ' + str(ptOut) + ' and cl2Las ' + str(cl2Las))
+                        log.info('ptOut: ' + str(ptOut))# + ' and cl2Las ' + str(cl2Las))
 
                     
             wesm_huc12_tiles_buffer = arcpy.analysis.Buffer(wesm_huc12_tiles, opj(sgdb, 'wesm_huc12_tiles_buffer'), '0.1 Meters')#, dissolve_option = 'ALL')    
-            wesm_huc12_tiles_dissolve = arcpy.management.Dissolve(wesm_huc12_tiles, opj(sgdb, 'wesm_huc12_tiles_dissolve'), work_id_name)
+            wesm_huc12_tiles_buffer_dissolve = arcpy.management.Dissolve(wesm_huc12_tiles_buffer, opj(sgdb, 'wesm_huc12_tiles_dissolve'), work_id_name)
 
-            ptr_poly = arcpy.management.CopyFeatures(wesm_huc12_tiles_dissolve, opj(sgdb, 'ptr_poly'))
+            ptr_poly = arcpy.management.CopyFeatures(wesm_huc12_tiles_buffer_dissolve, opj(sgdb, 'ptr_poly'))
             arcpy.AddField_management(ptr_poly, 'area_field', 'DOUBLE')
             arcpy.CalculateField_management(ptr_poly, 'area_field', '!shape.area!', 'Python 3')
 
@@ -2315,45 +1908,21 @@ if __name__ == "__main__":
                 if df.testForZero(finalMP):
                     finalMPinm, finalHb, poorZHb, finalNoZHb, finalHl = setupPointsAndBreaklines(finalMP, inm, FDSet, breakpolys, breaklines, log)
 
-                    tcdFdSet = arcpy.management.Dissolve(wesm_huc12_tiles_dissolve, os.path.join(str(FDSet), 'ept_and_local_las'))
+                    tcdFdSet = arcpy.management.Dissolve(wesm_huc12_tiles_buffer_dissolve, os.path.join(str(FDSet), 'ept_and_local_las'))
                     fill_donut_slow(tcdFdSet)
 
                     terrains, tf, terrain_args, pyramid_args = buildTerrains(finalMP, FDSet, tcdFdSet, finalHb, finalHl, finalNoZHb, poorZHb, log, windowsizeMethods, time)
 
-                    # cl2_tiles_list = filter_to_cl2()
-                    check_4_all = os.altsep.join([os.path.dirname(cl2Las), '*' + cl2Las[-7:]])
-                    all_tiles_list = glob.glob(check_4_all)
-                    cl2_tiles_list = []
-                    for all_tile in all_tiles_list:
-                        # JSON likes / not \
-                        all_tile_alt = all_tile.replace(os.sep, os.altsep)
-                        work_id = os.path.basename(all_tile_alt).split('_')[2]
-                        part_id = os.path.basename(all_tile_alt).split('_')[3]
-
-                        cl2_json_filename = "_".join(["filter", "fixed_cl2", huc12, work_id, part_id + ".json"])
-
-                        cl2_las_full_filename = all_tile_alt.replace('.las', '_cl2.las')
-                        cl2_tiles_list.append(cl2_las_full_filename)
-                        
-                        cl2_las_json = create_cl2_json_pipeline(cl2_json_filename, laz_download_dir, all_tile_alt, cl2_las_full_filename)
-
-                        cl2_run_string = " ".join([pdal_exe, "pipeline", cl2_las_json])
-                        log.info(f"running: {cl2_run_string}")
-                        co = subprocess.call(cl2_run_string, creationflags=CREATE_NO_WINDOW)
-                        # co = subprocess.run(cl2_run_string)
-                        # if co.returncode != 0:
-                        log.info(f"completed: {cl2_run_string}")
-
-                    log.debug(f"cl2_tiles_list: {cl2_tiles_list}")
-                    # assume lidar data in same spatial reference as output, ExtractLAS should handle that
-                    lasdGround = setupLasDataset(cl2_tiles_list, tcdFdSet, procDir, None, None, srSfx, None, log, time, arcpy.SpatialReference(int(srOutCode)))
-                    log.info('finished setting up las dataset')
+                    if sys.version_info.minor < 9:
+                        beLayer = arcpy.MakeLasDatasetLayer_management(lasdAll, 'ground_layer', [2,8], 'Last Return')
+                    else:
+                        beLayer = arcpy.MakeLasDatasetLayer_management(lasdAll, 'ground_layer', [2,8], 'LAST')
 
                     collect_ends_max, collect_starts_min, collect_majority = getLidarTimeframes(ptr_poly)#prev_merged)#merged_copy)#, tilesClip_local)
 
                     lidar_metadata_info = [nowYmd, collect_starts_min, collect_ends_max, collect_majority]
 
-                    lasdAll = arcpy.CreateLasDataset_management(allTilesList, os.path.join(procDir, 'huc_all.lasd'), spatial_reference = arcpy.SpatialReference(int(srOutCode)))
+                    # lasdAll = arcpy.CreateLasDataset_management(allTilesList, os.path.join(procDir, 'huc_all.lasd'), spatial_reference = arcpy.SpatialReference(int(srOutCode)))
                     # ## Following code runs slowly at times and is not being used further 2023.12.21
                     # # classify overlap in lasdAll
 
@@ -2371,12 +1940,158 @@ if __name__ == "__main__":
                     demPtString = demListVal
 ##                    maskRastOut = arcpy.PolygonToRaster_conversion(maskFcOut, 'id', opj(sgdb, maskRastBase + demPtString), cellsize = float(demListVal))
                 maskRastOutName = opj(sgdb, maskRastBase + demPtString)#demListVal)
-                if cntBeFile is not None:
-                    cntBeFileRasterObj = createCountsFromMultipoints(sgdb, maskRastOutName, demListVal, demPtString, huc12, finalMPinm, finalMP, log, cntBeFile, init_res, pattern22)
+                # if cntBeFile is not None:
+                #     if int(demListVal) >= 1: #creating point counts for high resolution is very slow (slower than from LAS Datasets)
+                #         maskRastOutName = opj(sgdb, maskRastBase + demPtString)#demListVal)
+                #         cntBeFileRasterObj = createCountsFromMultipoints(sgdb, maskRastOutName, demListVal, demPtString, huc12, finalMPinm, finalMP, log, cntBeFile, init_res, pattern22)
 
-                terrainList = createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOutName, procDir, terrains, huc12, lidar_metadata_info, pyramid_args, flib_metadata_template, tElevFile, init_res)
+                # if not arcpy.Exists(tElevFile):
+                terrainList = createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOutName, procDir, terrains, huc12, lidar_metadata_info, pyramid_args, flib_metadata_template, tElevFile, init_res, pattern22, interpDict, srOutNoVCS)
 
-                buildLASRasters(lasdAll, lasdGround, log, demListVal, demPtString, huc12, srSfx, maskRastOutName, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, init_res, internal_regions, lidar_metadata_info, derivative_metadata, pattern22)
+                buildLASRasters(lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx, maskRastOutName, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, cntBeFile, init_res, internal_regions, lidar_metadata_info, derivative_metadata, pattern22)
+#                 lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx, maskRastOut, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, cntBeFile, named_cell_size, internal_regions, lidar_metadata_info, derivative_metadata, pattern22 = lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx, maskRastOutName, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, cntBeFile, init_res, internal_regions, lidar_metadata_info, derivative_metadata, pattern22
+#                 nowYmd, collect_starts_min, collect_ends_max, collect_majority = [i for i in lidar_metadata_info]
+
+#                 paraDict = {
+#                         '\n\nACPF: DEM Generation and Pit Fill Tool     ' : '\nRun Date: %s' % nowYmd,
+#                         # '\nUnknown Vintage Lidar Data: ' : False,#tiles_t_or_f,
+#                         '\nEarliest 3DEP Lidar Data: ' : collect_starts_min,
+#                         '\nLatest 3DEP Lidar Data: ' : collect_ends_max,
+#                         '\nLatest 3DEP Lidar Data: ' : collect_majority
+#                         }
+
+#                 if bareEarthReturnMinFile is not None or intBeMaxFile is not None:
+#                     log.debug('---Creating LR Min layer')
+
+#                     beReturnsMinTempFile = os.path.join(procDir, '_'.join(['tmp_bemin', demPtString + 'm', huc12, 'out.tif']))
+#                     log.debug('---Creating LR Min raster')
+#                     beReturnsMin = arcpy.LasDatasetToRaster_conversion(beLayer, beReturnsMinTempFile, interpolation_type = 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'FLOAT')
+#                     log.debug('---Creating LR Min cm raster')
+#                     beReturnsMinCm = Int(Times(beReturnsMin, 100))
+#                     if bareEarthReturnMinFile is not None:
+#                         bareEarthReturnMinFile_sized = updateResolution(bareEarthReturnMinFile, named_cell_size, demListVal, pattern22, log)
+#                         log.debug('---Saving LR Min cm raster')
+#                         beReturnsMinCm.save(bareEarthReturnMinFile_sized)#locDict['bareEarthReturnMinFile'])#.replace('fr', 'be'))
+#                         log.debug('---Adding metadata to LR Min cm raster')
+#                         addMetadata(bareEarthReturnMinFile_sized, paraDict, derivative_metadata, log)
+
+#                 if int1rMaxFile is not None or int1rMinFile is not None or intBeMaxFile is not None:
+#                     if demListVal == '2':# only run for 2m DEMs, otherwise too slow
+#                         log.debug('---Creating intensity rasters')
+#                         if int1rMaxFile is None and int1rMinFile is not None: 
+#                             log.warning('Faking int1rMaxFile value due to requested int1rMinFile')
+#                             int1rMaxFile_faked = int1rMinFile.replace('fr_int_min', 'fr_int_max')
+#                             int1rMaxFile = int1rMaxFile_faked
+#                         elif int1rMaxFile is None and intBeMaxFile is not None:
+#                             log.warning('Faking int1rMaxFile value due to requested intBeMaxFile')
+#                             int1rMaxFile_faked = intBeMaxFile.replace('be_int_max', 'fr_int_max')
+#                             int1rMaxFile = int1rMaxFile_faked
+#                         log.debug('---Creating FR Max Intensity')
+#                         recode_tf = False
+#                         log.debug(f'ir.max: {internal_regions.maximum},ir.min: {internal_regions.minimum}')
+#                         int1rMaxFile_sized = updateResolution(int1rMaxFile, named_cell_size, demListVal, pattern22, log)
+#                         if internal_regions.maximum - internal_regions.minimum != 0:
+#                             log.info('multiple regions')
+#                             # int1rMaxFile_sized_temp = opj(os.path.dirname(int1rMaxFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
+#                             int1rMaxFile_sized_temp = os.path.join(procDir, '_'.join(['tmp_frmax', demPtString + 'm', huc12, 'out.tif']))
+#                             lasd1rMaxIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMaxFile_sized_temp, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
+#                             int_zs_max = ZonalStatistics(internal_regions, 'VALUE', int1rMaxFile_sized_temp, 'MAXIMUM')
+#                             if int_zs_max.minimum < 256 and int_zs_max.maximum > 256:
+#                                 int_lt_256 = LessThan(int_zs_max, 256)
+#                                 recode_areas = ZonalStatistics(internal_regions, 'VALUE', int_lt_256, 'MAXIMUM')
+#                                 multiplied_intensities = Raster(int1rMaxFile_sized_temp) * 256
+#                                 recoded_intensities = Con(recode_areas, multiplied_intensities, int1rMaxFile_sized_temp)
+#                                 if int1rMaxFile is not None:
+#                                     recoded_intensities.save(int1rMaxFile_sized)
+#                                     arcpy.Delete_management(int1rMaxFile_sized_temp)
+#                                 recode_tf = True
+#                             else:
+#                                 if int1rMaxFile is not None:
+#                                     log.info('all regions equal max intensity')
+#                                     arcpy.CopyRaster_management(int1rMaxFile_sized_temp, int1rMaxFile_sized)
+#                                     arcpy.Delete_management(int1rMaxFile_sized_temp)
+#                         else:
+#                             log.info('one region')
+#                             if int1rMaxFile is not None:
+#                                 lasd1rMaxIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
+
+#                         if int1rMaxFile is not None:
+#                             addMetadata(int1rMaxFile_sized, paraDict, derivative_metadata, log)
+
+#                         if int1rMinFile is not None:
+#                             log.debug('---Creating FR Min Intensity')
+#                             int1rMinFile_sized = updateResolution(int1rMinFile, named_cell_size, demListVal, pattern22, log)
+#                             if recode_tf:
+#                                 # int1rMinFile_sized_temp = opj(os.path.dirname(int1rMinFile_sized), 'temp_' + os.path.basename(int1rMaxFile_sized))
+#                                 int1rMinFile_sized_temp = os.path.join(procDir, '_'.join(['tmp_frmin', demPtString + 'm', huc12, 'out.tif']))
+#                                 lasd1rMinIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMinFile_sized_temp, 'INTENSITY', 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
+#                                 multiplied_intensities = Raster(int1rMinFile_sized_temp) * 256
+#                                 recoded_intensities = Con(recode_areas, multiplied_intensities, int1rMinFile_sized_temp)
+#                                 recoded_intensities.save(int1rMinFile_sized)
+#                                 arcpy.Delete_management(int1rMinFile_sized_temp)
+#                             else:
+#                                 lasd1rMinIntensity = arcpy.LasDatasetToRaster_conversion(lasdAll, int1rMinFile_sized, 'INTENSITY', 'BINNING MINIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
+#                             addMetadata(int1rMinFile_sized, paraDict, derivative_metadata, log)
+
+#                         if intBeMaxFile is not None:
+#                             log.debug('---Creating BE Max Intensity')
+#                             intBeMaxFile_sized = updateResolution(intBeMaxFile, named_cell_size, demListVal, pattern22, log)
+#                             if recode_tf:
+#                                 # intBeMaxFile_sized_temp = opj(os.path.dirname(intBeMaxFile_sized), 'temp_' + os.path.basename(intBeMaxFile_sized))
+#                                 intBeMaxFile_sized_temp = os.path.join(procDir, '_'.join(['tmp_bemax', demPtString + 'm', huc12, 'out.tif']))
+#                                 lasdBeMaxIntensity = arcpy.LasDatasetToRaster_conversion(beLayer, intBeMaxFile_sized_temp, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
+#                                 multiplied_intensities = Raster(intBeMaxFile_sized_temp) * 256
+#                                 recoded_intensities = Con(recode_areas, multiplied_intensities, intBeMaxFile_sized_temp)
+#                                 recoded_intensities.save(intBeMaxFile_sized)
+#                             else:
+#                                 lasdBeMaxIntensity = arcpy.LasDatasetToRaster_conversion(beLayer, intBeMaxFile_sized, 'INTENSITY', 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'INT')
+#                             addMetadata(intBeMaxFile_sized, paraDict, derivative_metadata, log)
+
+#                 if surfaceElevFile is not None:
+#                     log.debug('---Creating FR Max surface')
+#                     frMaxFile_sized = updateResolution(surfaceElevFile, named_cell_size, demListVal, pattern22, log)
+#                     allReturnsMaxTempFile = os.path.join(procDir, '_'.join(['tmp_frmax', demPtString + 'm', huc12, 'out.tif']))
+#                     # allReturnsMax = arcpy.LasDatasetToRaster_conversion(lasdAll, allReturnsMaxTempFile, interpolation_type = 'BINNING MAXIMUM SIMPLE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'FLOAT')
+#                     allReturnsMax = arcpy.LasDatasetToRaster_conversion(lasdAll, allReturnsMaxTempFile, interpolation_type = 'BINNING MAXIMUM NONE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'FLOAT')
+#                     allReturnsMaxCm = Int(Times(allReturnsMax, 100))
+#                     allReturnsMaxCm.save(frMaxFile_sized)#locDict['surfaceElevFile'])#allReturnsMaxFile)
+#                     addMetadata(frMaxFile_sized, paraDict, derivative_metadata, log)
+
+#                 # log.debug('---Creating FR Min surface')
+#                 # allReturnsMinTempFile = os.path.join(procDir, '_'.join(['tmp_frmin', demListVal + 'm', huc12, 'out.tif']))
+#                 # allReturnsMin = arcpy.LasDatasetToRaster_conversion(lasdAll, allReturnsMinTempFile, interpolation_type = 'BINNING MINIMUM SIMPLE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'FLOAT')
+#                 # allReturnsMinCm = Int(Times(allReturnsMin, 100))
+#                 # allReturnsMinCm.save(frMinFile_sized)#locDict['firstReturnMinFile'])#allReturnsMinFile)
+
+#                 if demListVal == '2':# only run for 2m DEMs, otherwise too slow
+#                     if cnt1rFile is not None:
+#                         log.debug('---Counting First Returns')
+#                         cnt1rFile_sized = updateResolution(cnt1rFile, named_cell_size, demListVal, pattern22, log)
+#                         cfrFileTemp = 'cnt_fr_' + demPtString + "m_" + huc12 + srSfx + '.tif'
+#                         lasdCount = arcpy.LasPointStatsAsRaster_management(lasdAll, os.path.join(procDir, cfrFileTemp), 'POINT_COUNT', 'CELLSIZE', sampling_value = demListVal)
+#                         cfrFileRasterObj = clipCountRaster(lasdCount, maskRastOut, cnt1rFile_sized)
+#                         addMetadata(cnt1rFile_sized, paraDict, derivative_metadata, log)
+
+#                     if cntPlsFile is not None:
+#                         log.debug('---Counting All Returns')
+#                         cntPlsFile_sized = updateResolution(cntPlsFile, named_cell_size, demListVal, pattern22, log)
+#                         cntPlsFileTemp = 'cnt_pls_' + demPtString + "m_" + huc12 + srSfx + '.tif'
+#                         lasdCount = arcpy.LasPointStatsAsRaster_management(lasdAll, os.path.join(procDir, cntPlsFileTemp), 'PULSE_COUNT', 'CELLSIZE', sampling_value = demListVal)
+#                         cntPlsFileRasterObj = clipCountRaster(lasdCount, maskRastOut, cntPlsFile_sized)
+#                         addMetadata(cntPlsFile_sized, paraDict, derivative_metadata, log)
+
+#                     if cntBeFile is not None:
+#                         log.debug('---Counting BE Returns')
+#                         cntBeFile_sized = updateResolution(cntBeFile, named_cell_size, demListVal, pattern22, log)#.replace('_be_', '_belas_')
+#                         cntBeFileTempSize = 'cnt_be_laspsr_' + demPtString + "m_" + huc12 + srSfx + '.tif'
+#                         be_lasdCount = arcpy.LasPointStatsAsRaster_management(beLayer, os.path.join(procDir, cntBeFileTempSize), 'PULSE_COUNT', 'CELLSIZE', sampling_value = demListVal)
+#                         # save the count raster with nulls converted to zeros, so that metadata can be added
+#                         be_nulls = IsNull(be_lasdCount)#cntPlsFileRasterObj)
+#                         be_nulls_as_zero = Con(be_nulls, 0, be_lasdCount)#cntPlsFileRasterObj)
+#                         be_cntPlsFileRasterObj = clipCountRaster(be_lasdCount, maskRastOut, cntBeFile_sized)
+# ##                        be_nulls_as_zero.save(cntBeFile_sized) 
+#                         addMetadata(cntBeFile_sized, paraDict, derivative_metadata, log)
+
         else:
             log.warning('lidar data area does not exist or does not exceed build threshold; DEM was not built')
 
@@ -2387,6 +2102,8 @@ if __name__ == "__main__":
 ##            if 'terrains' in locals():
 ##                dismantleTerrains(terrains, finalHb, finalNoZHb, poorZHb, finalHl, tcdFdSet, log)
             df.cleanupOther(procDir, log, sgdb, inm)
+
+        return tElevFile
 
     except AssertionError:
         log.warning('assertion failure on: ' + huc12)
@@ -2418,3 +2135,64 @@ if __name__ == "__main__":
             log.info('shutting it down!')
             log.removeHandler(h)
             h.close()
+
+
+##----------------------------------------------------------------------
+## below should be commented out when using as a Python Toolbox (.pyt) - in 2025, .pyt cannot handle running code in the main block
+## remove the comments below for use from the windows command line
+
+# if __name__ == "__main__":
+#     if len(sys.argv) == 1:
+#         #Paste arguments into here for use within Python Window
+#         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+#         # cleanup = False
+#         parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+#     "C:/Temp/cmd_build_terrain_derivatives_main.pyt",
+#     "E:/DEP_Checkout/Man_Data_ACPF/dep_ACPF2023/07080103/idepACPF070801030408.gdb/buf070801030408",
+#     "E:/DEP_Checkout/Man_Data_ACPF/dep_ACPF2023/07080103/idepACPF070801030408.gdb/wesm_tiles_2026_02_10_070801030408",
+#     "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_070801030408/laz_all_points",
+#     "C:/Users/bkgelder/.conda/envs/pdal_python/Library/bin/pdal.exe",
+#     "1,2,3",
+#     "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_070801030408",
+#     "E:/DEP_Checkout/Basedata_Summaries/Basedata_26915.gdb/Snap1m",
+#     "",
+#     "",
+#     "E:/DEP_Checkout/LiDAR_Current/elev_TLib_mean18/07080103/et_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07080103/be_min_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07080103/fr_max_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/count_Lib/07080103/cnt_be_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/count_Lib/07080103/cnt_fr_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/count_Lib/07080103/cnt_pls_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/int_Lib/07080103/fr_int_min_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/int_Lib/07080103/fr_int_max_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/int_Lib/07080103/be_int_max_1m_070801030408.tif",
+#     "False"]
+#         for i in parameters[2:]:
+#             sys.argv.append(i)
+
+#     else:
+#         #For use via Windows Command Line
+#         #above 'parameters' come in via command line arguments, nothing else needed
+#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+#         # clean up the folder after done processing
+#         # cleanup = True
+
+#     # inputs then outputs, change "" to Python None
+#     (dem_boundary, wesm_huc12_tiles, laz_download_dir,
+#          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
+#          tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+#          int1rMinFile, int1rMaxFile, intBeMaxFile, cleanup
+#         ) = [i if i != "" else None for i in sys.argv[1:]]
+
+#     # switch a text 'True' into a real Python True
+#     cleanup = True if cleanup == "True" else False
+
+#     messages = msgStub()
+
+#     doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
+#          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
+#          tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+#          int1rMinFile, int1rMaxFile, intBeMaxFile, cleanup, messages)
+
+#     arcpy.AddMessage("Back from doEPT!")
+

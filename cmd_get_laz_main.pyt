@@ -521,6 +521,35 @@ def create_laz_json_pipeline(laz_json_filename, saveDir, all_las_file, laz_full_
     return laz_json_full_filename
 
 
+def create_ept_json_pipeline(ept_json_filename, eleDir, ept_las_full_filename, extent_request, ept_address, srOutCode):
+    '''Writes a json pipeline for use by pdal (point data abstraction library)'''
+
+    ept_json_full_filename = os.altsep.join([eleDir, ept_json_filename])
+
+    json_str = '''{
+"pipeline": [
+{
+    "bounds": "([''' + extent_request + '''])",
+    "filename": "''' + ept_address + '''",
+    "type": "readers.ept",
+    "tag": "readdata"
+},
+{
+    "out_srs": "EPSG:''' + str(srOutCode) + '''",
+    "tag": "reprojectUTM",
+    "type": "filters.reprojection"
+},
+{
+    "filename": "''' + ept_las_full_filename + '''",
+    "tag": "writerslas",
+    "type": "writers.las"
+}]}'''
+
+    json_file_obj = open(ept_json_full_filename, 'w')
+    json_file_obj.write(json_str)
+    json_file_obj.close()
+
+    return ept_json_full_filename
 
 def organizeProjectsByDate(wesm_huc12, work_id_name, maskFc_area, build_threshold, log):
     """Organize the 3DEP projects by acquisition date so we use the
@@ -1027,8 +1056,8 @@ def usgs_download_laz(
                     log.info(f"Path Exists (size OK): {out_path}")
                     return_path = out_path
                     # if '-m' not in platform.node().lower():
-                    # if 'E:' not in out_path:
-                    create_metadata_json(out_path, pdal_exe, log)
+                    if 'E:' not in out_path:
+                        create_metadata_json(out_path, pdal_exe, log)
                     continue
                 else:
                     log.info(f"Re-downloading (size mismatch): {filename}") 
@@ -1065,8 +1094,8 @@ def usgs_download_laz(
                     log.info(f"Download complete: {filename}")
                     return_path = out_path
                     # if '-m' not in platform.node().lower():
-                    # if 'E:' not in out_path:
-                    create_metadata_json(out_path, pdal_exe, log)
+                    if 'E:' not in out_path:
+                        create_metadata_json(out_path, pdal_exe, log)
                     success = True
                     break
 
@@ -1214,35 +1243,6 @@ def get_laz_bounds_and_crs(laz_file, pkl_path, write_pickle=True):
 ##    info = get_laz_bounds_and_crs(laz_path)
 ##    print(info)
 
-def create_ept_json_pipeline(ept_json_filename, eleDir, ept_las_full_filename, extent_request, ept_address, srOutCode):
-    '''Writes a json pipeline for use by pdal (point data abstraction library)'''
-
-    ept_json_full_filename = os.altsep.join([eleDir, ept_json_filename])
-
-    json_str = '''{
-"pipeline": [
-{
-    "bounds": "([''' + extent_request + '''])",
-    "filename": "''' + ept_address + '''",
-    "type": "readers.ept",
-    "tag": "readdata"
-},
-{
-    "out_srs": "EPSG:''' + str(srOutCode) + '''",
-    "tag": "reprojectUTM",
-    "type": "filters.reprojection"
-},
-{
-    "filename": "''' + ept_las_full_filename + '''",
-    "tag": "writerslas",
-    "type": "writers.las"
-}]}'''
-
-    json_file_obj = open(ept_json_full_filename, 'w')
-    json_file_obj.write(json_str)
-    json_file_obj.close()
-
-    return ept_json_full_filename
 
 
 def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon, 
@@ -1339,11 +1339,8 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
         fElevDesc = arcpy.da.Describe(dem_polygon)
         srOut = fElevDesc['spatialReference']
         srOutCode = srOut.PCSCode
-        if srOutCode == 102039:
-            # reassign to 5070, https://rashms.com/gis/earth-ellipsoid-coordinate-reference-system-crs-projection-epsg-codes-in-gis/
-            srOutCode = 5070
-        assert srOutCode < 32768, 'EPSG spatial reference code too large, PDAL will not recognize'
-        log.info('Output will be in EPSG Code (spatial reference): ' + str(srOutCode))
+
+        assert srOutCode < 32768, "EPSG spatial reference code too large, PDAL will not recognize"
 
         log.info("Output will be in EPSG Code (spatial reference): " + str(srOutCode))#sys.argv[9])
         log.info("Log file at " + logName)
@@ -1398,7 +1395,7 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
         # code fails on QL1 data for 071200030402, downloaded LAS for 79951 work id was 143 GB and caused ExtractLas to fail
         # assert count_ql0_ql1 < 1, 'DEM builder not yet configured for QL1 or QL0 density data, email bkgelder@iastate.edu to request upgrade'
         if ql1:
-            log.warning('You have selected an area with QL0 or QL1 lidar, this may take a while!')
+            log.warning('You have selected an area with QL0 or QL1 lidar, this will take a while!')
 
 ##----------------------------------------------------------------------
 
@@ -1454,8 +1451,8 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                                 create_bounds_from_json(json_dir, out_gdb, out_fc_name, work_id_name, srow[1], log = log, create_gdb=True)
                                 bounds_count = int(arcpy.GetCount_management(out_fc).getOutput(0))
 
-                                assert len_laz is not None, f'length of laz files is None for {page_url}, cannot compare to bounds count'
-                                assert len_laz == bounds_count, f'length of laz files {len_laz} does not match bounds count {bounds_count} for {page_url}'
+                                if bounds_count != len_laz:
+                                    log.warning(f'Bounds count {bounds_count} does not match laz file count {len_laz} for work unit {srow[1]}')
                         if arcpy.Exists(out_fc):
                             bounds_list.append(out_fc)
                         elif arcpy.Exists(alt_out_fc) and alt_out_fc != out_fc:
@@ -1646,12 +1643,12 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
 ##----------------------------------------------------------------------
             # add collection start and end dates to the attribute table of the fishnet tiles for any projects that meet the build threshold, so we can use that info later in the processing to determine which tiles to prioritize for processing and which to maybe skip or process last based on how recent the data is
             df.joinDict(wesm_huc12, work_id_name, monthly_wesm_ept_mashup, work_id_name, ['collect_start', 'collect_end'])
-            df.joinDict(wesm_huc12_tiles, work_id_name, monthly_wesm_ept_mashup, work_id_name, ['collect_start', 'collect_end', 'ql', 'dem_gsd_meters', 'horiz_crs', 'vert_crs','lpc_category', 'lpc_reason'])
+            df.joinDict(wesm_huc12_tiles, work_id_name, monthly_wesm_ept_mashup, work_id_name, ['collect_start', 'collect_end'])
 
             
-    # except AssertionError:
-    #     log.warning('assertion failure on: ' + huc12)
-    #     sys.exit(1)
+    except AssertionError:
+        log.warning('assertion failure on: ' + huc12)
+        sys.exit(1)
     except:
         tb = sys.exc_info()[2]
         tbinfo = traceback.format_tb(tb)[0]
@@ -1963,8 +1960,8 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
                     # Extract metadata
                     metadata = data['metadata']
                     las_filepath = data.get('filename', '')
-                    if '-m10' in platform.node():# make it point to the final location of the laz files, not a temporary download location
-                        las_filepath = las_filepath.replace('E:\\DEP\\USGS_LPC', 'M:\\DEP\\USGS_LPC')
+                    # if '-m10' in platform.node():# make it point to the final location of the laz files, not a temporary download location
+                    #     las_filepath = las_filepath.replace('E:\\DEP\\USGS_LPC', 'M:\\DEP\\USGS_LPC')
                     file_size_mb = data.get('file_size', 0) / (1024 * 1024)  # Convert to MB
                     
                     # Get bounding box coordinates
@@ -2031,8 +2028,6 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
                 except Exception as e:
                     error_count += 1
                     log.error(f"Error processing {json_file}: {str(e)}")
-                    log.warning(f"Run script again, removing due to error: {json_file}")
-                    os.remove(json_file)
         
         log.info("-" * 60)
         log.info(f"Processing complete!")
@@ -2050,45 +2045,45 @@ def create_bounds_from_json(json_directory, output_gdb, feature_class_name, work
 ## below should be commented out when using as a Python Toolbox (.pyt) - in 2025, .pyt cannot handle running code in the main block
 ## remove the comments below for use from the windows command line
 
-# if __name__ == "__main__":
-#     if len(sys.argv) == 1:
-#         #Paste arguments into here for use within Python Window
-#         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-#         # cleanup = False
-#         parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-#     "C:/Users/bkgelder/Documents/hydro_dems/cmd_get_laz.pyt",
-#     "M:/DEP/Elevation_databases/ept.gdb/ept_resources_2026_01_01",
-#     "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100008/idepACPF071000080502.gdb/buf071000080502",
-#     "C:/Users/bkgelder/.conda/envs/pdal_python/Library/bin/pdal.exe",
-#     "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_071000080502",
-#     "get_USGS_LAZ",
-#     "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100008/idepACPF071000080502.gdb/wesm_ept_resources_2026_02_01_071000080502",
-#     "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100008/idepACPF071000080502.gdb/wesm_tiles_2026_02_16_071000080502",
-#     "M:/DEP/USGS_LPC",
-#     "False"]
-#         for i in parameters[2:]:
-#             sys.argv.append(i)
+if __name__ == "__main__":
+    if len(sys.argv) == 1:
+        #Paste arguments into here for use within Python Window
+        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+        # cleanup = False
+        parameters = 	["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+    "C:/Users/bkgelder/Documents/hydro_dems/cmd_get_laz.pyt",
+    "M:/DEP/Elevation_databases/ept.gdb/ept_resources_2026_01_01",
+    "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100008/idepACPF071000080502.gdb/buf071000080502",
+    "C:/Users/bkgelder/.conda/envs/pdal_python/Library/bin/pdal.exe",
+    "E:/DEP_Proc/DEMProc/LAS_dem2013_1m_071000080502",
+    "get_USGS_LAZ",
+    "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100008/idepACPF071000080502.gdb/wesm_ept_resources_2026_02_01_071000080502",
+    "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07100008/idepACPF071000080502.gdb/wesm_tiles_2026_02_16_071000080502",
+    "M:/DEP/USGS_LPC",
+    "False"]
+        for i in parameters[2:]:
+            sys.argv.append(i)
 
-#     else:
-#         #For use via Windows Command Line
-#         #above 'parameters' come in via command line arguments, nothing else needed
-#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-#         # clean up the folder after done processing
-#         # cleanup = True
+    else:
+        #For use via Windows Command Line
+        #above 'parameters' come in via command line arguments, nothing else needed
+        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+        # clean up the folder after done processing
+        # cleanup = True
 
-#     # inputs then outputs, change "" to Python None
-#     (monthly_wesm_ept_mashup, dem_polygon, 
-#          pdal_exe, procDir, get_lidar_method,
-#          ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup
-#         ) = [i if i != "" else None for i in sys.argv[1:]]
+    # inputs then outputs, change "" to Python None
+    (monthly_wesm_ept_mashup, dem_polygon, 
+         pdal_exe, procDir, get_lidar_method,
+         ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup
+        ) = [i if i != "" else None for i in sys.argv[1:]]
 
-#     # switch a text 'True' into a real Python True
-#     cleanup = True if cleanup == "True" else False
+    # switch a text 'True' into a real Python True
+    cleanup = True if cleanup == "True" else False
 
-#     messages = msgStub()
+    messages = msgStub()
 
-#     doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon, 
-#          pdal_exe, procDir, get_lidar_method,
-#          ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup, messages)#msgStub())
+    doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon, 
+         pdal_exe, procDir, get_lidar_method,
+         ept_wesm_project_file, wesm_huc12_tiles, lidar_download_directory, cleanup, messages)#msgStub())
 
-#     arcpy.AddMessage("Back from doLazDownloadCopy!")
+    arcpy.AddMessage("Back from doLazDownloadCopy!")

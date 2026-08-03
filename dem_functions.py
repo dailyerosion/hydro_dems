@@ -1215,6 +1215,10 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         "geeResidueMap" : geeResidueMap,
 ##        "mnTillageTable" : opj(locationsDictNoVersion["huc8_fields"], 'huc' + huc8 + '_mn_rc' + ACPFyear),
 ##        "geeTillageTable" : opj(locationsDictNoVersion["huc8_fields"], 'huc' + huc8 + '_gee_rc' + ACPFyear),
+        "huc8_tillageTable" : opj(ACPFDir, "_".join(['till', ACPFyear, 'huc', huc8])),
+        # "geeTillageTable" : opj(ACPFDir, 'huc' + huc12 + '_till' + ACPFyear),
+        "huc8_mnResidueTable" : opj(ACPFDir, "_".join(['RC_MN', ACPFyear, 'huc', huc8])),
+        "huc8_geeResidueTable" : opj(ACPFDir, "_".join(['RC_GEE', ACPFyear, 'huc', huc8])),
         "tillageTable" : opj(ACPFDir, "_".join(['till', ACPFyear, 'huc', huc12])),
         # "geeTillageTable" : opj(ACPFDir, 'huc' + huc12 + '_till' + ACPFyear),
         "mnResidueTable" : opj(ACPFDir, "_".join(['RC_MN', ACPFyear, 'huc', huc12])),
@@ -3084,7 +3088,7 @@ def copy_text_line_by_line(source_file, destination_file):
 ##                else:
 ##                    destination.write(line)
         
-        print("Text copied line by line successfully from {} to {}.".format(source_file, destination_file))
+        print(f"Text copied line by line successfully to {destination_file}.")
     
     except FileNotFoundError:
         print("File not found. Please check the file paths.")

@@ -376,111 +376,10 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
         log.info("Log file at " + logName)
         messages.addMessage("Log file at " + logName)
 
-        # vlib_metadata_template, derivative_metadata = df.getMetadata(['vlib', 'deriv'], procDir, log)
-
-        # ## store a list of all DEMs (lidar based, others) that must be joined to create HUC12
-        # ## Now a list of lists to facilitate creating two DEM resolutions easily (2 and 3 meter)
-        # rezes = gsds.split(",")
-        # log.info(f'Resolutions: {rezes}')
-        # ordered_rezes = []
-        # # for r in rezes:
-        # #     filename_path = Path(fElevFile)
-        # #     # check to see if it follows HUC DEM naming procedure
-        # #     stem = filename_path.stem
-        # #     pattern28 = '[0-9]m'
-        #     # if re.search(pattern28, stem):
-        #     #     log.debug(f"found match in {stem} of resolution {r}m")
-        #     #     ordered_rezes.append(r)
-        #     #     rezes.pop(r)
-
-        # for r in rezes:
-        #     ordered_rezes.append(r)
-        # log.debug(f"ordered_rezes is {ordered_rezes}")
-
-        # # do lower to higher resolution
-        # # rezes.sort(reverse = True)
-        # demLists = [r for r in ordered_rezes]
-        # log.debug(f"demLists is {demLists}")
-        # # named_cell_size = demLists[0]
-        # init_res = demLists[0][0]
-        # log.debug(f"init_res is {init_res}")
-
-        # if init_res + 'm' not in fElevFile:
-        #     fElevFile = os.path.splitext(fElevFile)[0] + '_' + str(init_res) + 'm' + os.path.splitext(fElevFile)[1]
-
-        # ## windowsizeMethods are the criterion used to select which point(s) in the window define the terrain
-        # interpDict = df.loadInterpDict()
-        # windowsizeMethods = ['ZMEAN', 'ZMINMAX']#, 'ZMIN']
-        # interpType = interpDict[windowsizeMethods[0]]
-
-        # if interpType not in fElevFile:
-        #     fElevFile = os.path.splitext(fElevFile)[0] + '_' + interpType + os.path.splitext(fElevFile)[1]
-        # log.debug(f'Revised fElevFile: {fElevFile}')
-
-        # # delete any pre-existing inputs
-        # for ras in [voidFixTif, bigNoDataAreas, mediumNoDataAreas]:
-        #     if ras is not None:
-        #         filename_path = Path(ras)
-        #         # check to see if it follows HUC DEM naming procedure
-        #         stem = filename_path.stem
-        #         if re.search(pattern22, stem):
-        #             if len(demLists) > 0:
-        #                 for demList in demLists:
-        #                     rasRes = updateResolution(ras, init_res, demList[0], pattern22, log)
-        #                     try_to_delete(rasRes, log)
-
-        # # create output directories
-        # for filename in [voidFixTif, bigNoDataAreas, mediumNoDataAreas]:
-        #     if filename is not None:
-        #         df.create_needed_dirs_and_gdbs(filename, log)
-
-        #     # if not os.path.isdir(os.path.dirname(filename)):
-        #     #     os.makedirs(os.path.dirname(filename))
-        #     # create directories for alternate interpolation types/windowsize methods
-        #         if interpType in filename:
-        #             for window in windowsizeMethods:
-        #                 abbrev = interpDict[window]
-        #                 if abbrev != interpType:
-        #                     altfilename = filename.replace(interpType, abbrev)
-        #                     df.create_needed_dirs_and_gdbs(altfilename, log)
-        #                     # if not os.path.isdir(os.path.dirname(altfilename)):
-        #                     #     os.makedirs(os.path.dirname(altfilename))
-
-    # ## If you set a scratch workspace first you can control where the scratchGDB or scratchFolder are created
-    # ## otherwise it defaults to a user's temp folder
-    # ## if you don't set anything it will go to 'in_memory'
-    #     inm = 'in_memory'
-    #     if snap is not None:#!= "":
-    #         arcpy.env.snapRaster = snap
-
-    #     # also set output to VCS 5703, NAVD88 Meters
-    #     srOut = arcpy.SpatialReference(int(srOutCode), 5703)
-    #     # since final output is in centimeters, create one without VCS
-    #     srOutNoVCS = arcpy.SpatialReference(int(srOutCode))
-    #     arcpy.env.outputCoordinateSystem = srOut
-    #     srSfx = '_'+str(srOutCode)
-            
-    #     if not os.path.isdir(voidProc):
-    #         os.makedirs(voidProc)
-
-    #     for j in [voidFixTif, bigNoDataAreas, mediumNoDataAreas]:
-    #         jdir = os.path.dirname(j)
-    #         if not os.path.isdir(jdir):
-    #             os.makedirs(jdir)
-
-    #     startTime = time.time()
-    #     log.info("Beginning execution: " + time.asctime())
-    #     log.info("Tool: Executing with parameters:\n" + arg_str)
-    #     messages.addMessage("Log file at " + logName)
-
-    # ## Set the environments
-    #     arcpy.env.overwriteOutput = True
-    #     arcpy.env.scratchWorkspace = voidProc
-
-    #     sfldr = arcpy.env.scratchFolder
-    #     sgdb = arcpy.env.scratchGDB
-    #     arcpy.env.scratchWorkspace = sgdb#sfldr#
-    #     arcpy.env.workspace = sgdb
+        output_data = arguments[-4:-1]
+        for o in output_data:
+            if o is not None:
+                df.create_needed_dirs_and_gdbs(o, log)
 
         arcpy.env.snapRaster = fillTif#snapRaster
 
@@ -612,9 +511,8 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                 ## see how thick the no data is and use maximum of 1 cell or nodata thickness to expand 
                     ndThickness = ZonalGeometry(ndRegions, 'VALUE', 'THICKNESS')
                     bndBufNdThick = Con(bndBufRasterLine, ndThickness)
-
-                    if bndBufNdThick.maximum >= 2:
-                        numCells = int(bndBufNdThick.maximum/2)
+                    if bndBufNdThick.maximum is not None and bndBufNdThick.maximum >= 2:
+                        numCells = int(bndBufNdThick.maximum / 2)
                     else:
                         numCells = 1
                     bndBufRasterLine3 = Expand(bndBufRasterLinePre, numCells, bndBufRasterLinePre.maximum)
@@ -1321,58 +1219,58 @@ class msgStub:
         arcpy.AddWarningMessage(text)
 
 
-#----------------------------------------------------------------------
-if __name__ == "__main__":
-##if True:
+# #----------------------------------------------------------------------
+# if __name__ == "__main__":
+# ##if True:
 
-    if len(sys.argv) == 1:
-        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-        cleanup = False
+#     if len(sys.argv) == 1:
+#         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+#         cleanup = False
 
-        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-    "C:/DEP/Scripts/basics/cmd_flattener_DEM.pyt",
-    "M:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef_1m_070801050901.tif",
-    "M:/DEP/LiDAR_Current/count_Lib/07080105/cnt_be_1m_070801050901.tif",
-    "M:/DEP/LiDAR_Current/count_Lib/07080105/cnt_fr_1m_070801050901.tif",
-    "M:/DEP/LiDAR_Current/surf_el_Lib/07080105/fr_max_1m_070801050901.tif",
-    "M:/DEP/LiDAR_Current/int_Lib/07080105/fr_int_max_1m_070801050901.tif",
-    "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07080105/idepACPF070801050901.gdb/buf_070801050901",
-    "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
-    "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/waterways",
-    "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/water",
-    "M:/DEP/LiDAR_Current/bl_Lib/07080105/breaks_07080105.gdb/break_polys_070801050901",
-    "E:/DEP_Proc/DEMProc/Void_dem2013_1m_070801050901",
-    "M:/DEP/LiDAR_Current/elev_VLib_mean18/07080105/ev_1m_070801050901.tif",
-    "M:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/bigvds_1m_070801050901.tif",
-    "M:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/medvds_1m_070801050901.tif"]
-    #     ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-	# "C:/DEP/Scripts/basics/cmd_flattener_DEM.pyt",
-	# "C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
-	# "C:/DEP/LiDAR_Current/count_Lib/07080105/cbe3m070801050901.tif",
-    # "C:/DEP/LiDAR_Current/count_Lib/07080105/cfr3m070801050901.tif",
-	# "C:/DEP/LiDAR_Current/surf_el_Lib/07080105/frmax3m070801050901.tif",
-	# "C:/DEP/LiDAR_Current/int_Lib/07080105/fr_int_max3m070801050901.tif",
-	# "C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/buf_070801050901",
-	# "C:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
-	# "C:/DEP/Basedata_Summaries/Basedata_26915.gdb/waterways",
-	# "C:/DEP/Basedata_Summaries/Basedata_26915.gdb/water",
-	# "C:/DEP/LiDAR_Current/bl_Lib/07080105/breaks_07080105.gdb/break_polys_070801050901",
-	# "C:/DEP_Proc/DEMProc/Void_dem2013_3m_070801050901",
-	# "C:/DEP/LiDAR_Current/elev_VLib_mean18/07080105/ev3m070801050901.tif",
-	# "C:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/bigvds3m070801050901.tif",
-	# "C:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/medvds3m070801050901.tif"]
+#         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+#     "C:/DEP/Scripts/basics/cmd_flattener_DEM.pyt",
+#     "M:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef_1m_070801050901.tif",
+#     "M:/DEP/LiDAR_Current/count_Lib/07080105/cnt_be_1m_070801050901.tif",
+#     "M:/DEP/LiDAR_Current/count_Lib/07080105/cnt_fr_1m_070801050901.tif",
+#     "M:/DEP/LiDAR_Current/surf_el_Lib/07080105/fr_max_1m_070801050901.tif",
+#     "M:/DEP/LiDAR_Current/int_Lib/07080105/fr_int_max_1m_070801050901.tif",
+#     "M:/DEP/Man_Data_ACPF/dep_ACPF2023/07080105/idepACPF070801050901.gdb/buf_070801050901",
+#     "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
+#     "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/waterways",
+#     "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/water",
+#     "M:/DEP/LiDAR_Current/bl_Lib/07080105/breaks_07080105.gdb/break_polys_070801050901",
+#     "E:/DEP_Proc/DEMProc/Void_dem2013_1m_070801050901",
+#     "M:/DEP/LiDAR_Current/elev_VLib_mean18/07080105/ev_1m_070801050901.tif",
+#     "M:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/bigvds_1m_070801050901.tif",
+#     "M:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/medvds_1m_070801050901.tif"]
+#     #     ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+# 	# "C:/DEP/Scripts/basics/cmd_flattener_DEM.pyt",
+# 	# "C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
+# 	# "C:/DEP/LiDAR_Current/count_Lib/07080105/cbe3m070801050901.tif",
+#     # "C:/DEP/LiDAR_Current/count_Lib/07080105/cfr3m070801050901.tif",
+# 	# "C:/DEP/LiDAR_Current/surf_el_Lib/07080105/frmax3m070801050901.tif",
+# 	# "C:/DEP/LiDAR_Current/int_Lib/07080105/fr_int_max3m070801050901.tif",
+# 	# "C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/buf_070801050901",
+# 	# "C:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
+# 	# "C:/DEP/Basedata_Summaries/Basedata_26915.gdb/waterways",
+# 	# "C:/DEP/Basedata_Summaries/Basedata_26915.gdb/water",
+# 	# "C:/DEP/LiDAR_Current/bl_Lib/07080105/breaks_07080105.gdb/break_polys_070801050901",
+# 	# "C:/DEP_Proc/DEMProc/Void_dem2013_3m_070801050901",
+# 	# "C:/DEP/LiDAR_Current/elev_VLib_mean18/07080105/ev3m070801050901.tif",
+# 	# "C:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/bigvds3m070801050901.tif",
+# 	# "C:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/medvds3m070801050901.tif"]
 
-        for i in parameters[2:]:
-            sys.argv.append(i)
-    else:
-        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-        # DO NOT clean up the folder after done processing - matcher needs this data
-        cleanup = False
+#         for i in parameters[2:]:
+#             sys.argv.append(i)
+#     else:
+#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+#         # DO NOT clean up the folder after done processing - matcher needs this data
+#         cleanup = False
 
-    messages = msgStub()
+#     messages = msgStub()
 
-    # input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir = [i for i in sys.argv[1:]]
-    fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas = [i for i in sys.argv[1:]]
+#     # input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir = [i for i in sys.argv[1:]]
+#     fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas = [i for i in sys.argv[1:]]
 
-    doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, cleanup, messages)
-    arcpy.AddMessage("Back from doing!")
+#     doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, cleanup, messages)
+#     arcpy.AddMessage("Back from doing!")

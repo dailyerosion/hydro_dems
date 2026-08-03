@@ -234,9 +234,13 @@ def setAllSearchDistances(inFC, wsSearchDistFld, minFrDistFld, frFld, minElFld, 
                         baseDistPre = min(maxFrSearchDist, actFrSearchDist)
                         baseDist = max(minFrSearchDist, baseDistPre)
                 else:
-                    actFrSearchDist = crestWidth + 1.25*row[1]*srchMult
-                    baseDistPre = min(maxFrSearchDist, actFrSearchDist)
-                    baseDist = max(minFrSearchDist, baseDistPre)
+                    if row[1] == None:
+                        baseDist = minFrSearchDist
+                        baseErrorList.append(str(row[2]))
+                    else:
+                        actFrSearchDist = crestWidth + 1.25*row[1]*srchMult
+                        baseDistPre = min(maxFrSearchDist, actFrSearchDist)
+                        baseDist = max(minFrSearchDist, baseDistPre)
                     
                 row[ucur.fields.index(wsSearchDistFld)] = baseDist
 
@@ -542,7 +546,10 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         # punchedDEMNoHoles = Con(IsNull(punchGdb) == 1, fill_or_void_tif, punch_tif)
         # bestestDEM = punchedDEMNoHoles#Raster(punchGdb)
 
-        slopePct = Raster(opj(proc_dir, 'slope_pct'))
+        slopeRaster = opj("E:\\DEP_Checkout\\LiDAR_Current\\deriv_Lib_mnmx18", huc8, "slp_2m_" + huc12 + ".tif")
+        if not arcpy.Exists(slopeRaster):
+            slopeRaster = slopeRaster.replace("E:\\DEP_Checkout", "M:\\DEP")
+        slopePct = Raster(slopeRaster)#opj(proc_dir, 'slope_pct'))
         flats2 = Con(slopePct == 0.0, 1, 0)
         noInteriorFlatsDEM = Con(flats2 == 0, fill_or_void_tif, '')
 
@@ -551,7 +558,8 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         arcpy.env.workspace = inm
 
         match_stats = arcpy.CreateTable_management(inm, 'match_stats')
-        df.tryAddField(match_stats, 'HUC12', 'TEXT')
+        arcpy.AddField_management(match_stats, 'HUC12', 'TEXT', field_length = 20)
+        # df.tryAddField(match_stats, 'HUC12', 'TEXT')
         df.tryAddField(match_stats, 'LEVEL', 'SHORT')
         df.tryAddField(match_stats, 'UP_PTS_COUNT', 'LONG')
         df.tryAddField(match_stats, 'DN_PTS_COUNT', 'LONG')
@@ -563,21 +571,36 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         fr0_name = os.path.basename(fr0_rasters)
         frRasters = arcpy.ListRasters(fr0_name[:4] + '*')#'fr0_*')
         frRasters.sort()
+
+        stacked_dfs = opj('E:\\DEP_Checkout\\Man_Data_ACPF\\dep_ACPF2024', huc8, 'idepACPF' + huc12 + '.gdb\\drains_mnmx18_dem2013_2m_' + huc12)
+        stacked_ws = opj('E:\\DEP_Checkout\\Man_Data_ACPF\\dep_ACPF2024', huc8, 'idepACPF' + huc12 + '.gdb\\ws_mnmx18_dem2013_2m_' + huc12)
+        stacked_dfs_list = []
+        stacked_ws_list = []
+        for i in range(len(frRasters)):#decomp_count):
+            log.info(f'decomposing dfs and ws polygons, iteration {i}')
+            dfsFC = arcpy.Select_analysis(stacked_dfs, opj(sgdb, 'dfs_frToPoly_' + str(i)), fillLvlFld + ' = ' + str(i))
+            wsPolys = arcpy.Select_analysis(stacked_ws, opj(sgdb, 'ws_polys_' + str(i)), fillLvlFld + ' = ' + str(i))
+            stacked_dfs_list.append(dfsFC)
+            stacked_ws_list.append(wsPolys)
+
         for i, item in enumerate(frRasters[:]):
             log.info('working on frRaster: ' + str(item))
             arcpy.env.workspace = proc_dir
             sfx = '_' + item.split('_')[-1]
-            dfsFC = dfs_polys[:-2] + sfx
+            # dfsFC = dfs_polys[:-2] + sfx
             # dfsFC = os.path.join(sgdb, 'dfs_frToPoly' + sfx)
+            dfsFC = stacked_dfs_list[i]
             dfsList.append(dfsFC)
             # add identifier for medians
             df.tryAddField(dfsFC, medianFrFld, "SHORT")
             # wsPolys = os.path.join(sgdb, 'ws_polys' + sfx)
-            wsPolys = ws_polys[:-2] + sfx
+            wsPolys = stacked_ws_list[i]
+            # wsPolys = ws_polys[:-2] + sfx
 
     ##                selFull = '(' + ofElFld + ' - ' + minElFld + ') > 67 OR ' + maxFrOfDistFld + ' >= ' + str(3 * ProcSize)
     ##        selFull = '(' + ofElFld + ' - ' + minElFld + ') > ' + str(3.0 * RMSE) + ' AND (' + ofElFld + ' - ' + minElFld + ')*0.01 / ' + minFrDistFld + ' >= 0.05'
-            selFull = frDepthFld + ' > ' + str(2.0 * float(match_depth)) + ' AND ' + frMaxSlopeFld + ' > 5.0'
+            frMaxSlopeThresh = 7.5 if ProcSize <= 2 else 5.0#' - higher res DEMs need higher slope threshold
+            selFull = frDepthFld + ' > ' + str(2.0 * float(match_depth)) + ' AND ' + frMaxSlopeFld + ' > ' + str(frMaxSlopeThresh)
             ## instead of frPctDrop could analyze by water 'piling' up near edge
 
     ####        df.condDelete(verbose, wsPolys)
@@ -801,6 +824,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
                         log.debug('maxWsMdnFld from input query is ' + maxWsMdnFld1)
                     else:
                         ## set up dummy values
+                        log.debug(f'no merged medians for: {huc12}')
                         maxWsMedian = setupNoMedians(upPtsCmb, medianFrFld, dfs2cut4step, minElFld, frFld, maxWsMdnFld, mdnFracFld, sgdb)
 
                 else:
@@ -1142,7 +1166,19 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
                                     ## Get the upstream region it might be a match for
         ##arcpy.analysis.SpatialJoin("dn_pts_cnvrt_0", "good_ds8_0", r"O:\DEP\temp\Matcher_070801050901\Matcher_070801050901.gdb\dn_pts_cnvrt_0_SpatialJoin", "JOIN_ONE_TO_MANY", "KEEP_ALL", 'pointid "pointid" true true false 4 Long 0 0,First,#,dn_pts_cnvrt_0,pointid,-1,-1;grid_code "grid_code" true true false 4 Long 0 0,First,#,dn_pts_cnvrt_0,grid_code,-1,-1;FID_ws_line_bfr_0 "FID_ws_line_bfr_0" true true false 4 Long 0 0,First,#,good_ds8_0,FID_ws_line_bfr_0,-1,-1;FILL_RGN "FILL_RGN" true true false 4 Long 0 0,First,#,good_ds8_0,FILL_RGN,-1,-1;WS_SRCH_DST "WS_SRCH_DST" true true false 8 Double 0 0,First,#,good_ds8_0,WS_SRCH_DST,-1,-1;WS_MDN_DIST "WS_MDN_DIST" true true false 8 Double 0 0,First,#,good_ds8_0,WS_MDN_DIST,-1,-1;BUFF_DIST "BUFF_DIST" true true false 8 Double 0 0,First,#,good_ds8_0,BUFF_DIST,-1,-1;ORIG_FID "ORIG_FID" true true false 4 Long 0 0,First,#,good_ds8_0,ORIG_FID,-1,-1;FID_ws_2_cut_0 "FID_ws_2_cut_0" true true false 4 Long 0 0,First,#,good_ds8_0,FID_ws_2_cut_0,-1,-1;Id "Id" true true false 4 Long 0 0,First,#,good_ds8_0,Id,-1,-1;gridcode "gridcode" true true false 4 Long 0 0,First,#,good_ds8_0,gridcode,-1,-1;FR_MIN_EL "FR_MIN_EL" true true false 4 Long 0 0,First,#,good_ds8_0,FR_MIN_EL,-1,-1;FR_OF_EL "FR_OF_EL" true true false 4 Long 0 0,First,#,good_ds8_0,FR_OF_EL,-1,-1;MIN_MIN "MIN_MIN" true true false 8 Double 0 0,First,#,good_ds8_0,MIN_MIN,-1,-1;REV_CUT_EL "REV_CUT_EL" true true false 4 Long 0 0,First,#,good_ds8_0,REV_CUT_EL,-1,-1;Shape_Length "Shape_Length" false true true 8 Double 0 0,First,#,good_ds8_0,Shape_Length,-1,-1;Shape_Area "Shape_Area" false true true 8 Double 0 0,First,#,good_ds8_0,Shape_Area,-1,-1', "INTERSECT", None, '')
         ##arcpy.SpatialJoin_analysis(target_features="D:/DEP_Proc/DEMProc/Cut_dem2013_070801050901/scratch.gdb/dn_pts_cnvrt_0", join_features="D:/DEP_Proc/DEMProc/Cut_dem2013_070801050901/scratch.gdb/good_ds8_0", out_feature_class="D:/DEP_Proc/DEMProc/Cut_dem2013_070801050901/scratch.gdb/dn_pts_cnvrt_0_SpatialJoin2", join_operation="JOIN_ONE_TO_MANY", join_type="KEEP_ALL", field_mapping="""pointid "pointid" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\dn_pts_cnvrt_0,pointid,-1,-1;grid_code "grid_code" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\dn_pts_cnvrt_0,grid_code,-1,-1;FID_ws_line_bfr_0 "FID_ws_line_bfr_0" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,FID_ws_line_bfr_0,-1,-1;FILL_RGN "FILL_RGN" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,FILL_RGN,-1,-1;WS_SRCH_DST "WS_SRCH_DST" true true false 8 Double 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,WS_SRCH_DST,-1,-1;WS_MDN_DIST "WS_MDN_DIST" true true false 8 Double 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,WS_MDN_DIST,-1,-1;BUFF_DIST "BUFF_DIST" true true false 8 Double 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,BUFF_DIST,-1,-1;ORIG_FID "ORIG_FID" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,ORIG_FID,-1,-1;FID_ws_2_cut_0 "FID_ws_2_cut_0" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,FID_ws_2_cut_0,-1,-1;Id "Id" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,Id,-1,-1;gridcode "gridcode" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,gridcode,-1,-1;FR_MIN_EL "FR_MIN_EL" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,FR_MIN_EL,-1,-1;FR_OF_EL "FR_OF_EL" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,FR_OF_EL,-1,-1;MIN_MIN "MIN_MIN" true true false 8 Double 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,MIN_MIN,-1,-1;REV_CUT_EL "REV_CUT_EL" true true false 4 Long 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,REV_CUT_EL,-1,-1;Shape_Length "Shape_Length" false true true 8 Double 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,Shape_Length,-1,-1;Shape_Area "Shape_Area" false true true 8 Double 0 0 ,First,#,D:\DEP_Proc\DEMProc\Cut_dem2013_070801050901\scratch.gdb\good_ds8_0,Shape_Area,-1,-1""", match_option="INTERSECT", search_radius="", distance_field_name="")
-                                        dnPtsDeepEnough = arcpy.SpatialJoin_analysis(dnPtsConversion, area2search2, opj(inm, 'dn_pts_sj_rstr' + sfx), 'JOIN_ONE_TO_MANY', 'KEEP_ALL', gridfield2 + ' "' + gridfield2 + '" true true false 4 Long 0 0 , First, #, ' + dnPtsConversion[0] + ',' + gridfield2 + ',-1,-1; ' + frFld + ' "' + frFld + '" true true false 4 Long 0 0 , First, #, ' + area2search[0] + ',' + frFld + ',-1,-1')
+                                        ## fix an Map arcpy to Pro arcpy bug where the field mapping string is too long(?) and causes an error, by using FieldMappings and FieldMap objects instead
+                                        fms = arcpy.FieldMappings()
+
+                                        fm1 = arcpy.FieldMap()
+                                        fm1.addInputField(dnPtsConversion[0], gridfield2)
+                                        fms.addFieldMap(fm1)
+
+                                        fm2 = arcpy.FieldMap()
+                                        fm2.addInputField(area2search[0], frFld)
+                                        fms.addFieldMap(fm2)
+
+                                        dnPtsDeepEnough = arcpy.SpatialJoin_analysis(dnPtsConversion, area2search2, opj(inm, 'dn_pts_sj_rstr' + sfx), 'JOIN_ONE_TO_MANY', 'KEEP_ALL', fms)
+##                                        dnPtsDeepEnough = arcpy.SpatialJoin_analysis(dnPtsConversion, area2search2, opj(inm, 'dn_pts_sj_rstr' + sfx), 'JOIN_ONE_TO_MANY', 'KEEP_ALL', gridfield2 + ' "' + gridfield2 + '" true true false 4 Long 0 0 , First, #, ' + dnPtsConversion[0] + ',' + gridfield2 + ',-1,-1; ' + frFld + ' "' + frFld + '" true true false 4 Long 0 0 , First, #, ' + area2search[0] + ',' + frFld + ',-1,-1')
                                         df.copyfc(verbose, dnPtsDeepEnough, sgdb)
 
                                         try:
@@ -1567,35 +1603,35 @@ class msgStub:
     def addWarningMessage(self,text):
         arcpy.AddWarningMessage(text)
 
-if __name__ == "__main__":
-    import sys
+# if __name__ == "__main__":
+#     import sys
 
-    if len(sys.argv) == 1:
-        arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
-        cleanup = False
+#     if len(sys.argv) == 1:
+#         arcpy.AddMessage("Whoo, hoo! Running from Python Window!")
+#         cleanup = False
 
-        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-	"C:/DEP/Scripts/basics/cmd_matcher_DEM.pyt",
-	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
-	"C:/DEP/LiDAR_Current/elev_PLib_mean18/07080105/ep3m070801050901.tif",
-	"C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/buf_070801050901",
-	"C:/DEP/LiDAR_Current/huc8_26915/huc_07080105.gdb/rd_rr_rd_rw_mrg_07080105",
-	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/fr0_0",
-	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/ws_polys_0",
-	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/dfs_frToPoly_0",
-	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901",
-	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/search_070801050901_mean18.pkl",
-	"9.0"]
+#         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+# 	"C:/DEP/Scripts/basics/cmd_matcher_DEM.pyt",
+# 	"C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
+# 	"C:/DEP/LiDAR_Current/elev_PLib_mean18/07080105/ep3m070801050901.tif",
+# 	"C:/DEP/Man_Data_ACPF/dep_ACPF2022/07080105/idepACPF070801050901.gdb/buf_070801050901",
+# 	"C:/DEP/LiDAR_Current/huc8_26915/huc_07080105.gdb/rd_rr_rd_rw_mrg_07080105",
+# 	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/fr0_0",
+# 	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/ws_polys_0",
+# 	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/scratch.gdb/dfs_frToPoly_0",
+# 	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901",
+# 	"C:/DEP_Proc/DEMProc/Cut_dem2013_3m_070801050901/search_070801050901_mean18.pkl",
+# 	"9.0"]
 
-        for i in parameters[2:]:
-            sys.argv.append(i)
-    else:
-        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-        # clean up the folder after done processing
-        cleanup = True
+#         for i in parameters[2:]:
+#             sys.argv.append(i)
+#     else:
+#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+#         # clean up the folder after done processing
+#         cleanup = True
 
-    fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth = [i for i in sys.argv[1:]]
-    messages = msgStub()
+#     fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth = [i for i in sys.argv[1:]]
+#     messages = msgStub()
 
-    doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth, cleanup, messages)
-    arcpy.AddMessage("Back from doMatcher!")
+#     doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth, cleanup, messages)
+#     arcpy.AddMessage("Back from doMatcher!")
