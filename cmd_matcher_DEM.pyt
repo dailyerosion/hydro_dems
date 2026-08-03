@@ -572,19 +572,19 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         frRasters = arcpy.ListRasters(fr0_name[:4] + '*')#'fr0_*')
         frRasters.sort()
 
-        stacked_dfs = opj('E:\\DEP_Checkout\\Man_Data_ACPF\\dep_ACPF2024', huc8, 'idepACPF' + huc12 + '.gdb\\drains_mnmx18_dem2013_2m_' + huc12)
+        stacked_dfs = opj('E:\\DEP_Checkout\\Man_Data_ACPF\\dep_ACPF2024', huc8, 'idepACPF' + huc12 + '.gdb\\dprsns_mnmx18_dem2013_2m_' + huc12)
         stacked_ws = opj('E:\\DEP_Checkout\\Man_Data_ACPF\\dep_ACPF2024', huc8, 'idepACPF' + huc12 + '.gdb\\ws_mnmx18_dem2013_2m_' + huc12)
         stacked_dfs_list = []
         stacked_ws_list = []
         for i in range(len(frRasters)):#decomp_count):
             log.info(f'decomposing dfs and ws polygons, iteration {i}')
-            dfsFC = arcpy.Select_analysis(stacked_dfs, opj(sgdb, 'dfs_frToPoly_' + str(i)), fillLvlFld + ' = ' + str(i))
-            dfs_count = arcpy.GetCount_management(dfsFC)
+            dfs_select = arcpy.Select_analysis(stacked_dfs, opj(sgdb, 'dfs_frToPoly_' + str(i)), fillLvlFld + ' = ' + str(i))
+            dfs_count = arcpy.GetCount_management(dfs_select)
             if dfs_count.getOutput(0) == '0':
-                log.warning(f'dfs_count is zero for: {dfsFC}')
-            wsPolys = arcpy.Select_analysis(stacked_ws, opj(sgdb, 'ws_polys_' + str(i)), fillLvlFld + ' = ' + str(i))
-            stacked_dfs_list.append(dfsFC)
-            stacked_ws_list.append(wsPolys)
+                log.warning(f'dfs_count is zero for: {dfs_select}')
+            ws_select = arcpy.Select_analysis(stacked_ws, opj(sgdb, 'ws_polys_' + str(i)), fillLvlFld + ' = ' + str(i))
+            stacked_dfs_list.append(dfs_select)
+            stacked_ws_list.append(ws_select)
 
         for i, item in enumerate(frRasters[:]):
             log.info('working on frRaster: ' + str(item))
@@ -592,12 +592,13 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
             sfx = '_' + item.split('_')[-1]
             # dfsFC = dfs_polys[:-2] + sfx
             # dfsFC = os.path.join(sgdb, 'dfs_frToPoly' + sfx)
-            dfsFC = stacked_dfs_list[i]
+            dfsFC = arcpy.CopyFeatures_management(stacked_dfs_list[i], opj(inm, 'dfs_frToPoly' + str(i)))
             dfsList.append(dfsFC)
             # add identifier for medians
             df.tryAddField(dfsFC, medianFrFld, "SHORT")
             # wsPolys = os.path.join(sgdb, 'ws_polys' + sfx)
-            wsPolys = stacked_ws_list[i]
+            wsPolys = arcpy.CopyFeatures_management(stacked_ws_list[i], opj(inm, 'ws_polys' + str(i)))
+            # wsPolys = stacked_ws_list[i]
             # wsPolys = ws_polys[:-2] + sfx
 
     ##                selFull = '(' + ofElFld + ' - ' + minElFld + ') > 67 OR ' + maxFrOfDistFld + ' >= ' + str(3 * ProcSize)
