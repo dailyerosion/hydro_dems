@@ -277,8 +277,8 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
         raster_input = Raster(input_dem)
 
         meterDEM = 0.01 * raster_input
-        # slopePct = Slope(meterDEM, 'PERCENT_RISE')
-        slopePct = Raster(opj(proc_dir, 'slope_pct'))
+        slopePct = Slope(meterDEM, 'PERCENT_RISE')
+        # slopePct = Raster(opj(proc_dir, 'slope_pct'))
 
     ## Calculate curvature to find areas where curvature is positive (channels)
         crv = Curvature(meterDEM, '', opj(proc_dir, "pro_crv"), opj(proc_dir, "pln_crv"))
