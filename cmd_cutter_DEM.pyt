@@ -357,7 +357,7 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
                         cutCostDist = CostDistance(goodSlope, cutCost, '', back_link)#maxCostDist
 
                         lcp3 = CostPath(upCellsIter, cutCostDist, back_link, path_type = 'each_zone')
-            ##                                                lcp3.save(cp + 'lcp3' + sfx + ofSfx)
+                        lcp3.save('lcp3' + sfx + ofSfx)
                         log.debug('did lcp3 for sfx ' + sfx + ' at ' + time.asctime())
                         log.debug('lcp3.max for sfx ' + sfx + ' is ' + str(lcp3.maximum))
                         log.debug('deepCloseBfr2Fr count for sfx ' + sfx + ' is ' + arcpy.GetCount_management(deepCloseBfr2Fr).getOutput(0))
@@ -548,8 +548,9 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
         fr0 = Raster('fr0_0')
         frList = arcpy.ListRasters(fr0.name.split('_')[0] + '_*')
         for rast in frList:
-            if rast[3] not in string.digits:
+            if rast[-1] not in string.digits:#rast[3] not in string.digits:
                 frList.remove(rast)
+        log.info(f'frList is {frList}')
         maxFr = CellStatistics(frList, 'MAXIMUM')
         frList.sort()
         for index, frl in enumerate(frList):
