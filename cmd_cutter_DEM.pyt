@@ -352,9 +352,10 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
                         meanCutDif = DEMpreviousCuts - (psblNewEl3 + minElOverall)/2.0
                         
                         cutCost = Con(meanCutDif >= 0, meanCutDif, 0)#cutElDif >= 0, cutElDif, 0)
+                        cutCostPlusPt001 =  cutCost + 0.001
 
                         back_link = opj(proc_dir, 'bklink' + sfx + ofSfx)
-                        cutCostDist = CostDistance(goodSlope, cutCost, '', back_link)#maxCostDist
+                        cutCostDist = CostDistance(goodSlope, cutCostPlusPt001, '', back_link)#maxCostDist
 
                         lcp3 = CostPath(upCellsIter, cutCostDist, back_link, path_type = 'each_zone')
                         lcp3.save('lcp3' + sfx + ofSfx)
@@ -490,7 +491,6 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
 
                             sys.exit(1)
                             
-    ##                except:
                     else:
                         log.warning('minElOverall.maximum is None, no valid cells/points to cut for sfx: ' + sfx)
                         log.warning('Typical error follows in source code, but this is not the error for this case')
@@ -547,9 +547,9 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
 
         fr0 = Raster('fr0_0')
         frList = arcpy.ListRasters(fr0.name.split('_')[0] + '_*')
-        for rast in frList:
-            if rast[-1] not in string.digits:#rast[3] not in string.digits:
-                frList.remove(rast)
+        # for rast in frList:
+        #     if rast[-1] not in string.digits:#rast[3] not in string.digits:
+        #         frList.remove(rast)
         log.info(f'frList is {frList}')
         maxFr = CellStatistics(frList, 'MAXIMUM')
         frList.sort()
