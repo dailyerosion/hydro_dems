@@ -1929,14 +1929,14 @@ def antiSelectByList(in_list, in_field, in_tbl, out_tbl, sfx, inm):
             
             gcSel4step = buildAntiSelection(sublist, in_field)
             if i == 1:
-                selInit = arcpy.Select_analysis(in_tbl, inm + out_tbl + sfx, gcSel4step)
+                sel_init = arcpy.Select_analysis(in_tbl, opj(inm, out_tbl + sfx), gcSel4step)
             else:
-                selLater = arcpy.Select_analysis(in_tbl, inm + out_tbl + sfx + ofSfx, gcSel4step)
-                appendList.append(selLater)
-        antiSelOut = arcpy.Append_management(appendList, selInit)
+                sel_later = arcpy.Select_analysis(in_tbl, opj(inm, out_tbl + sfx + ofSfx), gcSel4step)
+                appendList.append(sel_later)
+        antiSelOut = arcpy.Append_management(appendList, sel_init)
     else:
         gcSel4step = buildAntiSelection(in_list, in_field)
-        antiSelOut = arcpy.Select_analysis(in_tbl, inm + out_tbl + sfx, gcSel4step)
+        antiSelOut = arcpy.Select_analysis(in_tbl, opj(inm, out_tbl + sfx), gcSel4step)
     return antiSelOut
 
 
