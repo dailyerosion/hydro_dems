@@ -16,9 +16,13 @@ import time
 import subprocess
 import platform
 import glob
+import json
+import pickle
+import pdal
 import traceback
 import re
 import shutil
+import zipfile
 from os.path import join as opj
 from pathlib import Path
 from math import ceil
@@ -710,7 +714,13 @@ import pandas as pd
 from typing import List, Dict, Tuple
 
 
-def parse_apache_listing(url: str) -> List[Dict[str, str]]:
+
+def parse_apache_listing(
+    url: str,
+    extensions: Tuple[str, ...] = ('.laz',),
+    user_agent: str = "Mozilla/5.0",
+    log: logging.Logger = None
+) -> List[Dict[str, str]]:
     """
     Parse an Apache directory listing and extract file information.
     Extracts actual filenames from href attributes and metadata from
@@ -718,13 +728,29 @@ def parse_apache_listing(url: str) -> List[Dict[str, str]]:
     
     Args:
         url: URL of the Apache directory listing
+        extensions: tuple of file extensions (case-insensitive) to keep,
+            e.g. ('.laz',) or ('.zip',). Links to sub-folders and any
+            other file types are skipped.
+        user_agent: sent as the request's User-Agent header. rockyweb.usgs.gov
+            has been observed to reject/misbehave on requests using the bare
+            default python-requests user agent, so this should not be left blank.
+        log: optional logger. If provided, fetch/parse problems go through
+            log.warning()/log.error() instead of print(), so they're visible
+            wherever the caller's other log messages end up (e.g. an ArcGIS
+            toolbox run) instead of only going to stdout.
         
     Returns:
         List of dictionaries containing file information
     """
+    def _report(msg, level='warning'):
+        if log is not None:
+            getattr(log, level)(msg)
+        else:
+            print(msg)
+
     try:
         # Fetch the page
-        response = requests.get(url, timeout=30)
+        response = requests.get(url, timeout=30, headers={"User-Agent": user_agent})
         response.raise_for_status()
         
         # Parse with BeautifulSoup
@@ -733,7 +759,7 @@ def parse_apache_listing(url: str) -> List[Dict[str, str]]:
         # Find the pre tag that contains the file listing
         pre_tag = soup.find('pre')
         if not pre_tag:
-            print(f"Warning: No <pre> tag found at {url}")
+            _report(f"No <pre> tag found at {url} (page fetched OK, but listing format looks different than expected)")
             return []
         
         files = []
@@ -747,8 +773,8 @@ def parse_apache_listing(url: str) -> List[Dict[str, str]]:
         for link in links:
             href = link.get('href', '')
             
-            # Skip non-.laz files
-            if not href.endswith('.laz'):
+            # Skip anything that isn't one of the requested file types (e.g. sub-folder links)
+            if not href.lower().endswith(tuple(ext.lower() for ext in extensions)):
                 continue
             
             # Get the actual filename from href
@@ -798,8 +824,7 @@ def parse_apache_listing(url: str) -> List[Dict[str, str]]:
                 files.append(file_record)
             else:
                 # If we can't find metadata, still record the file
-                print(f"Warning: Could not find metadata for {actual_filename}")
-                print(f"  Following text: {repr(following_text[:100])}")
+                _report(f"Could not find metadata for {actual_filename} (following text: {repr(following_text[:100])})")
                 files.append({
                     'filename': actual_filename,
                     'displayed_name': link_text,
@@ -815,10 +840,10 @@ def parse_apache_listing(url: str) -> List[Dict[str, str]]:
         return files
         
     except requests.RequestException as e:
-        print(f"Error fetching {url}: {e}")
+        _report(f"Error fetching {url}: {e}", level='error')
         return []
     except Exception as e:
-        print(f"Error parsing {url}: {e}")
+        _report(f"Error parsing {url}: {e}", level='error')
         import traceback
         traceback.print_exc()
         return []
@@ -1008,7 +1033,7 @@ def usgs_download_laz(
                 
 #                 laz_files.append((filename, urljoin(page_url, href), expected_size))
 
-        files = parse_apache_listing(page_url)
+        files = parse_apache_listing(page_url, user_agent=user_agent, log=log)
 
         for f in files:
             laz_files.append((f['filename'], f['download_url'], f['size_bytes']))
@@ -1140,10 +1165,152 @@ def usgs_download_laz(
         return return_path, len(laz_files)
 
 
-import json
-import os
-import pickle
-import pdal
+
+
+def usgs_download_metadata(
+    page_url: str,
+    output_dir: str,
+    log: logging.Logger,
+    timeout: int = 60,
+    max_retries: int = 5,
+    retry_delay: int = 5,
+    user_agent: str = "Mozilla/5.0",
+    extract: bool = True,
+    delete_zip_after_extract: bool = False
+):
+    """
+    Download a USGS lidar project's metadata zip file(s) (e.g. breaklines.zip)
+    from a USGS Apache directory listing, then unzip each into output_dir.
+
+    USGS metadata listing pages, e.g.
+    https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/metadata/<project_group>/<project>/
+    mix sub-folder links (breaklines/, reports/, spatial_metadata/) in with
+    top-level .zip files (breaklines.zip). This only grabs the top-level
+    .zip file(s) - it does not recurse into the sub-folders - downloads
+    them (skipping any already present locally with a matching size, same
+    as usgs_download_laz), and extracts each into
+    os.path.join(output_dir, <zip file's base name>).
+
+    Parameters
+    ----------
+    page_url : str
+        Apache directory URL for a project's metadata (contains .zip files)
+    output_dir : str
+        Local directory to hold downloaded zips and their extracted contents
+    log : logging.Logger
+    timeout : int
+        HTTP timeout (seconds)
+    max_retries : int
+        Maximum download retry attempts per file
+    retry_delay : int
+        Seconds to wait between retries
+    user_agent : str
+        HTTP user-agent
+    extract : bool
+        If True (default), unzip each downloaded file into
+        output_dir\\<zip base name>\\
+    delete_zip_after_extract : bool
+        If True, remove the downloaded .zip after it's successfully extracted
+
+    Returns
+    -------
+    extracted_paths : list of str
+        Local folders the metadata was extracted into. If extract is False,
+        this instead holds the paths to the downloaded .zip files.
+    """
+    extracted_paths = []
+
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+
+        session = requests.Session()
+        session.headers.update({"User-Agent": user_agent})
+
+        meta_files = parse_apache_listing(page_url, extensions=('.zip',), user_agent=user_agent, log=log)
+
+        if not meta_files:
+            log.warning(f"No metadata .zip files found at {page_url}")
+            return extracted_paths, 0
+
+        log.info(f"Found {len(meta_files)} metadata zip file(s) at {page_url}")
+
+        for f in meta_files:
+            filename = f['filename']
+            url = f['download_url']
+            expected_size = f['size_bytes']
+            out_path = os.path.join(output_dir, filename)
+
+            have_valid_file = False
+            if os.path.exists(out_path) and expected_size:
+                if os.path.getsize(out_path) == expected_size:
+                    log.info(f"Path Exists (size OK): {out_path}")
+                    have_valid_file = True
+                else:
+                    log.info(f"Re-downloading (size mismatch): {filename}")
+
+            if not have_valid_file:
+                success = False
+
+                for attempt in range(1, max_retries + 1):
+                    try:
+                        log.info(f"Downloading ({attempt}/{max_retries}): {filename}")
+
+                        with session.get(url, stream=True, timeout=timeout) as r:
+                            r.raise_for_status()
+                            with open(out_path, "wb") as fh:
+                                for chunk in r.iter_content(chunk_size=1024 * 1024):
+                                    if chunk:
+                                        fh.write(chunk)
+
+                        downloaded_size = os.path.getsize(out_path)
+
+                        if expected_size and downloaded_size != expected_size:
+                            raise ValueError(
+                                f"Size mismatch (expected {expected_size}, got {downloaded_size})"
+                            )
+
+                        log.info(f"Download complete: {filename}")
+                        success = True
+                        break
+
+                    except Exception as e:
+                        log.warning(f"Attempt {attempt} failed: {e}")
+
+                        if os.path.exists(out_path):
+                            os.remove(out_path)
+
+                        if attempt < max_retries:
+                            sleep(retry_delay)
+
+                if not success:
+                    log.warning(f"FAILED after {max_retries} attempts: {filename}")
+                    continue  # nothing to extract if the download never succeeded
+
+            if extract:
+                extract_dir = os.path.join(output_dir, Path(filename).stem)
+                try:
+                    os.makedirs(extract_dir, exist_ok=True)
+                    with zipfile.ZipFile(out_path, 'r') as zf:
+                        zf.extractall(extract_dir)
+                    log.info(f"Extracted {filename} to {extract_dir}")
+                    extracted_paths.append(extract_dir)
+
+                    if delete_zip_after_extract:
+                        os.remove(out_path)
+                        log.info(f"Removed zip after extraction: {out_path}")
+
+                except zipfile.BadZipFile as e:
+                    log.warning(f"Could not unzip {out_path}: {e}")
+            else:
+                extracted_paths.append(out_path)
+
+    except:
+        errorhandle(sys.exc_info()[1], arcpy, traceback)
+
+    return extracted_paths, len(meta_files)
+
+
+
 
 
 def get_laz_bounds_and_crs(laz_file, pkl_path, write_pickle=True):
