@@ -1579,33 +1579,66 @@ def try_to_delete(rasRes, log):
             os.remove(rasRes)
 
 
+def copy_merge_breaklines(fd_path, breaklines_to_merge, BREAKLINES, log):
+    """Copy each breakline feature class into the feature dataset."""
+    out_paths = {}
+    for key, info in BREAKLINES.items():
+        src = info["path"]
+        # if not arcpy.Exists(src):
+        #     raise RuntimeError(f"Breakline source not found for {key}: {src}")
+
+        fc_name = BREAKLINES[key]['reference_name']
+        out_fc = os.path.join(fd_path, fc_name)#key)
+        if arcpy.Exists(out_fc):
+            arcpy.management.Delete(out_fc)
+
+        # CopyFeatures projects on the fly to the feature dataset's spatial
+        # reference if the source differs. For elevation-critical work,
+        # confirm the geographic/vertical transformation used is correct
+        # rather than relying on the default.
+        input_fcs = breaklines_to_merge.get(key)#, [])
+        if len(input_fcs) > 1:
+            arcpy.management.Merge(input_fcs, out_fc)
+        elif len(input_fcs) == 1:
+            arcpy.management.CopyFeatures(input_fcs[0], out_fc)
+        else:
+            log.warning(f"No input feature classes found for breaklines_to_merge key: {key}")
+           
+
+        # if len(breaklines_to_merge) == 1 and key in breaklines_to_merge:
+        #     src = breaklines_to_merge[key][0]
+        #     arcpy.management.CopyFeatures(src, out_fc)
+        BREAKLINES[key]['path'] = out_fc
+        out_paths[key] = out_fc
+        print(f"Copied breakline into feature dataset: {out_fc}")
+
+    return out_paths
+
+
+
 BREAKLINES = {
     "Islands": {
-        "reference_name": "Islands",
-        "path": r"C:\gis\project\source.gdb\Island",
+        "path": r"C:\replace\path\to\source.gdb\Island",
         "sf_type": "hardclip",
-        "height_field": "SHAPE",
-        "group": 1,
+        "height_field": "<None>",
+        "group": 2,
     },
     "Bridges": {
-        "reference_name": "Bridges",
-        "path": r"C:\gis\project\source.gdb\Bridge",
+        "path": r"C:\replace\path\to\source.gdb\Bridge",
         "sf_type": "hardline",
-        "height_field": "SHAPE",
+        "height_field": "<None>",
         "group": 1,
     },
     "InlandPondsLakes": {
-        "reference_name": "Inland_Ponds_Lakes",
-        "path": r"C:\gis\project\source.gdb\InlandPondLake",
+        "path": r"C:\replace\path\to\source.gdb\InlandPondLake",
         "sf_type": "hardreplace",
-        "height_field": "SHAPE",
-        "group": 1,
+        "height_field": "<None>",
+        "group": 3,
     },
     "InlandStreamsRivers": {
-        "reference_name": "Inland_Streams_Rivers",
-        "path": r"C:\gis\project\source.gdb\InlandStreamRiver",
+        "path": r"C:\replace\path\to\source.gdb\InlandStreamRiver",
         "sf_type": "hardline",
-        "height_field": "SHAPE",
+        "height_field": "<None>",
         "group": 1,
     },
 }
@@ -1710,6 +1743,8 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
         flib_metadata_template, derivative_metadata = df.getMetadata(['flib', 'deriv'], procDir, log)
 
         breaklines_to_merge = {}
+
+        breakline_paths = {}
 
         ## store a list of all DEMs (lidar based, others) that must be joined to create HUC12
         ## Now a list of lists to facilitate creating two DEM resolutions easily (2 and 3 meter)
@@ -2053,55 +2088,53 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                         if row_counter == 0 or work_id != prev_work_id:
                             breaks_md_dir = opj(os.path.dirname(os.path.dirname(storage_laz)), 'breaks_md')
                             arcpy.env.workspace = breaks_md_dir
-                            breaks_gdb = arcpy.ListWorkspaces()[0]
-
-                            # populate breaklines and breakpolys with the first row's project
-                            for k in BREAKLINES.keys():
-                                ref = BREAKLINES[k]['reference_name']
-                                candidate = arcpy.ListFeatureClasses(ref + '*')[0]
-                                if not candidate:
-                                    possibilities = arcpy.ListFeatureClasses()
-                                    match = difflib.get_close_matches(ref, possibilities, n=1, cutoff=0.6)
-                                    if match:
-                                        log.warning(f"No exact match for breaks found. Closest match found: '{match}'")
-                                        candidate = match
+                            breaks_gdbs = arcpy.ListWorkspaces()#[0]
+                            if breaks_gdbs:
+                                breaks_gdb = breaks_gdbs[0]
+                                arcpy.env.workspace = breaks_gdb
+                                for k in BREAKLINES.keys():
+                                    ref = BREAKLINES[k]['reference_name']
+                                    candidate = arcpy.ListFeatureClasses(ref + '*')[0]
+                                    if not candidate:
+                                        possibilities = arcpy.ListFeatureClasses()
+                                        match = difflib.get_close_matches(ref, possibilities, n=1, cutoff=0.6)
+                                        if match:
+                                            log.warning(f"No exact match for breaks found. Closest match found: '{match}'")
+                                            candidate = match
+                                        else:
+                                            log.info("No close match found above the threshold.")
+                                            candidate = None
+                                    print(candidate)
+                                    if candidate and row_counter == 0:
+                                        breakline_fc = opj(breaks_gdb, candidate)
+                                        if ref == 'Islands':
+                                            breaks_islands = [breakline_fc]
+                                            breaklines_to_merge[k] = breaks_islands
+                                        elif ref == 'Bridges':
+                                            breaks_bridges = [breakline_fc]
+                                            breaklines_to_merge[k] = breaks_bridges
+                                        elif ref == 'Inland_Ponds_Lakes':
+                                            breaks_ponds_lakes = [breakline_fc]
+                                            breaklines_to_merge[k] = breaks_ponds_lakes
+                                        elif ref == 'Inland_Streams_Rivers':
+                                            breaks_streams_rivers = [breakline_fc]
+                                            breaklines_to_merge[k] = breaks_streams_rivers
+                                    elif candidate:
+                                        breakline_fc = opj(breaks_gdb, candidate)
+                                        if ref == 'Islands':
+                                            breaks_islands = breaks_islands + [breakline_fc]
+                                            breaklines_to_merge[k] = breaks_islands
+                                        elif ref == 'Bridges':
+                                            breaks_bridges = breaks_bridges + [breakline_fc]
+                                            breaklines_to_merge[k] = breaks_bridges
+                                        elif ref == 'Inland_Ponds_Lakes':
+                                            breaks_ponds_lakes = breaks_ponds_lakes + [breakline_fc]
+                                            breaklines_to_merge[k] = breaks_ponds_lakes
+                                        elif ref == 'Inland_Streams_Rivers':
+                                            breaks_streams_rivers = breaks_streams_rivers + [breakline_fc]
+                                            breaklines_to_merge[k] = breaks_streams_rivers
                                     else:
-                                        log.info("No close match found above the threshold.")
-                                        candidate = None
-                                print(candidate)
-                                if candidate and row_counter == 0:
-                                    breakline_fc = opj(breaks_gdb, candidate)
-                                    if ref == 'Islands':
-                                        breaks_islands = [breakline_fc]
-                                        breaklines_to_merge[k] = breaks_islands
-                                    elif ref == 'Bridges':
-                                        breaks_bridges = [breakline_fc]
-                                        breaklines_to_merge[k] = breaks_bridges
-                                    elif ref == 'Inland_Ponds_Lakes':
-                                        breaks_ponds_lakes = [breakline_fc]
-                                        breaklines_to_merge[k] = breaks_ponds_lakes
-                                    elif ref == 'Inland_Streams_Rivers':
-                                        breaks_streams_rivers = [breakline_fc]
-                                        breaklines_to_merge[k] = breaks_streams_rivers
-
-                                elif candidate:
-                                    breakline_fc = opj(breaks_gdb, candidate)
-                                    if ref == 'Islands':
-                                        breaks_islands = breaks_islands + [breakline_fc]
-                                        breaklines_to_merge[k] = breaks_islands
-                                    elif ref == 'Bridges':
-                                        breaks_bridges = breaks_bridges + [breakline_fc]
-                                        breaklines_to_merge[k] = breaks_bridges
-                                    elif ref == 'Inland_Ponds_Lakes':
-                                        breaks_ponds_lakes = breaks_ponds_lakes + [breakline_fc]
-                                        breaklines_to_merge[k] = breaks_ponds_lakes
-                                    elif ref == 'Inland_Streams_Rivers':
-                                        breaks_streams_rivers = breaks_streams_rivers + [breakline_fc]
-                                        breaklines_to_merge[k] = breaks_streams_rivers
-                                        
-
-                                else:
-                                    log.warning(f"No matches for breaklines found for {breaks_gdb}")
+                                        log.warning(f"No matches for breaklines found for {breaks_gdb}")
 
                             prev_work_id = work_id
 
@@ -2131,9 +2164,9 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                     tcdFdSet = arcpy.management.Dissolve(wesm_huc12_tiles_buffer_dissolve, os.path.join(str(FDSet), 'ept_and_local_las'))
                     fill_donut_slow(tcdFdSet)
 
-                    # breakline_paths = copy_breaklines(FDSet, breaks_ponds_lakes, breaks_streams_rivers, breaks_islands, breaks_bridges, BREAKLINES, breaklines_to_merge, log)
+                    merged_breakline_paths = copy_merge_breaklines(str(FDSet), breaklines_to_merge, BREAKLINES, log)
 
-                    terrains, tf, terrain_args, pyramid_args = buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log, windowsizeMethods, ql)
+                    terrains, tf, terrain_args, pyramid_args = buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, merged_breakline_paths, log, windowsizeMethods, ql)
 
                     if sys.version_info.minor < 9:
                         beLayer = arcpy.MakeLasDatasetLayer_management(lasdAll, 'ground_layer', [2,8], 'Last Return')
