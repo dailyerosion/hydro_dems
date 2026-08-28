@@ -1648,7 +1648,7 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                             log.info('walking: {md_return_path[0]}')
                             for path, dirs, files in arcpy.da.Walk():
                                 # print(f'path: {path}')
-                                for f in files:
+                                # for f in files:
                                     # print(f'file: {f}')
                                 for d in dirs:
                                     # print(f'dir: {d}')
