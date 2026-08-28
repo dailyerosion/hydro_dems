@@ -17,6 +17,7 @@ import subprocess
 import platform
 import glob
 import json
+import pathlib
 import pickle
 import pdal
 import traceback
@@ -1637,18 +1638,20 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                             md_page_url = srow[2].replace('LPC/Projects', 'metadata')
                             try:
                                 md_return_path, len_md = usgs_download_metadata(page_url=md_page_url, output_dir=md_dir, log=log)
+                                log.info(f'downloaded {md_page_url}')
                             except:
                                 log.warning(f'failed download {md_page_url}')
                                 md_return_path = None
                                 len_md = None
 
                             arcpy.env.workspace = md_return_path[0]
+                            log.info('walking: {md_return_path[0]}')
                             for path, dirs, files in arcpy.da.Walk():
-                                print(f'path: {path}')
+                                # print(f'path: {path}')
                                 for f in files:
-                                    print(f'file: {f}')
+                                    # print(f'file: {f}')
                                 for d in dirs:
-                                    print(f'dir: {d}')
+                                    # print(f'dir: {d}')
                                     if d.endswith('.gdb'):
                                         gdb_path = opj(path, d)
 
@@ -1656,12 +1659,17 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                             arcpy.env.workspace = md_return_path[0]
                                         
                             for path, dirs, files in arcpy.da.Walk():
-                                print(f'path: {path}')
+                                # print(f'path: {path}')
                                 for f in files:
-                                    print(f'file: {f}')
+                                    # print(f'file: {f}')
                                     arcpy.Delete_management(f)
                             arcpy.Delete_management(gdb_path)
-                            df.nukedir(os.path.dirname(os.path.dirname(gdb_path)))
+                            gdb_pl = pathlib.Path(gdb_path)
+                            breaks_md_index = gdb_pl.parts.index('breaks_md')
+                            to_nuke = Path(*gdb_pl.parts[:breaks_md_index +2])
+                            log.info(f"nuking: {to_nuke}")
+                            df.nukedir(str(to_nuke))
+                        arcpy.env.workspace = sgdb
                             
                 if len(bounds_list) > 0:
                     log.info(f'bounds_list: {bounds_list}')

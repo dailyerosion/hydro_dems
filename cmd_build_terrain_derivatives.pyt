@@ -572,7 +572,7 @@ def createCountsFromMultipoints(sgdb, maskRastOut, demListVal, demPtString, huc1
 
     return cntBeFileRasterObj
 
-def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, log, windows, ql):
+def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log, windows, ql):
     terrains = []
     # create one terrain with ZMinMax option
     if ql == 'QL 1' or ql == 'QL 0':
@@ -610,7 +610,7 @@ def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, log, windows, ql):
                 "", "", "", "",
             ])
     
-        arcpy.ddd.AddFeatureClassToTerrain(terrain_path, data_sources)
+        arcpy.ddd.AddFeatureClassToTerrain(LTrrn, data_sources)
         print("Added mass points and breaklines to terrain")
     
 # #        tf = setupTerrain(LTrrn, tcdFdSet, finalHb, finalHl, finalMP, finalNoZHb, poorZHb, log)#, badHb)
@@ -1709,6 +1709,8 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
 
         flib_metadata_template, derivative_metadata = df.getMetadata(['flib', 'deriv'], procDir, log)
 
+        breaklines_to_merge = {}
+
         ## store a list of all DEMs (lidar based, others) that must be joined to create HUC12
         ## Now a list of lists to facilitate creating two DEM resolutions easily (2 and 3 meter)
         rezes = gsds.split(",")
@@ -2071,23 +2073,32 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                                     breakline_fc = opj(breaks_gdb, candidate)
                                     if ref == 'Islands':
                                         breaks_islands = [breakline_fc]
+                                        breaklines_to_merge[k] = breaks_islands
                                     elif ref == 'Bridges':
                                         breaks_bridges = [breakline_fc]
+                                        breaklines_to_merge[k] = breaks_bridges
                                     elif ref == 'Inland_Ponds_Lakes':
                                         breaks_ponds_lakes = [breakline_fc]
+                                        breaklines_to_merge[k] = breaks_ponds_lakes
                                     elif ref == 'Inland_Streams_Rivers':
                                         breaks_streams_rivers = [breakline_fc]
+                                        breaklines_to_merge[k] = breaks_streams_rivers
 
                                 elif candidate:
                                     breakline_fc = opj(breaks_gdb, candidate)
                                     if ref == 'Islands':
-                                        breaks_islands = [breakline_fc]
+                                        breaks_islands = breaks_islands + [breakline_fc]
+                                        breaklines_to_merge[k] = breaks_islands
                                     elif ref == 'Bridges':
-                                        breaks_bridges = [breakline_fc]
+                                        breaks_bridges = breaks_bridges + [breakline_fc]
+                                        breaklines_to_merge[k] = breaks_bridges
                                     elif ref == 'Inland_Ponds_Lakes':
-                                        breaks_ponds_lakes = [breakline_fc]
+                                        breaks_ponds_lakes = breaks_ponds_lakes + [breakline_fc]
+                                        breaklines_to_merge[k] = breaks_ponds_lakes
                                     elif ref == 'Inland_Streams_Rivers':
-                                        breaks_streams_rivers = [breakline_fc]
+                                        breaks_streams_rivers = breaks_streams_rivers + [breakline_fc]
+                                        breaklines_to_merge[k] = breaks_streams_rivers
+                                        
 
                                 else:
                                     log.warning(f"No matches for breaklines found for {breaks_gdb}")
@@ -2120,7 +2131,9 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                     tcdFdSet = arcpy.management.Dissolve(wesm_huc12_tiles_buffer_dissolve, os.path.join(str(FDSet), 'ept_and_local_las'))
                     fill_donut_slow(tcdFdSet)
 
-                    terrains, tf, terrain_args, pyramid_args = buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, log, windowsizeMethods, ql)
+                    # breakline_paths = copy_breaklines(FDSet, breaks_ponds_lakes, breaks_streams_rivers, breaks_islands, breaks_bridges, BREAKLINES, breaklines_to_merge, log)
+
+                    terrains, tf, terrain_args, pyramid_args = buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log, windowsizeMethods, ql)
 
                     if sys.version_info.minor < 9:
                         beLayer = arcpy.MakeLasDatasetLayer_management(lasdAll, 'ground_layer', [2,8], 'Last Return')
