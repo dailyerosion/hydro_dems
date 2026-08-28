@@ -1628,6 +1628,41 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                         elif arcpy.Exists(alt_out_fc) and alt_out_fc != out_fc:
                             bounds_list.append(alt_out_fc)
 
+                        md_dir = dl_dir.replace('LAZ', 'breaks_md')
+                        df.create_needed_dirs_and_gdbs(md_dir, log)
+##                        fail = 5/0
+                        arcpy.env.workspace = md_dir
+                        md_gdbs = arcpy.ListWorkspaces(workspace_type = 'FileGDB')
+                        if not md_gdbs:#len(md_gdbs) == 0:
+                            md_page_url = srow[2].replace('LPC/Projects', 'metadata')
+                            try:
+                                md_return_path, len_md = usgs_download_metadata(page_url=md_page_url, output_dir=md_dir, log=log)
+                            except:
+                                log.warning(f'failed download {md_page_url}')
+                                md_return_path = None
+                                len_md = None
+
+                            arcpy.env.workspace = md_return_path[0]
+                            for path, dirs, files in arcpy.da.Walk():
+                                print(f'path: {path}')
+                                for f in files:
+                                    print(f'file: {f}')
+                                for d in dirs:
+                                    print(f'dir: {d}')
+                                    if d.endswith('.gdb'):
+                                        gdb_path = opj(path, d)
+
+                            shutil.copytree(gdb_path, opj(md_dir, os.path.basename(gdb_path)))
+                            arcpy.env.workspace = md_return_path[0]
+                                        
+                            for path, dirs, files in arcpy.da.Walk():
+                                print(f'path: {path}')
+                                for f in files:
+                                    print(f'file: {f}')
+                                    arcpy.Delete_management(f)
+                            arcpy.Delete_management(gdb_path)
+                            df.nukedir(os.path.dirname(os.path.dirname(gdb_path)))
+                            
                 if len(bounds_list) > 0:
                     log.info(f'bounds_list: {bounds_list}')
                     out_fc_merge = arcpy.Merge_management(bounds_list, os.path.join('in_memory', 'out_fc_merge'))
