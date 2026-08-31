@@ -572,6 +572,39 @@ def createCountsFromMultipoints(sgdb, maskRastOut, demListVal, demPtString, huc1
 
     return cntBeFileRasterObj
 
+
+
+BREAKLINES = {
+    "Islands": {
+        "reference_name": "Islands",
+        "path": r"C:\replace\path\to\source.gdb\Island",
+        "sf_type": "hardenforce",
+        "height_field": "SHAPE",
+        "group": 4,
+    },
+    "Bridges": {
+        "reference_name": "Bridges",
+        "path": r"C:\replace\path\to\source.gdb\Bridge",
+        "sf_type": "hardline",
+        "height_field": "SHAPE",
+        "group": 5,
+    },
+    "InlandPondsLakes": {
+        "reference_name": "Inland_Ponds_Lakes",
+        "path": r"C:\replace\path\to\source.gdb\InlandPondLake",
+        "sf_type": "hardreplace",
+        "height_field": "SHAPE",
+        "group": 3,
+    },
+    "InlandStreamsRivers": {
+        "reference_name": "Inland_Streams_Rivers",
+        "path": r"C:\replace\path\to\source.gdb\InlandStreamRiver",
+        "sf_type": "hardline",
+        "height_field": "SHAPE",
+        "group": 2,
+    },
+}
+
 def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log, windows, ql):
     terrains = []
     # create one terrain with ZMinMax option
@@ -1625,38 +1658,6 @@ def copy_merge_breaklines(fd_path, breaklines_to_merge, BREAKLINES, log):
 
     return out_paths
 
-
-
-BREAKLINES = {
-    "Islands": {
-        "reference_name": "Islands",
-        "path": r"C:\replace\path\to\source.gdb\Island",
-        "sf_type": "hardclip",
-        "height_field": "SHAPE",
-        "group": 4,
-    },
-    "Bridges": {
-        "reference_name": "Bridges",
-        "path": r"C:\replace\path\to\source.gdb\Bridge",
-        "sf_type": "hardline",
-        "height_field": "SHAPE",
-        "group": 5,
-    },
-    "InlandPondsLakes": {
-        "reference_name": "Inland_Ponds_Lakes",
-        "path": r"C:\replace\path\to\source.gdb\InlandPondLake",
-        "sf_type": "hardreplace",
-        "height_field": "SHAPE",
-        "group": 3,
-    },
-    "InlandStreamsRivers": {
-        "reference_name": "Inland_Streams_Rivers",
-        "path": r"C:\replace\path\to\source.gdb\InlandStreamRiver",
-        "sf_type": "hardline",
-        "height_field": "SHAPE",
-        "group": 2,
-    },
-}
 
 def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir, 
         pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
