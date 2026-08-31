@@ -599,7 +599,7 @@ def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log
         # Value table rows: [feature_class, height_field, SF_type, group,
         #                     min_resolution, max_resolution, embed, embed_name]
 
-        data_sources = [[finalMP, "SHAPE", "MASSPOINTS", 1, "", "", "", ""]]
+        data_sources = [[finalMP, "<None>", "masspoints", 1, "", "", "", ""]]
     
         for key, info in BREAKLINES.items():
             data_sources.append([
@@ -609,9 +609,15 @@ def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log
                 info["group"],
                 "", "", "", "",
             ])
+        tf = []
+
+        for ds in data_sources:
+            log.info(f"Adding {ds[0]} to terrain with height field {ds[1]} and SF type {ds[2]}")
+            ret = arcpy.ddd.AddFeatureClassToTerrain(LTrrn, [ds])
+            tf.append(ret)
     
-        arcpy.ddd.AddFeatureClassToTerrain(LTrrn, data_sources)
-        print("Added mass points and breaklines to terrain")
+        # arcpy.ddd.AddFeatureClassToTerrain(LTrrn, data_sources)
+        # print("Added mass points and breaklines to terrain")
     
 # #        tf = setupTerrain(LTrrn, tcdFdSet, finalHb, finalHl, finalMP, finalNoZHb, poorZHb, log)#, badHb)
 # # def setupTerrain(terrain, mask, breakpolys, breaklines, points, noZbreakpolys, poorZ, log):#, badHb):
@@ -1618,28 +1624,32 @@ def copy_merge_breaklines(fd_path, breaklines_to_merge, BREAKLINES, log):
 
 BREAKLINES = {
     "Islands": {
+        "reference_name": "Islands",
         "path": r"C:\replace\path\to\source.gdb\Island",
         "sf_type": "hardclip",
         "height_field": "<None>",
-        "group": 2,
+        "group": 3,
     },
     "Bridges": {
+        "reference_name": "Bridges",
         "path": r"C:\replace\path\to\source.gdb\Bridge",
         "sf_type": "hardline",
         "height_field": "<None>",
-        "group": 1,
+        "group": 2,
     },
     "InlandPondsLakes": {
+        "reference_name": "Inland_Ponds_Lakes",
         "path": r"C:\replace\path\to\source.gdb\InlandPondLake",
         "sf_type": "hardreplace",
         "height_field": "<None>",
-        "group": 3,
+        "group": 4,
     },
     "InlandStreamsRivers": {
+        "reference_name": "Inland_Streams_Rivers",
         "path": r"C:\replace\path\to\source.gdb\InlandStreamRiver",
         "sf_type": "hardline",
         "height_field": "<None>",
-        "group": 1,
+        "group": 2,
     },
 }
 
