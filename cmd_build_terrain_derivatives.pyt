@@ -578,7 +578,7 @@ BREAKLINES = {
     "Islands": {
         "reference_name": "Islands",
         "path": r"C:\replace\path\to\source.gdb\Island",
-        "sf_type": "hardenforce",
+        "sf_type": "hardline",
         "height_field": "SHAPE",
         "group": 4,
     },
