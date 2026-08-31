@@ -607,15 +607,20 @@ def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log
                 info["height_field"],
                 info["sf_type"],
                 info["group"],
-                "", "", "", "",
+                "0", "32", "true", "false", "<None>", "<None>"
             ])
         tf = []
 
         for ds in data_sources:
             log.info(f"Adding {ds[0]} to terrain with height field {ds[1]} and SF type {ds[2]}")
-            ret = arcpy.ddd.AddFeatureClassToTerrain(LTrrn, [ds])
+            ds_string = " ".join(str(item) for item in ds)
+            ret = arcpy.ddd.AddFeatureClassToTerrain(LTrrn, ds_string)#[ds])
             tf.append(ret)
     
+        group = len(ds) + 1
+        ret = arcpy.AddFeatureClassToTerrain_3d(LTrrn, str(tcdFdSet) + " <None> hardclip " + str(group) + " 0 32 true false <None> <None>")
+        tf.append(ret)
+
         # arcpy.ddd.AddFeatureClassToTerrain(LTrrn, data_sources)
         # print("Added mass points and breaklines to terrain")
     
@@ -1627,28 +1632,28 @@ BREAKLINES = {
         "reference_name": "Islands",
         "path": r"C:\replace\path\to\source.gdb\Island",
         "sf_type": "hardclip",
-        "height_field": "<None>",
-        "group": 3,
+        "height_field": "SHAPE",
+        "group": 4,
     },
     "Bridges": {
         "reference_name": "Bridges",
         "path": r"C:\replace\path\to\source.gdb\Bridge",
         "sf_type": "hardline",
-        "height_field": "<None>",
-        "group": 2,
+        "height_field": "SHAPE",
+        "group": 5,
     },
     "InlandPondsLakes": {
         "reference_name": "Inland_Ponds_Lakes",
         "path": r"C:\replace\path\to\source.gdb\InlandPondLake",
         "sf_type": "hardreplace",
-        "height_field": "<None>",
-        "group": 4,
+        "height_field": "SHAPE",
+        "group": 3,
     },
     "InlandStreamsRivers": {
         "reference_name": "Inland_Streams_Rivers",
         "path": r"C:\replace\path\to\source.gdb\InlandStreamRiver",
         "sf_type": "hardline",
-        "height_field": "<None>",
+        "height_field": "SHAPE",
         "group": 2,
     },
 }
