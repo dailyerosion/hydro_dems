@@ -645,10 +645,11 @@ def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log
         tf = []
 
         for ds in data_sources:
-            log.info(f"Adding {ds[0]} to terrain with height field {ds[1]} and SF type {ds[2]}")
-            ds_string = " ".join(str(item) for item in ds)
-            ret = arcpy.ddd.AddFeatureClassToTerrain(LTrrn, ds_string)#[ds])
-            tf.append(ret)
+            if int(str(arcpy.GetCount_management(ds[0]).getOutput(0))) > 0:
+                log.info(f"Adding {ds[0]} to terrain with height field {ds[1]} and SF type {ds[2]}")
+                ds_string = " ".join(str(item) for item in ds)
+                ret = arcpy.ddd.AddFeatureClassToTerrain(LTrrn, ds_string)#[ds])
+                tf.append(ret)
     
         group = len(ds) + 1
         ret = arcpy.AddFeatureClassToTerrain_3d(LTrrn, str(tcdFdSet) + " <None> hardclip " + str(group) + " 0 32 true false <None> <None>")
