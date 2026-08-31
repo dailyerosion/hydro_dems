@@ -2181,7 +2181,7 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                     tcdFdSet = arcpy.management.Dissolve(wesm_huc12_tiles_buffer_dissolve, os.path.join(str(FDSet), 'ept_and_local_las'))
                     fill_donut_slow(tcdFdSet)
 
-                    merged_breakline_paths = copy_merge_breaklines(str(FDSet), breaklines_to_merge, BREAKLINES, log)
+                    merged_breakline_paths = copy_merge_breaklines(str(FDSet), breaklines_to_merge, BREAKLINES, tcdFdSet, log)
 
                     terrains, tf, terrain_args, pyramid_args = buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, merged_breakline_paths, log, windowsizeMethods, ql)
 
