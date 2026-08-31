@@ -1623,7 +1623,7 @@ def try_to_delete(rasRes, log):
             os.remove(rasRes)
 
 
-def copy_merge_breaklines(fd_path, breaklines_to_merge, BREAKLINES, log):
+def copy_merge_breaklines(fd_path, breaklines_to_merge, BREAKLINES, tcdFdSet, log):
     """Copy each breakline feature class into the feature dataset."""
     out_paths = {}
     for key, info in BREAKLINES.items():
@@ -1642,9 +1642,10 @@ def copy_merge_breaklines(fd_path, breaklines_to_merge, BREAKLINES, log):
         # rather than relying on the default.
         input_fcs = breaklines_to_merge.get(key)#, [])
         if len(input_fcs) > 1:
-            arcpy.management.Merge(input_fcs, out_fc)
+            merged = arcpy.management.Merge(input_fcs, opj('in_memory', 'merged_' + fc_name))
+            arcpy.analysis.Clip(merged, tcdFdSet, out_fc)
         elif len(input_fcs) == 1:
-            arcpy.management.CopyFeatures(input_fcs[0], out_fc)
+            arcpy.analysis.Clip(input_fcs[0], tcdFdSet, out_fc)
         else:
             log.warning(f"No input feature classes found for breaklines_to_merge key: {key}")
            
