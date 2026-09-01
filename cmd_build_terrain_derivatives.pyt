@@ -575,6 +575,20 @@ def createCountsFromMultipoints(sgdb, maskRastOut, demListVal, demPtString, huc1
 
 
 BREAKLINES = {
+    "InlandStreamsRivers": {
+        "reference_name": "Inland_Streams_Rivers",
+        "path": r"C:\replace\path\to\source.gdb\InlandStreamRiver",
+        "sf_type": "hardline",
+        "height_field": "SHAPE",
+        "group": 2,
+    },
+    "InlandPondsLakes": {
+        "reference_name": "Inland_Ponds_Lakes",
+        "path": r"C:\replace\path\to\source.gdb\InlandPondLake",
+        "sf_type": "hardreplace",
+        "height_field": "SHAPE",
+        "group": 3,
+    },
     "Islands": {
         "reference_name": "Islands",
         "path": r"C:\replace\path\to\source.gdb\Island",
@@ -589,20 +603,6 @@ BREAKLINES = {
         "height_field": "SHAPE",
         "group": 5,
     },
-    "InlandPondsLakes": {
-        "reference_name": "Inland_Ponds_Lakes",
-        "path": r"C:\replace\path\to\source.gdb\InlandPondLake",
-        "sf_type": "hardreplace",
-        "height_field": "SHAPE",
-        "group": 3,
-    },
-    "InlandStreamsRivers": {
-        "reference_name": "Inland_Streams_Rivers",
-        "path": r"C:\replace\path\to\source.gdb\InlandStreamRiver",
-        "sf_type": "hardline",
-        "height_field": "SHAPE",
-        "group": 2,
-    },
 }
 
 def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log, windows, ql):
@@ -615,7 +615,7 @@ def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log
     else:
         spacing = "1.4"
 
-    tp = [spacing, "", "", "WINDOWSIZE", "", "MILD", 0.18]
+    tp = [spacing, "", "", "WINDOWSIZE", "", "MILD", 0.09]#0.18]
     pyrmd_str = "2 1000;4 2500;8 5000;16 10000;32 20000;64 40000"
 
     for window in windows:
@@ -624,15 +624,16 @@ def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log
 
         LTrrn = arcpy.CreateTerrain_3d(FDSet, "Lidar_Trn" + "_" + tp[4], tp[0], tp[1], tp[2], tp[3], tp[4], tp[5], tp[6])
 
+        #scales at which to use certain pyramid levels
         pyrmd_str = "2 1000;4 2500;8 5000;16 10000;32 20000;64 40000"
-        pyramids = arcpy.AddTerrainPyramidLevel_3d(LTrrn, "WINDOWSIZE", pyrmd_str)
+        pyramids_result = arcpy.AddTerrainPyramidLevel_3d(LTrrn, "WINDOWSIZE", pyrmd_str)
 
         pyramids_arguments = 'WINDOWSIZE, ' + pyrmd_str
 
         # Value table rows: [feature_class, height_field, SF_type, group,
         #                     min_resolution, max_resolution, embed, embed_name]
 
-        data_sources = [[finalMP, "<None>", "masspoints", 1, "", "", "", ""]]
+        data_sources = [[finalMP, "<None>", "masspoints", 1, "0", "64", "true", "true", "LASMerge_emb", "<None>"]]
     
         for key, info in BREAKLINES.items():
             data_sources.append([
@@ -644,14 +645,19 @@ def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log
             ])
         tf = []
 
-        for ds in data_sources:
+        for ds_counter, ds in enumerate(data_sources):
+            group = ds_counter + 1
             if int(str(arcpy.GetCount_management(ds[0]).getOutput(0))) > 0:
+                ds[3] = group  # Update the group number for the current data source
                 log.info(f"Adding {ds[0]} to terrain with height field {ds[1]} and SF type {ds[2]}")
                 ds_string = " ".join(str(item) for item in ds)
+                log.info(f"Using ds_string: {ds_string}")
                 ret = arcpy.ddd.AddFeatureClassToTerrain(LTrrn, ds_string)#[ds])
                 tf.append(ret)
+            else:
+                log.info(f"No features in {ds[0]}, skipping addition to terrain.")
     
-        group = len(ds) + 1
+        group += 1
         ret = arcpy.AddFeatureClassToTerrain_3d(LTrrn, str(tcdFdSet) + " <None> hardclip " + str(group) + " 0 32 true false <None> <None>")
         tf.append(ret)
 
@@ -1761,8 +1767,6 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
         flib_metadata_template, derivative_metadata = df.getMetadata(['flib', 'deriv'], procDir, log)
 
         breaklines_to_merge = {}
-
-        breakline_paths = {}
 
         ## store a list of all DEMs (lidar based, others) that must be joined to create HUC12
         ## Now a list of lists to facilitate creating two DEM resolutions easily (2 and 3 meter)
