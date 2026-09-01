@@ -633,7 +633,7 @@ def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log
         # Value table rows: [feature_class, height_field, SF_type, group,
         #                     min_resolution, max_resolution, embed, embed_name]
 
-        data_sources = [[finalMP, "<None>", "masspoints", 1, "0", "64", "true", "true", "LASMerge_emb", "<None>"]]
+        data_sources = [[finalMP, "SHAPE", "masspoints", 1, "0", "64", "true", "true", "LASMerge_emb", "<None>"]]
     
         for key, info in BREAKLINES.items():
             data_sources.append([
