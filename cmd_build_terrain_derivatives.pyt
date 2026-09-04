@@ -416,13 +416,13 @@ def prepPolygonBoundary(dem_polygon, log, sgdb, srOut, srSfx, maskRastBase, demL
             arcpy.AddField_management(maskFc, 'id', 'LONG')
             arcpy.CalculateField_management(maskFc, 'id', 1, 'PYTHON')
 
-        log.info("maskFcPrelim complete at: ")
+        log.info("maskFcPrelim complete")
 
         ## Set up geodatabase to store the multipoint files and terrains (necessary all inputs be in feature dataset
         # Vertical units are in meters (float) so use a meter-based reference
         FDSet = arcpy.CreateFeatureDataset_management(sgdb, "Lidar_pts", srOut)
         maskFcOut = projIfNeeded(maskFc, os.path.join(str(FDSet), 'buf_huc' + srSfx), srOut)
-        log.info("maskFcOut complete at: ")
+        log.info("maskFcOut complete")
 
         for demList in demLists:
             maskRastOut = arcpy.PolygonToRaster_conversion(maskFcOut, 'id', opj(sgdb, maskRastBase + str(demList[0])), cellsize = demList[0])
@@ -1870,7 +1870,7 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
         # Vertical units are in meters (float) so use a meter-based reference
         FDSet = arcpy.CreateFeatureDataset_management(sgdb, "Lidar_pts", srOut)
         maskFcOut = projIfNeeded(maskFc, os.path.join(str(FDSet), 'buf_huc' + srSfx), srOut)
-        log.info("maskFcOut complete at: ")
+        log.info("maskFcOut complete")
 
         maskRastBase = 'mask_rast_'
         for demListVal in demLists:
@@ -2109,6 +2109,7 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
 
                         if row_counter == 0 or work_id != prev_work_id:
                             breaks_md_dir = opj(os.path.dirname(os.path.dirname(storage_laz)), 'breaks_md')
+                            log.info(f"Processing breaklines for work_id: {work_id} using workspace {breaks_md_dir}")
                             arcpy.env.workspace = breaks_md_dir
                             breaks_gdbs = arcpy.ListWorkspaces()#[0]
                             if breaks_gdbs:
@@ -2116,16 +2117,23 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                                 arcpy.env.workspace = breaks_gdb
                                 for k in BREAKLINES.keys():
                                     ref = BREAKLINES[k]['reference_name']
-                                    candidate = arcpy.ListFeatureClasses(ref + '*')[0]
-                                    if not candidate:
-                                        possibilities = arcpy.ListFeatureClasses()
+                                    candidates = arcpy.ListFeatureClasses(ref + '*')
+                                    if not candidates:
+                                        #remove 'Inland_' to avoid matching with 'Island'
+                                        ref = ref.replace('Inland_', '')
+                                        if ref == 'Inland_Streams_Rivers' or ref == 'Bridges':
+                                            possibilities = arcpy.ListFeatureClasses(feature_type='Polyline')
+                                        else:
+                                            possibilities = arcpy.ListFeatureClasses(feature_type='Polygon')
                                         match = difflib.get_close_matches(ref, possibilities, n=1, cutoff=0.6)
                                         if match:
                                             log.warning(f"No exact match for breaks found. Closest match found: '{match}'")
-                                            candidate = match
+                                            candidate = match[0]
                                         else:
                                             log.info("No close match found above the threshold.")
                                             candidate = None
+                                    else:
+                                        candidate = candidates[0]
                                     print(candidate)
                                     if candidate and row_counter == 0:
                                         breakline_fc = opj(breaks_gdb, candidate)
@@ -2135,10 +2143,10 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                                         elif ref == 'Bridges':
                                             breaks_bridges = [breakline_fc]
                                             breaklines_to_merge[k] = breaks_bridges
-                                        elif ref == 'Inland_Ponds_Lakes':
+                                        elif ref == 'Inland_Ponds_Lakes' or ref == 'Ponds_Lakes':
                                             breaks_ponds_lakes = [breakline_fc]
                                             breaklines_to_merge[k] = breaks_ponds_lakes
-                                        elif ref == 'Inland_Streams_Rivers':
+                                        elif ref == 'Inland_Streams_Rivers' or ref == 'Streams_Rivers':
                                             breaks_streams_rivers = [breakline_fc]
                                             breaklines_to_merge[k] = breaks_streams_rivers
                                     elif candidate:
@@ -2149,10 +2157,10 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                                         elif ref == 'Bridges':
                                             breaks_bridges = breaks_bridges + [breakline_fc]
                                             breaklines_to_merge[k] = breaks_bridges
-                                        elif ref == 'Inland_Ponds_Lakes':
+                                        elif ref == 'Inland_Ponds_Lakes' or ref == 'Ponds_Lakes':
                                             breaks_ponds_lakes = breaks_ponds_lakes + [breakline_fc]
                                             breaklines_to_merge[k] = breaks_ponds_lakes
-                                        elif ref == 'Inland_Streams_Rivers':
+                                        elif ref == 'Inland_Streams_Rivers' or ref == 'Streams_Rivers':
                                             breaks_streams_rivers = breaks_streams_rivers + [breakline_fc]
                                             breaklines_to_merge[k] = breaks_streams_rivers
                                     else:
@@ -2202,6 +2210,18 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                     # lasdAll = arcpy.CreateLasDataset_management(allTilesList, os.path.join(procDir, 'huc_all.lasd'), spatial_reference = arcpy.SpatialReference(int(srOutCode)))
                     # ## Following code runs slowly at times and is not being used further 2023.12.21
                     # # classify overlap in lasdAll
+                    acpf_gdb = os.path.dirname(wesm_huc12_tiles)
+                    super_buffer = arcpy.Buffer_analysis(dem_boundary, opj(inm, 'super_buffer'), buffer_distance_or_field = "500 METERS")
+                    if len(breaks_streams_rivers) > 0:
+                        log.info('--- Creating Inland Streams and Rivers polygons for storage')
+                        polygons_streams_rivers = arcpy.FeatureToPolygon_management(merged_breakline_paths['InlandStreamsRivers'], opj(inm, 'Inland_Streams_Rivers_Polygons'))
+                        psr = os.path.basename(str(polygons_streams_rivers))
+                        clip_psr_result = arcpy.Clip_analysis(polygons_streams_rivers, super_buffer, opj(acpf_gdb, psr))
+                    if len(breaks_ponds_lakes) > 0:
+                        log.info('--- Copying Inland Ponds and Lakes polygons for storage')
+                        ppl = BREAKLINES['InlandPondsLakes']['reference_name']
+                        copy_ppl_result=arcpy.CopyFeatures_management(final_breaks_ponds_lakes, opj(acpf_gdb, ppl))
+
 
         arcpy.env.cellSize = None
 
