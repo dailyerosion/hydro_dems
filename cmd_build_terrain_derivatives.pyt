@@ -336,8 +336,8 @@ def processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom, ept_las, srOut, inm
                 las_from_laz = allLAZ
 
             if lasMP:
-                ptsName = arcpy.ValidateTableName('pts_' + lasBase, os.path.join(str(FDSet)))
-                ptOut = projIfNeeded(lasMP, os.path.join(str(FDSet), ptsName), srOut)
+                ptsName = arcpy.ValidateTableName('pts_' + lasBase, os.path.join(FDSet))
+                ptOut = projIfNeeded(lasMP, os.path.join(FDSet, ptsName), srOut)
 
             else:
                 log.warning('no ptOut created, setting to None')
@@ -397,84 +397,6 @@ def processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom, ept_las, srOut, inm
             arcpy.AddError(msgs)
             print(msgs)
 
-def prepPolygonBoundary(dem_polygon, log, sgdb, srOut, srSfx, maskRastBase, demLists):
-
-    try:
-        assert int(arcpy.GetCount_management(dem_polygon).getOutput(0)) < 2, 'multiple features in polygon feature class'
-        assert int(arcpy.GetCount_management(dem_polygon).getOutput(0)) > 0, 'no features in polygon feature class'
-        maskFc = arcpy.CopyFeatures_management(dem_polygon, opj(sgdb, 'maskFc'))
-        maskFc_area = [s[0] for s in arcpy.da.SearchCursor(maskFc, ['SHAPE@AREA'])][0]
-
-        # # geom_copy = arcpy.management.CopyFeatures(huc12fc, opj(sgdb, 'huc' + huc12))
-        # geom_copy = arcpy.Buffer_analysis(maskFc, buffer_distance_or_field = '-1000 METERS')
-        # if df.testForZero(geom_copy):
-        #     geom_copy = arcpy.Buffer_analysis(maskFc, buffer_distance_or_field = '-500 METERS')
-        #     if df.testForZero(geom_copy):
-        #         geom_copy = arcpy.CopyFeatures_management(dem_polygon)
-
-        if 'id' not in df.getfields(maskFc):
-            arcpy.AddField_management(maskFc, 'id', 'LONG')
-            arcpy.CalculateField_management(maskFc, 'id', 1, 'PYTHON')
-
-        log.info("maskFcPrelim complete")
-
-        ## Set up geodatabase to store the multipoint files and terrains (necessary all inputs be in feature dataset
-        # Vertical units are in meters (float) so use a meter-based reference
-        FDSet = arcpy.CreateFeatureDataset_management(sgdb, "Lidar_pts", srOut)
-        maskFcOut = projIfNeeded(maskFc, os.path.join(str(FDSet), 'buf_huc' + srSfx), srOut)
-        log.info("maskFcOut complete")
-
-        for demList in demLists:
-            maskRastOut = arcpy.PolygonToRaster_conversion(maskFcOut, 'id', opj(sgdb, maskRastBase + str(demList[0])), cellsize = demList[0])
-            # huc_rast_out = arcpy.conversion.PolygonToRaster(geom_copy, 'OBJECTID', opj(sgdb, 'huc_rast' + str(demList[0])), cellsize = demList[0])
-
-        return maskFc, maskFc_area, maskFcOut, maskRastOut, None, FDSet
-        # return maskFc, maskFc_area, maskFcOut, maskRastOut, huc_rast_out, FDSet
-
-    except Exception as e:
-        print('handling as exception')
-##        log.debug(e.message)
-        if sys.version_info.major == 2:
-            print('handling as 2 exception')
-            arcpy.AddError(e.message)
-            print(e.message)
-        elif sys.version_info.major == 3:
-            print('handling as 3 exception')
-            arcpy.AddError(e)
-            print(e)
-
-        # Get the traceback object
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-        # Concatenate information together concerning the error into a message string
-        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-        # Return python error messages for use in script tool or Python Window
-        arcpy.AddError(pymsg)
-        # Print Python error messages for use in Python / Python Window
-        print(pymsg + "\n")
-
-        if arcpy.GetMessages(2) not in pymsg:
-            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-            arcpy.AddError(msgs)
-            print(msgs)
-
-    except:
-        print('handling as except')
-        # Get the traceback object
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-
-        # Concatenate information together concerning the error into a message string
-        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
-        # Return python error messages for use in script tool or Python Window
-        arcpy.AddError(pymsg)
-        # Print Python error messages for use in Python / Python Window
-        print(pymsg + "\n")
-
-        if arcpy.GetMessages(2) not in pymsg:
-            msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
-            arcpy.AddError(msgs)
-            print(msgs)
 
 
 def getLidarTimeframes(merged):#, tilesClip_local):
@@ -574,46 +496,9 @@ def createCountsFromMultipoints(sgdb, maskRastOut, demListVal, demPtString, huc1
 
 
 
-BREAKLINES = {
-    "InlandStreamsRivers": {
-        "reference_name": "Inland_Streams_Rivers",
-        "path": r"C:\replace\path\to\source.gdb\InlandStreamRiver",
-        "sf_type": "hardline",
-        "height_field": "SHAPE",
-        "group": 2,
-    },
-    "InlandPondsLakes": {
-        "reference_name": "Inland_Ponds_Lakes",
-        "path": r"C:\replace\path\to\source.gdb\InlandPondLake",
-        "sf_type": "hardreplace",
-        "height_field": "SHAPE",
-        "group": 3,
-    },
-    "Islands": {
-        "reference_name": "Islands",
-        "path": r"C:\replace\path\to\source.gdb\Island",
-        "sf_type": "hardline",
-        "height_field": "SHAPE",
-        "group": 4,
-    },
-    "Bridges": {
-        "reference_name": "Bridges",
-        "path": r"C:\replace\path\to\source.gdb\Bridge",
-        "sf_type": "hardline",
-        "height_field": "SHAPE",
-        "group": 5,
-    },
-}
-
-def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log, windows, ql):
+def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, log, windows, spacing):
     terrains = []
     # create one terrain with ZMinMax option
-    if ql == 'QL 1' or ql == 'QL 0':
-        spacing = "0.35"
-    elif ql == 'QL 2':
-        spacing = "0.7"
-    else:
-        spacing = "1.4"
 
     tp = [spacing, "", "", "WINDOWSIZE", "", "MILD", 0.09]#0.18]
     pyrmd_str = "2 1000;4 2500;8 5000;16 10000;32 20000;64 40000"
@@ -636,14 +521,16 @@ def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log
         data_sources = [[finalMP, "SHAPE", "masspoints", 1, "0", "64", "true", "true", "LASMerge_emb", "<None>"]]
     
         for key, info in BREAKLINES.items():
-            data_sources.append([
-                breakline_paths[key],
-                info["height_field"],
-                info["sf_type"],
-                info["group"],
-                "0", "32", "true", "false", "<None>", "<None>"
-            ])
-        tf = []
+            if arcpy.Exists(BREAKLINES[key]["fdset_path"]):
+                data_sources.append([
+                    BREAKLINES[key]["fdset_path"],
+                    info["height_field"],
+                    info["sf_type"],
+                    info["group"],
+                    "0", "32", "true", "false", "<None>", "<None>"
+                ])
+
+        terrain_features = []
 
         for ds_counter, ds in enumerate(data_sources):
             group = ds_counter + 1
@@ -653,13 +540,13 @@ def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log
                 ds_string = " ".join(str(item) for item in ds)
                 log.info(f"Using ds_string: {ds_string}")
                 ret = arcpy.ddd.AddFeatureClassToTerrain(LTrrn, ds_string)#[ds])
-                tf.append(ret)
+                terrain_features.append(ret)
             else:
                 log.info(f"No features in {ds[0]}, skipping addition to terrain.")
     
         group += 1
         ret = arcpy.AddFeatureClassToTerrain_3d(LTrrn, str(tcdFdSet) + " <None> hardclip " + str(group) + " 0 32 true false <None> <None>")
-        tf.append(ret)
+        terrain_features.append(ret)
 
         # arcpy.ddd.AddFeatureClassToTerrain(LTrrn, data_sources)
         # print("Added mass points and breaklines to terrain")
@@ -698,7 +585,7 @@ def buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, breakline_paths, log
         terrain_arguments_list = [LTrrn.getInput(t) for t in range(0,10)]
         terrain_arguments = ', '.join(terrain_arguments_list)
 
-    return terrains, tf, terrain_arguments, pyramids_arguments
+    return terrains, terrain_features, terrain_arguments, pyramids_arguments
 
 
 def buildTerrains(finalMP, FDSet, tcdFdSet, finalHb, finalHl, finalNoZHb, poorZHb, log, windows, time):
@@ -1023,8 +910,8 @@ def genClass2AndMultiPoints(allLAZ, sfx, srOut, inm, FDSet, procDir, log):
         ## Clip multipoints
     ####        if untiledByLas:
     ####            lasMP = arcpy.Clip_analysis(lasMP, untiledByLas, inm + "\\pts_clp_" + str(rowCounter))
-            ptsName = arcpy.ValidateTableName('pts_' + lasBase, os.path.join(str(FDSet)))
-            ptOut = projIfNeeded(lasMP, os.path.join(str(FDSet), ptsName), srOut)
+            ptsName = arcpy.ValidateTableName('pts_' + lasBase, os.path.join(FDSet))
+            ptOut = projIfNeeded(lasMP, os.path.join(FDSet, ptsName), srOut)
 
         else:
             log.warning('no ptOut created, setting to None')
@@ -1091,8 +978,7 @@ def buildSelection(inList, field):
 
 def setupPointsAndBreaklines(finalMP, inm, FDSet, breakpolys, breaklines, log):
     try:
-        fd_string = FDSet.getOutput(0)
-##        with arcpy.EnvManager(workspace = str(FDSet)):
+##        with arcpy.EnvManager(workspace = FDSet):
         log.info('setting up points and breaklines')
         # an in-memory version of the feature class for faster generation of count statistics
         finalMPinm = arcpy.CopyFeatures_management(finalMP, os.path.join(inm, 'mp_merge'))
@@ -1101,29 +987,29 @@ def setupPointsAndBreaklines(finalMP, inm, FDSet, breakpolys, breaklines, log):
         breakpolyList = []
 
         # list of polygon breakline feature classes, some are 'better' than others, Minnesota you kill me!
-        hbList = arcpy.ListFeatureClasses('hb_sel_*', feature_type = 'POLYGON', feature_dataset = os.path.basename(fd_string))
-        fd_hbList = [opj(os.path.basename(fd_string), c) for c in hbList]
-        hbListM = arcpy.ListFeatureClasses('hbm_sel_*', feature_type = 'POLYGON', feature_dataset = os.path.basename(fd_string))
-        fd_hbListM = [opj(os.path.basename(fd_string), c) for c in hbListM]
+        hbList = arcpy.ListFeatureClasses('hb_sel_*', feature_type = 'POLYGON', feature_dataset = os.path.basename(FDSet))
+        fd_hbList = [opj(os.path.basename(FDSet), c) for c in hbList]
+        hbListM = arcpy.ListFeatureClasses('hbm_sel_*', feature_type = 'POLYGON', feature_dataset = os.path.basename(FDSet))
+        fd_hbListM = [opj(os.path.basename(FDSet), c) for c in hbListM]
         # put those with M values first (largest number of characters in text field)
 ####            hbListM += hbList
         fd_hbListM += fd_hbList
         if len(fd_hbListM) > 0:
-            finalHb = arcpy.Merge_management(fd_hbListM, os.path.join(str(FDSet), 'hb_merge'))
+            finalHb = arcpy.Merge_management(fd_hbListM, os.path.join(FDSet, 'hb_merge'))
             breakpolyList.append(finalHb)
         else:
             finalHb = None
 
-        poorZHbList = arcpy.ListFeatureClasses('hb_poor_*', feature_type = 'POLYGON', feature_dataset = os.path.basename(fd_string))
+        poorZHbList = arcpy.ListFeatureClasses('hb_poor_*', feature_type = 'POLYGON', feature_dataset = os.path.basename(FDSet))
         if len(poorZHbList) > 0:
-            poorZHb = arcpy.Merge_management(poorZHbList, os.path.join(str(FDSet), 'poor_z_hb_merge'))
+            poorZHb = arcpy.Merge_management(poorZHbList, os.path.join(FDSet, 'poor_z_hb_merge'))
             breakpolyList.append(poorZHb)
         else:
             poorZHb = None
 
-        noZHbList = arcpy.ListFeatureClasses('bad_hb_*', feature_type = 'POLYGON', feature_dataset = os.path.basename(fd_string))
+        noZHbList = arcpy.ListFeatureClasses('bad_hb_*', feature_type = 'POLYGON', feature_dataset = os.path.basename(FDSet))
         if len(noZHbList) > 0:
-            finalNoZHb = arcpy.Merge_management(noZHbList, os.path.join(str(FDSet), 'no_z_hb_merge'))
+            finalNoZHb = arcpy.Merge_management(noZHbList, os.path.join(FDSet, 'no_z_hb_merge'))
             breakpolyList.append(finalNoZHb)
         else:
             finalNoZHb = None
@@ -1142,10 +1028,10 @@ def setupPointsAndBreaklines(finalMP, inm, FDSet, breakpolys, breaklines, log):
             # mergedBreakpolys = arcpy.Merge_management(breakpolyList, os.path.join(breakGdb, 'break_polys_' + huc12))
             mergedBreakpolys = arcpy.Merge_management(breakpolyList, breakpolys)
 
-        hlList = arcpy.ListFeatureClasses('hl_*', feature_type = 'POLYLINE', feature_dataset = os.path.basename(fd_string))
+        hlList = arcpy.ListFeatureClasses('hl_*', feature_type = 'POLYLINE', feature_dataset = os.path.basename(FDSet))
         log.debug(f'hlList: {hlList}')
         if len(hlList) > 0:
-            finalHl = arcpy.Merge_management(hlList, os.path.join(str(FDSet), 'hl_merge'))
+            finalHl = arcpy.Merge_management(hlList, os.path.join(FDSet, 'hl_merge'))
 
             copiedBreaklines = arcpy.CopyFeatures_management(finalHl, breaklines)
             # copiedBreaklines = arcpy.CopyFeatures_management(finalHl, os.path.join(breakGdb, 'break_lines_' + huc12))
@@ -1171,35 +1057,34 @@ def setupPointsAndBreaklines(finalMP, inm, FDSet, breakpolys, breaklines, log):
         errorhandle(sys.exc_info(), arcpy, traceback)#[2])
 
 
-def setupPointsAndUSGSBreaklines(FDSet, breaks_ponds_lakes, breaks_streams_rivers, breaks_islands, breaks_bridges, BREAKLINES, log):
+def setupUSGSBreaklines(FDSet, breaks_ponds_lakes, breaks_streams_rivers, breaks_islands, breaks_bridges, BREAKLINES, log):
     try:
-        fd_string = str(FDSet)#.getOutput(0)
-##        with arcpy.EnvManager(workspace = str(FDSet)):
+##        with arcpy.EnvManager(workspace = FDSet):
         log.info('setting up breaklines')
 
         # a list of breakpoint feature classes to merge together at the end, saved for later
         breakpolyList = []
 
         if len(breaks_ponds_lakes) > 0:
-            final_ponds_lakes = arcpy.Merge_management(breaks_ponds_lakes, os.path.join(str(FDSet), 'breaks_ponds_lakes_merge'))
+            final_ponds_lakes = arcpy.Merge_management(breaks_ponds_lakes, os.path.join(FDSet, 'breaks_ponds_lakes_merge'))
         else:
             final_ponds_lakes = None
         BREAKLINES['InlandPondsLakes']['path'] = final_ponds_lakes
 
         if len(breaks_streams_rivers) > 0:
-            final_streams_rivers = arcpy.Merge_management(breaks_streams_rivers, os.path.join(str(FDSet), 'breaks_streams_rivers_merge'))
+            final_streams_rivers = arcpy.Merge_management(breaks_streams_rivers, os.path.join(FDSet, 'breaks_streams_rivers_merge'))
         else:
             final_streams_rivers = None
         BREAKLINES['InlandStreamsRivers']['path'] = final_streams_rivers
 
         if len(breaks_islands) > 0:
-            final_islands = arcpy.Merge_management(breaks_islands, os.path.join(str(FDSet), 'breaks_islands_merge'))
+            final_islands = arcpy.Merge_management(breaks_islands, os.path.join(FDSet, 'breaks_islands_merge'))
         else:
             final_islands = None
         BREAKLINES['Islands']['path'] = final_islands
 
         if len(breaks_bridges) > 0:
-            final_bridges = arcpy.Merge_management(breaks_bridges, os.path.join(str(FDSet), 'breaks_bridges_merge'))
+            final_bridges = arcpy.Merge_management(breaks_bridges, os.path.join(FDSet, 'breaks_bridges_merge'))
         else:
             final_bridges = None
         BREAKLINES['Bridges']['path'] = final_bridges
@@ -1246,7 +1131,7 @@ def errorhandle(sei, arcpy, traceback):
 #     tilesClipDeBuffer = arcpy.Buffer_analysis(tilesClipBuffer, buffer_distance_or_field = '-2 METERS')
 #     tilesClipDslv = arcpy.Dissolve_management(tilesClipDeBuffer)
 #     tilesClipDslvElim = arcpy.EliminatePolygonPart_management(tilesClipDslv, condition = 'PERCENT', part_area_percent = 50)
-#     tcdFdSet = arcpy.CopyFeatures_management(tilesClipDslvElim, os.path.join(str(FDSet), 'local_las_area'))
+#     tcdFdSet = arcpy.CopyFeatures_management(tilesClipDslvElim, os.path.join(FDSet, 'local_las_area'))
 
 #     return tcdFdSet
 
@@ -1630,41 +1515,40 @@ def try_to_delete(rasRes, log):
             os.remove(rasRes)
 
 
-def copy_merge_breaklines(fd_path, breaklines_to_merge, BREAKLINES, tcdFdSet, log):
+def merge_copy_breaklines(BREAKLINES, super_buffer, log):
     """Copy each breakline feature class into the feature dataset."""
-    out_paths = {}
+
     for key, info in BREAKLINES.items():
-        src = info["path"]
-        # if not arcpy.Exists(src):
-        #     raise RuntimeError(f"Breakline source not found for {key}: {src}")
+        if len(BREAKLINES[key]['path_list']) > 0:
+            out_fc = BREAKLINES[key]['fdset_path']
+            acpf_fc = BREAKLINES[key]['acpf_path']
+            # if arcpy.Exists(out_fc):
+            #     arcpy.management.Delete(out_fc)
 
-        fc_name = BREAKLINES[key]['reference_name']
-        out_fc = os.path.join(fd_path, fc_name)#key)
-        if arcpy.Exists(out_fc):
-            arcpy.management.Delete(out_fc)
+            if len(BREAKLINES[key]['path_list']) > 1:
+                merged = arcpy.management.Merge(BREAKLINES[key]['path_list'], opj('in_memory', 'merged_' + BREAKLINES[key]['reference_name']))
+                arcpy.analysis.Clip(merged, super_buffer, out_fc)
 
-        # CopyFeatures projects on the fly to the feature dataset's spatial
-        # reference if the source differs. For elevation-critical work,
-        # confirm the geographic/vertical transformation used is correct
-        # rather than relying on the default.
-        input_fcs = breaklines_to_merge.get(key)#, [])
-        if len(input_fcs) > 1:
-            merged = arcpy.management.Merge(input_fcs, opj('in_memory', 'merged_' + fc_name))
-            arcpy.analysis.Clip(merged, tcdFdSet, out_fc)
-        elif len(input_fcs) == 1:
-            arcpy.analysis.Clip(input_fcs[0], tcdFdSet, out_fc)
-        else:
-            log.warning(f"No input feature classes found for breaklines_to_merge key: {key}")
-           
+                if BREAKLINES[key]['reference_name'] == 'InlandStreamsRivers':
+                    log.info('--- Creating Inland Streams and Rivers polygons from lines for storage')
+                    polygons_streams_rivers = arcpy.FeatureToPolygon_management(merged, opj('in_memory', 'Inland_Streams_Rivers_Polygons'))
+                    clip_psr_result = arcpy.Clip_analysis(polygons_streams_rivers, super_buffer, acpf_fc + '_Polygons')
 
-        # if len(breaklines_to_merge) == 1 and key in breaklines_to_merge:
-        #     src = breaklines_to_merge[key][0]
-        #     arcpy.management.CopyFeatures(src, out_fc)
-        BREAKLINES[key]['path'] = out_fc
-        out_paths[key] = out_fc
-        print(f"Copied breakline into feature dataset: {out_fc}")
+            elif len(BREAKLINES[key]['path_list']) == 1:
+                arcpy.analysis.Clip(BREAKLINES[key]['path_list'][0], super_buffer, out_fc)
 
-    return out_paths
+                if BREAKLINES[key]['reference_name'] == 'InlandStreamsRivers':
+                    log.info('--- Creating Inland Streams and Rivers polygons from lines for storage')
+                    polygons_streams_rivers = arcpy.FeatureToPolygon_management(BREAKLINES[key]['path_list'][0], opj('in_memory', 'Inland_Streams_Rivers_Polygons'))
+                    clip_psr_result = arcpy.Clip_analysis(polygons_streams_rivers, super_buffer, acpf_fc + '_Polygons')
+
+            # CopyFeatures projects on the fly to the feature dataset's spatial
+            # reference if the source differs. For elevation-critical work,
+            # confirm the geographic/vertical transformation used is correct
+            # rather than relying on the default.
+
+            arcpy.management.CopyFeatures(out_fc, acpf_fc)
+            print(f"Copied breakline into feature dataset: {out_fc}")
 
 
 def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir, 
@@ -1853,11 +1737,10 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
         srSfx = '_'+str(srOutCode)
         work_id_name = 'workunit_id'
 
-        # maskFc, maskFc_area, maskFcOut, maskRastOut, hucRastOut, FDSet = prepPolygonBoundary(dem_polygon, log, sgdb, srOut, srSfx, maskRastBase, demLists)
-
         # assert int(arcpy.GetCount_management(dem_polygon).getOutput(0)) < 2, 'multiple features in polygon feature class'
         # assert int(arcpy.GetCount_management(dem_polygon).getOutput(0)) > 0, 'no features in polygon feature class'
         # tiles_dissolve = arcpy.Dissolve_management(wesm_huc12_tiles, 'in_memory/dem_poly_dissolve')
+        super_buffer = arcpy.Buffer_analysis(dem_boundary, opj(inm, 'super_buffer'), buffer_distance_or_field = "500 METERS")
         maskFc = arcpy.CopyFeatures_management(dem_boundary)
         merged_area = [s[0] for s in arcpy.da.SearchCursor(maskFc, ['SHAPE@AREA'])][0]
 
@@ -1868,8 +1751,9 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
 
         ## Set up geodatabase to store the multipoint files and terrains (necessary all inputs be in feature dataset
         # Vertical units are in meters (float) so use a meter-based reference
-        FDSet = arcpy.CreateFeatureDataset_management(sgdb, "Lidar_pts", srOut)
-        maskFcOut = projIfNeeded(maskFc, os.path.join(str(FDSet), 'buf_huc' + srSfx), srOut)
+        fdset_result = arcpy.CreateFeatureDataset_management(sgdb, "Lidar_pts", srOut)
+        FDSet = str(fdset_result)#.getOutput(0)
+        maskFcOut = projIfNeeded(maskFc, os.path.join(FDSet, 'buf_huc' + srSfx), srOut)
         log.info("maskFcOut complete")
 
         maskRastBase = 'mask_rast_'
@@ -1881,6 +1765,8 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
             maskRastOut = arcpy.PolygonToRaster_conversion(maskFcOut, 'id', opj(sgdb, maskRastBase + demPtString), cellsize = float(demListVal))
             # huc_rast_out = arcpy.conversion.PolygonToRaster(geom_copy, 'OBJECTID', opj(sgdb, 'huc_rast' + str(demList[0])), cellsize = demList[0])
 
+        acpf_gdb = os.path.dirname(wesm_huc12_tiles)
+
 ##----------------------------------------------------------------------
 
     # # check for collection change (different priorities) to restrict further data
@@ -1888,6 +1774,81 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
 
 
 ##----------------------------------------------------------------------
+
+        BREAKLINES = {
+    "InlandStreamsRivers": {
+        "reference_name": "Inland_Streams_Rivers",
+        "acpf_path": opj(acpf_gdb, "Inland_Streams_Rivers"),
+        "fdset_path": opj(FDSet, "Inland_Streams_Rivers"),
+        "path_list": [],
+        "sf_type": "hardline",
+        "height_field": "SHAPE",
+        "group": 2,
+    },
+    "InlandPondsLakes": {
+        "reference_name": "Inland_Ponds_Lakes",
+        "acpf_path": opj(acpf_gdb, "Inland_Ponds_Lakes"),
+        "fdset_path": opj(FDSet, "Inland_Ponds_Lakes"),
+        "path_list": [],
+        "sf_type": "hardreplace",
+        "height_field": "SHAPE",
+        "group": 3,
+    },
+    "Islands": {
+        "reference_name": "Islands",
+        "acpf_path": opj(acpf_gdb, "Islands"),
+        "fdset_path": opj(FDSet, "Islands"),
+        "path_list": [],
+        "sf_type": "hardline",
+        "height_field": "SHAPE",
+        "group": 4,
+    },
+    "Bridges": {
+        "reference_name": "Bridges",
+        "acpf_path": opj(acpf_gdb, "Bridges"),
+        "fdset_path": opj(FDSet, "Bridges"),
+        "path_list": [],
+        "sf_type": "hardline",
+        "height_field": "SHAPE",
+        "group": 5,
+    },
+    "Soft_lines": {
+        "reference_name": "Soft",
+        "acpf_path": opj(acpf_gdb, "Soft_lines"),
+        "fdset_path": opj(FDSet, "Soft_lines"),
+        "path_list": [],
+        "sf_type": "softline",
+        "height_field": "SHAPE",
+        "group": 6,
+    },
+    "Obscured": {
+        "reference_name": "Obscured",
+        "acpf_path": opj(acpf_gdb, "Obscured"),
+        "fdset_path": opj(FDSet, "Obscured"),
+        "path_list": [],
+        "sf_type": "hardline",
+        "height_field": "SHAPE",
+        "group": 7,
+    },
+    "InlandStreamsRiversPolygons": {
+        "reference_name": "Polygon_Streams_Rivers",
+        "acpf_path": opj(acpf_gdb, "Polygon_Streams_Rivers"),
+        "fdset_path": opj(FDSet, "Polygon_Streams_Rivers"),
+        "path_list": [],
+        "sf_type": "hardline",
+        "height_field": "SHAPE",
+        "group": 8,
+    },
+    "BridgesPolygons": {
+        "reference_name": "Polygon_Bridges",
+        "acpf_path": opj(acpf_gdb, "Polygon_Bridges"),
+        "fdset_path": opj(FDSet, "Polygon_Bridges"),
+        "path_list": [],
+        "sf_type": "hardline",
+        "height_field": "SHAPE",
+        "group": 5,
+    },
+}
 
 
 ##----------------------------------------------------------------------
@@ -1907,16 +1868,6 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                     ql = srow[3]
                     vert_crs = srow[-1]
                     hor_crs = srow[-2]
-                    # if 'DEP\\laz' in storage_laz:
-                    #     log.info('found DEP\\laz in storage_laz path, replacing with DEP\\USGS_LPC')
-                    #     if 'DEP\\laz' in storage_laz:
-                    #         log.info('found DEP\\laz in storage_laz path, replacing with DEP\\USGS_LPC')
-                    #         ept_las = storage_laz.replace('DEP\\laz', 'DEP\\USGS_LPC')
-                    # elif 'E:\\DEP_Checkout' in storage_laz:
-                    #     log.info('found E:\\DEP_Checkout in storage_laz path, replacing with M:\\DEP')
-                    #     ept_las = storage_laz.replace('E:\\DEP_Checkout', 'M:\\DEP')
-                    # else:
-                    #     ept_las = storage_laz
                     if os.path.exists(storage_laz):#ept_las):
 
                         storage_laz_altsep = storage_laz.replace(os.path.sep, os.path.altsep)
@@ -2001,36 +1952,15 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                         pl_laz_las = pdal.Pipeline(pipeline_laz_las)
                         ex = pl_laz_las.execute()
 
+                        if ql == 'QL 1' or ql == 'QL 0':
+                            spacing = "0.35"
+                        elif ql == 'QL 2':
+                            spacing = "0.7"
+                        else:
+                            spacing = "1.4"
+
                         ept_las_base = os.path.splitext(os.path.basename(storage_laz))[0]
 
-
-            # # with arcpy.da.SearchCursor(wesm_huc12, ['SHAPE@', work_id_name] + url_list, sql_clause = [None, 'ORDER BY ' + addOrderField.getInput(1) + ' DESC']) as scur:#work_id_name, 'SHAPE@AREA', 'lpc_link']) as scur:
-            #     for srow in scur:
-            #         work_id = srow[2]
-            #         storage_laz = srow[1]
-            #         geom = srow[0]
-
-            #         # print(srow)
-            #         # ept_las_full_filename = laz
-            #         # handle some inconsistent paths
-            #         if 'DEP\\laz' in storage_laz:
-            #             log.info('found DEP\\laz in storage_laz path, replacing with DEP\\USGS_LPC')
-            #             if 'DEP\\laz' in storage_laz:
-            #                 log.info('found DEP\\laz in storage_laz path, replacing with DEP\\USGS_LPC')
-            #                 ept_las = storage_laz.replace('DEP\\laz', 'DEP\\USGS_LPC')
-            #         elif 'E:\\DEP_Checkout' in storage_laz:
-            #             log.info('found E:\\DEP_Checkout in storage_laz path, replacing with M:\\DEP')
-            #             ept_las = storage_laz.replace('E:\\DEP_Checkout', 'M:\\DEP')
-            #         else:
-            #             ept_las = storage_laz
-            #         if os.path.exists(ept_las):#_full_filename):# and stats.st_size > las_size_threshold:
-            #         #     cl2Las = processEptLas(sgdb, sfldr, srOutCode, fixedFolder, geom_srOut, ept_las_full_filename, srOut, inm, FDSet, procDir, allTilesList, log, time, work_id)
-
-            #         # '''process a cursor row of data by creating a suitable las file from the input las/laz/zlas dataset
-            #         # This inlcudes project and clipping las data files into output dataset and also creating a multipoint
-            #         # file from the las data if there is any within the extent'''
-            #         # try:
-            #             ept_las_base = os.path.splitext(os.path.basename(ept_las))[0]
                         sfx = arcpy.ValidateTableName('_' + ept_las_base, sgdb)
                         # log.debug('lidar file suffix is: ' + sfx)
 
@@ -2038,60 +1968,15 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                         log.debug(f'lidar file suffix is: {sfx}')
                         lasdAll = arcpy.CreateLasDataset_management(fixedFolder, os.path.join(procDir, 'huc_all.lasd'), spatial_reference=arcpy.SpatialReference(int(srOutCode)))
 
-                    #     # extract to tile geometry and project if necessary
-                    #     nameSfx = '_' + str(srOutCode)
-                    #     fixedLasBasename = os.path.basename(ept_las)[:-4] + nameSfx + '.las'
-                    # ##            log.debug('fixedLasBasename: ' + fixedLasBasename)
-                    #     # some old 3DEP projects don't alway have boundaries and data lining up...
-                    #     log.debug(f'ExtractLas arguments are {allLasd}, {fixedFolder}, name_suffix = {nameSfx}, rearrange_points = {"MAINTAIN_POINTS"}, out_las_dataset = {opj(fixedFolder, "fixed" + sfx + ".lasd")}')
-                    #     # if work_id < 0:
-                    #     #     tileGeomBuffer5 = geom.buffer(5) #tile Geometry column
-                    #     #     log.debug('--- Use ExtractLas, boundary option,')
-                    #     #     fixedLasd = arcpy.ExtractLas_3d(allLasd, fixedFolder, name_suffix = nameSfx, rearrange_points = "MAINTAIN_POINTS", out_las_dataset = opj(fixedFolder, 'fixed' + sfx + '.lasd'), compression="NO_COMPRESSION", boundary = tileGeomBuffer5)
-                    #     # else:
-                    #     #     log.debug('--- Use ExtractLas, no boundary option,')
-                    #     #     fixedLasd = arcpy.ExtractLas_3d(allLasd, fixedFolder, name_suffix = nameSfx, rearrange_points = "MAINTAIN_POINTS", out_las_dataset = opj(fixedFolder, 'fixed' + sfx + '.lasd'), compression="NO_COMPRESSION")#, boundary = tileGeomBuffer5)
-                    #     # log.debug(fixedLasd.getMessages())
-                    #     # fixedLasdDescDa = arcpy.da.Describe(fixedLasd)
-                    #     # fixedLasPath = opj(fixedLasdDescDa['path'], fixedLasBasename)
-
-                    #     # log.debug('--- Done creating LAS dataset and extracting LAS at ')
-
-                    #     # if fixedLasdDescDa['pointCount'] > 0:
-                    #     #     allTilesList.append(fixedLasPath)
-
                         if os.path.exists(fixedLasPath_altsep):
                             # 'Filters LAS points to class 2 and creates multipoints in FDSet'
                             # lasBase = os.path.splitext(os.path.basename(allLAZ))[0]
-                            log.debug('--- Create las non-Minnesota Multipoint')
-                            if ql == 'QL 0' or ql == 'QL 1':
-                                spacing = '0.125' # meters (UTM)
-                            else:
-                                spacing = '1'
+                            log.debug('--- Create las Multipoint')
                             lasMP = arcpy.LASToMultipoint_3d(fixedLasPath_altsep, inm + '\\pts' + sfx, spacing, class_code=[2, 8], input_coordinate_system=srOut)
 
-                        # if fixedLasPath in allTilesList:#non 0 amount of lidar points in las
-                        #     allLAZ = fixedLasPath
-                        #     if allLAZ.endswith('.laz') or allLAZ.endswith('.las'):
-                        #         """Filters LAS points to class 2 and creates multipoints in FDSet"""
-                        #         lasBase = os.path.splitext(os.path.basename(allLAZ))[0]
-                        #         if allLAZ.endswith('.laz'):
-                        #             log.debug('--- Using ConvertLas to decompress LAZ')
-                        #             las_from_laz = arcpy.ConvertLas_conversion(allLAZ, target_folder=procDir, compression=None, las_options=None)
-                        #         else:
-                        #             las_from_laz = allLAZ
-
-                        #         log.debug('--- Create las non-Minnesota Multipoint')
-                        #         lasMP = arcpy.LASToMultipoint_3d(las_from_laz, inm + "\\pts" + sfx, "1", class_code = [2,8], input_coordinate_system = srOut)
-
-                        #     elif allLAZ.endswith('.zlas'):
-                        #         log.debug('--- Create zlas non-Minnesota Multipoint')
-                        #         lasMP = arcpy.LASToMultipoint_3d(allLAZ, inm + "\\pts" + sfx, "1", class_code = [2,8], input_coordinate_system = srOut)
-                        #         las_from_laz = allLAZ
-
                             if lasMP:
-                                ptsName = arcpy.ValidateTableName('pts' + sfx + '_' + str(srOutCode), os.path.join(str(FDSet)))
-                                ptOut = projIfNeeded(lasMP, os.path.join(str(FDSet), ptsName), srOut)
+                                ptsName = arcpy.ValidateTableName('pts' + sfx + '_' + str(srOutCode), os.path.join(FDSet))
+                                ptOut = projIfNeeded(lasMP, os.path.join(FDSet, ptsName), srOut)
                                 arcpy.Delete_management(lasMP)
                             else:
                                 log.warning('no ptOut created, setting to None')
@@ -2111,60 +1996,87 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                             breaks_md_dir = opj(os.path.dirname(os.path.dirname(storage_laz)), 'breaks_md')
                             log.info(f"Processing breaklines for work_id: {work_id} using workspace {breaks_md_dir}")
                             arcpy.env.workspace = breaks_md_dir
+                            shp_candidates = arcpy.ListFeatureClasses()
+                            if len(shp_candidates) > 0:
+                                log.warning(f"Found {len(shp_candidates)} breakline feature classes in {breaks_md_dir}")
+                                log.error("Please ensure that breaklines are organized in a geodatabase, not as individual feature classes in a folder.")
+                                sys.exit(2610)
+                                # add code here to copy feature classes into a file GDB
                             breaks_gdbs = arcpy.ListWorkspaces()#[0]
                             if breaks_gdbs:
                                 breaks_gdb = breaks_gdbs[0]
                                 arcpy.env.workspace = breaks_gdb
-                                for k in BREAKLINES.keys():
-                                    ref = BREAKLINES[k]['reference_name']
-                                    candidates = arcpy.ListFeatureClasses(ref + '*')
-                                    if not candidates:
-                                        #remove 'Inland_' to avoid matching with 'Island'
-                                        ref = ref.replace('Inland_', '')
-                                        if ref == 'Inland_Streams_Rivers' or ref == 'Bridges':
-                                            possibilities = arcpy.ListFeatureClasses(feature_type='Polyline')
+                                breaks_datasets = arcpy.ListDatasets()
+                                if breaks_datasets:
+                                    ds = opj(breaks_gdb, breaks_datasets[0])
+                                    arcpy.env.workspace = ds
+                                candidates = arcpy.ListFeatureClasses()
+                                for c in candidates:
+                                    break_fc = opj(arcpy.env.workspace, c)
+                                    if 'Type' in df.getfields(break_fc):#candidates[0]):
+                                        type_flag = True
+                                        log.info("Found 'Type' field in breakline feature classes, proceeding with processing.")
+                                        bridges_select = arcpy.Select_analysis(break_fc, opj(inm, '_'.join(['bridges', 'select', work_id])), "Type LIKE 'bridge%'")
+                                        BREAKLINES['BridgesPolygons']['path_list'].append(bridges_select)
+                                        lakes_select = arcpy.Select_analysis(break_fc, opj(inm, '_'.join(['lakes', 'select', work_id])), "Type LIKE 'Lake%' OR Type LIKE 'lake%'")
+                                        BREAKLINES['InlandPondsLakes']['path_list'].append(lakes_select)
+                                        rivers_select = arcpy.Select_analysis(break_fc, opj(inm, '_'.join(['rivers', 'select', work_id])), "Type LIKE 'River%' OR Type LIKE 'river%' OR Type LIKE 'Stream%' OR Type LIKE 'stream%'")
+                                        BREAKLINES['InlandStreamsRiversPolygons']['path_list'].append(rivers_select)
+                                    elif 'Ftype' in df.getfields(break_fc):#candidates[0]): River, Lake, Bridge
+                                        #M:\DEP\USGS_LPC\IL_MidNorth_D22\IL_MidNorth_1_D22\breaks_md\IL_MidNorth_B1_Hydro_Breaklines_IL_West.gdb
+                                        type_flag = True
+                                        log.info("Found 'Ftype' field in breakline feature classes, proceeding with processing.")
+                                    elif 'B_LINE_TY' in df.getfields(break_fc):#candidates[0]):
+                                        type_flag = True
+                                        log.info("Found 'B_LINE_TY' field in breakline feature classes, proceeding with processing.")
+                                        # bridges_select = arcpy.Select_analysis(break_fc, opj(inm, 'bridges_select'), "B_LINE_TYPE LIKE 'bridge%'")
+                                        # BREAKLINES['BridgesPolygons']['path_list'].append(bridges_select)
+                                        # get islands first since their names include lake-pond or double-line-drainage
+                                        islands_select = arcpy.Select_analysis(break_fc, opj(inm, '_'.join(['islands', 'select', work_id])), "B_LINE_TY LIKE '%Island%' OR B_LINE_TY LIKE '%island%'")
+                                        BREAKLINES['Islands']['path_list'].append(islands_select)
+                                        not_islands_select = arcpy.Select_analysis(break_fc, opj(inm, '_'.join(['not', 'islands', 'select', work_id])), "B_LINE_TY NOT LIKE '%Island%' AND B_LINE_TY NOT LIKE '%island%'")
+                                        lakes_select = arcpy.Select_analysis(not_islands_select, opj(inm, '_'.join(['lakes', 'select', work_id])), "B_LINE_TY LIKE 'Lake%' OR B_LINE_TY LIKE 'lake%'")
+                                        BREAKLINES['InlandPondsLakes']['path_list'].append(lakes_select)
+                                        rivers_select = arcpy.Select_analysis(not_islands_select, opj(inm, '_'.join(['rivers', 'select', work_id])  ), "B_LINE_TY LIKE 'Drain Line%' OR B_LINE_TY LIKE 'drain line%' OR B_LINE_TY LIKE 'Stream%' OR B_LINE_TY LIKE 'stream%'")
+                                        BREAKLINES['InlandStreamsRivers']['path_list'].append(rivers_select)
+                                else:
+                                    type_flag = False
+                                if candidates and not type_flag:
+                                    log.info(f"Found candidates: {candidates}")
+                                    possibilities = candidates
+                                    for k in BREAKLINES.keys():
+                                        if len(possibilities) > 0:
+                                            ref = BREAKLINES[k]['reference_name']
+                                            if ref in possibilities:
+                                                log.info(f"Exact match for breaks ref '{ref}' found.")
+                                                chosen_one = ref
+                                                possibilities.remove(chosen_one)
+                                            else:
+                                                log.warning(f"No exact match for breaks ref '{ref}' found.")
+                                            # if ref == 'Streams_Rivers' or ref == 'Bridges':
+                                            #     possibilities = arcpy.ListFeatureClasses(feature_type='Polyline')
+                                            # else:# ref == 'Ponds_Lakes' or ref == 'Islands':
+                                            #     possibilities = arcpy.ListFeatureClasses(feature_type='Polygon')
+                                            # if len(possibilities) == 0:
+                                            #     possibilities = arcpy.ListFeatureClasses()
+                                            #     log.warning(f"No feature classes of the expected type found for {ref}. Searching all feature classes.")
+
+                                                match = difflib.get_close_matches(ref, possibilities, n=1, cutoff=0.6)
+                                                if match:
+                                                    log.warning(f"No exact match for breaks ref '{ref}' found. Closest match found: '{match[0]}'")
+                                                    chosen_one = match[0]
+                                                    possibilities.remove(chosen_one)
+                                                else:
+                                                    log.warning(f"No close match found above the threshold for {ref}.")
+                                                    continue
+                                                    # candidate = None
+                                            breakline_fc = opj(arcpy.env.workspace, chosen_one)
+                                            BREAKLINES[k]['path_list'].append(breakline_fc)
                                         else:
-                                            possibilities = arcpy.ListFeatureClasses(feature_type='Polygon')
-                                        match = difflib.get_close_matches(ref, possibilities, n=1, cutoff=0.6)
-                                        if match:
-                                            log.warning(f"No exact match for breaks found. Closest match found: '{match}'")
-                                            candidate = match[0]
-                                        else:
-                                            log.info("No close match found above the threshold.")
-                                            candidate = None
-                                    else:
-                                        candidate = candidates[0]
-                                    print(candidate)
-                                    if candidate and row_counter == 0:
-                                        breakline_fc = opj(breaks_gdb, candidate)
-                                        if ref == 'Islands':
-                                            breaks_islands = [breakline_fc]
-                                            breaklines_to_merge[k] = breaks_islands
-                                        elif ref == 'Bridges':
-                                            breaks_bridges = [breakline_fc]
-                                            breaklines_to_merge[k] = breaks_bridges
-                                        elif ref == 'Inland_Ponds_Lakes' or ref == 'Ponds_Lakes':
-                                            breaks_ponds_lakes = [breakline_fc]
-                                            breaklines_to_merge[k] = breaks_ponds_lakes
-                                        elif ref == 'Inland_Streams_Rivers' or ref == 'Streams_Rivers':
-                                            breaks_streams_rivers = [breakline_fc]
-                                            breaklines_to_merge[k] = breaks_streams_rivers
-                                    elif candidate:
-                                        breakline_fc = opj(breaks_gdb, candidate)
-                                        if ref == 'Islands':
-                                            breaks_islands = breaks_islands + [breakline_fc]
-                                            breaklines_to_merge[k] = breaks_islands
-                                        elif ref == 'Bridges':
-                                            breaks_bridges = breaks_bridges + [breakline_fc]
-                                            breaklines_to_merge[k] = breaks_bridges
-                                        elif ref == 'Inland_Ponds_Lakes' or ref == 'Ponds_Lakes':
-                                            breaks_ponds_lakes = breaks_ponds_lakes + [breakline_fc]
-                                            breaklines_to_merge[k] = breaks_ponds_lakes
-                                        elif ref == 'Inland_Streams_Rivers' or ref == 'Streams_Rivers':
-                                            breaks_streams_rivers = breaks_streams_rivers + [breakline_fc]
-                                            breaklines_to_merge[k] = breaks_streams_rivers
-                                    else:
-                                        log.warning(f"No matches for breaklines found for {breaks_gdb}")
+
+                                            log.warning(f"No more candidate breakline feature classes available for {k}.")
+                                else:
+                                    log.warning(f"No matches for breaklines found for {breaks_gdb}")
 
                             prev_work_id = work_id
 
@@ -2185,18 +2097,18 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
             ##----------------------------------------------------------------------
             # now build datasets
             arcpy.env.workspace = sgdb
-            mpList = arcpy.ListFeatureClasses('pts_*', feature_type = 'POINT', feature_dataset = os.path.basename(FDSet.getOutput(0)))
+            mpList = arcpy.ListFeatureClasses('pts_*', feature_type = 'POINT', feature_dataset = os.path.basename(FDSet))
             if len(mpList) > 0:
-                finalMP = arcpy.Merge_management(mpList, os.path.join(str(FDSet), 'mp_merge'))
+                finalMP = arcpy.Merge_management(mpList, os.path.join(FDSet, 'mp_merge'))
                 if df.testForZero(finalMP):
-                    final_breaks_ponds_lakes, final_breaks_streams_rivers, final_breaks_islands, final_breaks_bridges = setupPointsAndUSGSBreaklines(FDSet, breaks_ponds_lakes, breaks_streams_rivers, breaks_islands, breaks_bridges, BREAKLINES, log)
+                    # setupUSGSBreaklines(FDSet, BREAKLINES, log)
 
-                    tcdFdSet = arcpy.management.Dissolve(wesm_huc12_tiles_buffer_dissolve, os.path.join(str(FDSet), 'ept_and_local_las'))
+                    tcdFdSet = arcpy.management.Dissolve(wesm_huc12_tiles_buffer_dissolve, os.path.join(FDSet, 'ept_and_local_las'))
                     fill_donut_slow(tcdFdSet)
 
-                    merged_breakline_paths = copy_merge_breaklines(str(FDSet), breaklines_to_merge, BREAKLINES, tcdFdSet, log)
+                    merge_copy_breaklines(BREAKLINES, super_buffer, log)
 
-                    terrains, tf, terrain_args, pyramid_args = buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, merged_breakline_paths, log, windowsizeMethods, ql)
+                    terrains, terrain_features, terrain_args, pyramid_args = buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, log, windowsizeMethods, spacing)
 
                     if sys.version_info.minor < 9:
                         beLayer = arcpy.MakeLasDatasetLayer_management(lasdAll, 'ground_layer', [2,8], 'Last Return')
@@ -2210,17 +2122,6 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                     # lasdAll = arcpy.CreateLasDataset_management(allTilesList, os.path.join(procDir, 'huc_all.lasd'), spatial_reference = arcpy.SpatialReference(int(srOutCode)))
                     # ## Following code runs slowly at times and is not being used further 2023.12.21
                     # # classify overlap in lasdAll
-                    acpf_gdb = os.path.dirname(wesm_huc12_tiles)
-                    super_buffer = arcpy.Buffer_analysis(dem_boundary, opj(inm, 'super_buffer'), buffer_distance_or_field = "500 METERS")
-                    if len(breaks_streams_rivers) > 0:
-                        log.info('--- Creating Inland Streams and Rivers polygons for storage')
-                        polygons_streams_rivers = arcpy.FeatureToPolygon_management(merged_breakline_paths['InlandStreamsRivers'], opj(inm, 'Inland_Streams_Rivers_Polygons'))
-                        psr = os.path.basename(str(polygons_streams_rivers))
-                        clip_psr_result = arcpy.Clip_analysis(polygons_streams_rivers, super_buffer, opj(acpf_gdb, psr))
-                    if len(breaks_ponds_lakes) > 0:
-                        log.info('--- Copying Inland Ponds and Lakes polygons for storage')
-                        ppl = BREAKLINES['InlandPondsLakes']['reference_name']
-                        copy_ppl_result=arcpy.CopyFeatures_management(final_breaks_ponds_lakes, opj(acpf_gdb, ppl))
 
 
         arcpy.env.cellSize = None
