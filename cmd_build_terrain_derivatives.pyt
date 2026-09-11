@@ -664,10 +664,16 @@ def createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOut, pr
 
             tElevFile_internal = updateResolution(tElevFile_initial, named_cell_size, demListVal, pattern22, log)
 
+            for i in interpDict.keys():
+                i_type = interpDict[i]
+                print(i_type)
+                if i_type in tElevFile_internal:
+                    base_interp = i_type
+
             interpType = interpDict[window]
             # default interpolation type is mean18
-            if interpType != 'mean18':
-                tElevFile_interp = tElevFile_internal.replace('mean18', interpType)
+            if base_interp in tElevFile_internal:#interpType != 'mean18':
+                tElevFile_interp = tElevFile_internal.replace(base_interp, interpType)
             else:
                 tElevFile_interp = tElevFile_internal
 
