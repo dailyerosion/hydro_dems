@@ -666,7 +666,7 @@ def createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOut, pr
 
             for i in interpDict.keys():
                 i_type = interpDict[i]
-                print(i_type)
+                # print(i_type)
                 if i_type in tElevFile_internal:
                     base_interp = i_type
 
@@ -1532,6 +1532,7 @@ def merge_copy_breaklines(BREAKLINES, super_buffer, log):
             #     arcpy.management.Delete(out_fc)
 
             if len(BREAKLINES[key]['path_list']) > 1:
+                log.info(f"--- Merging {BREAKLINES[key]['path_list']} breakline feature classes into one for clipping")
                 merged = arcpy.management.Merge(BREAKLINES[key]['path_list'], opj('in_memory', 'merged_' + BREAKLINES[key]['reference_name']))
                 arcpy.analysis.Clip(merged, super_buffer, out_fc)
 
@@ -1541,6 +1542,7 @@ def merge_copy_breaklines(BREAKLINES, super_buffer, log):
                     clip_psr_result = arcpy.Clip_analysis(polygons_streams_rivers, super_buffer, acpf_fc + '_Polygons')
 
             elif len(BREAKLINES[key]['path_list']) == 1:
+                log.info(f"--- Clipping {BREAKLINES[key]['path_list'][0]} breakline feature class to super buffer")
                 arcpy.analysis.Clip(BREAKLINES[key]['path_list'][0], super_buffer, out_fc)
 
                 if BREAKLINES[key]['reference_name'] == 'InlandStreamsRivers':
@@ -1554,7 +1556,7 @@ def merge_copy_breaklines(BREAKLINES, super_buffer, log):
             # rather than relying on the default.
 
             arcpy.management.CopyFeatures(out_fc, acpf_fc)
-            print(f"Copied breakline into feature dataset: {out_fc}")
+            log.info(f"Copied breakline into feature dataset: {out_fc}")
 
 
 def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir, 
@@ -1784,7 +1786,7 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
         BREAKLINES = {
     "InlandStreamsRivers": {
         "reference_name": "Streams_Rivers",
-        "alternate_names": ["Inland_Streams_Rivers"],
+        "alternate_names": ["Inland_Streams_Rivers", "Rivers_Streams"],
         "acpf_path": opj(acpf_gdb, "Inland_Streams_Rivers"),
         "fdset_path": opj(FDSet, "Inland_Streams_Rivers"),
         "path_list": [],
@@ -1842,16 +1844,16 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
         "height_field": "SHAPE",
         "group": 7,
     },
-    "InlandStreamsRiversPolygons": {
-        "reference_name": "Polygon_Streams_Rivers",
-        "alternate_names": [],
-        "acpf_path": opj(acpf_gdb, "Polygon_Streams_Rivers"),
-        "fdset_path": opj(FDSet, "Polygon_Streams_Rivers"),
-        "path_list": [],
-        "sf_type": "hardline",
-        "height_field": "SHAPE",
-        "group": 8,
-    },
+    # "InlandStreamsRiversPolygons": {
+    #     "reference_name": "Polygon_Streams_Rivers",
+    #     "alternate_names": [],
+    #     "acpf_path": opj(acpf_gdb, "Polygon_Streams_Rivers"),
+    #     "fdset_path": opj(FDSet, "Polygon_Streams_Rivers"),
+    #     "path_list": [],
+    #     "sf_type": "hardline",
+    #     "height_field": "SHAPE",
+    #     "group": 8,
+    # },
     "BridgesPolygons": {
         "reference_name": "Polygon_Bridges",
         "alternate_names": [],
@@ -2066,7 +2068,17 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                                                 chosen_one = ref
                                                 possibilities.remove(chosen_one)
                                             else:
-                                                log.warning(f"No exact match for breaks ref '{ref}' found.")
+                                                log.warning(f"No exact match for breaks ref '{ref}' found. Checking alternates then fuzzy matching")
+                                                if len((BREAKLINES[k]['alternate_names'])) > 0:
+                                                    for alt in BREAKLINES[k]['alternate_names']:
+                                                        if alt in possibilities:
+                                                            log.info(f"Exact match for alternate breaks ref '{alt}' found.")
+                                                            chosen_one = alt
+                                                            possibilities.remove(chosen_one)
+                                                            break
+                                                    else:
+                                                        log.warning(f"No exact match for alternate breaks ref '{BREAKLINES[k]['alternate_names']}' found.")
+                                            
                                             # if ref == 'Streams_Rivers' or ref == 'Bridges':
                                             #     possibilities = arcpy.ListFeatureClasses(feature_type='Polyline')
                                             # else:# ref == 'Ponds_Lakes' or ref == 'Islands':
@@ -2074,16 +2086,16 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                                             # if len(possibilities) == 0:
                                             #     possibilities = arcpy.ListFeatureClasses()
                                             #     log.warning(f"No feature classes of the expected type found for {ref}. Searching all feature classes.")
-
-                                                match = difflib.get_close_matches(ref, possibilities, n=1, cutoff=0.6)
-                                                if match:
-                                                    log.warning(f"No exact match for breaks ref '{ref}' found. Closest match found: '{match[0]}'")
-                                                    chosen_one = match[0]
-                                                    possibilities.remove(chosen_one)
                                                 else:
-                                                    log.warning(f"No close match found above the threshold for {ref}.")
-                                                    continue
-                                                    # candidate = None
+                                                    match = difflib.get_close_matches(ref, possibilities, n=1, cutoff=0.6)
+                                                    if match:
+                                                        log.warning(f"No exact match for breaks ref '{ref}' found. Closest match found: '{match[0]}'")
+                                                        chosen_one = match[0]
+                                                        possibilities.remove(chosen_one)
+                                                    else:
+                                                        log.warning(f"No close match found above the threshold for {ref}.")
+                                                        continue
+                                                        # candidate = None
                                             breakline_fc = opj(arcpy.env.workspace, chosen_one)
                                             BREAKLINES[k]['path_list'].append(breakline_fc)
                                         else:
