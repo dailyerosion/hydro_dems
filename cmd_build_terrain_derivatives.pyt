@@ -2075,7 +2075,7 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                                                             log.info(f"Exact match for alternate breaks ref '{alt}' found.")
                                                             chosen_one = alt
                                                             possibilities.remove(chosen_one)
-                                                            break
+                                                            continue
                                                     else:
                                                         log.warning(f"No exact match for alternate breaks ref '{BREAKLINES[k]['alternate_names']}' found.")
                                             
