@@ -2058,49 +2058,41 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                                 else:
                                     type_flag = False
                                 if candidates and not type_flag:
-                                    log.info(f"Found candidates: {candidates}")
+                                    log.info(f"Found breakline candidates: {candidates}")
                                     possibilities = candidates
-                                    for k in BREAKLINES.keys():
-                                        if len(possibilities) > 0:
+                                    for p in possibilities:
+                                        chosen_one = None
+                                        log.info(f"Possible breakline feature class: {p}")
+                                        for k in BREAKLINES.keys():
                                             ref = BREAKLINES[k]['reference_name']
-                                            if ref in possibilities:
+                                            if ref == p:# possibilities:
                                                 log.info(f"Exact match for breaks ref '{ref}' found.")
-                                                chosen_one = ref
-                                                possibilities.remove(chosen_one)
+                                                chosen_one = p
+                                                break#continue
                                             else:
                                                 log.warning(f"No exact match for breaks ref '{ref}' found. Checking alternates then fuzzy matching")
-                                                if len((BREAKLINES[k]['alternate_names'])) > 0:
-                                                    for alt in BREAKLINES[k]['alternate_names']:
-                                                        if alt in possibilities:
-                                                            log.info(f"Exact match for alternate breaks ref '{alt}' found.")
-                                                            chosen_one = alt
-                                                            possibilities.remove(chosen_one)
-                                                            continue
-                                                    else:
-                                                        log.warning(f"No exact match for alternate breaks ref '{BREAKLINES[k]['alternate_names']}' found.")
-                                            
-                                            # if ref == 'Streams_Rivers' or ref == 'Bridges':
-                                            #     possibilities = arcpy.ListFeatureClasses(feature_type='Polyline')
-                                            # else:# ref == 'Ponds_Lakes' or ref == 'Islands':
-                                            #     possibilities = arcpy.ListFeatureClasses(feature_type='Polygon')
-                                            # if len(possibilities) == 0:
-                                            #     possibilities = arcpy.ListFeatureClasses()
-                                            #     log.warning(f"No feature classes of the expected type found for {ref}. Searching all feature classes.")
+                                                if p in BREAKLINES[k]['alternate_names']:
+                                                    log.info(f"Match in alternate breaks for '{p}' found.")
+                                                    chosen_one = p
+                                                    break#continue
                                                 else:
-                                                    match = difflib.get_close_matches(ref, possibilities, n=1, cutoff=0.6)
+                                                    log.info(f"No match in alternate breaks for '{p}' found. Checking fuzzy matching")
+                                                    match = difflib.get_close_matches(p, BREAKLINES[k]['alternate_names'] + [BREAKLINES[k]['reference_name']], n=1, cutoff=0.6)
+                                                    # match = difflib.get_close_matches(ref, possibilities, n=1, cutoff=0.6)
                                                     if match:
                                                         log.warning(f"No exact match for breaks ref '{ref}' found. Closest match found: '{match[0]}'")
-                                                        chosen_one = match[0]
-                                                        possibilities.remove(chosen_one)
+                                                        score = difflib.SequenceMatcher(None, p, match[0]).ratio()
+                                                        log.info(f"Fuzzy match score {score} for '{p}' and '{match[0]}'")
+                                                        chosen_one = p#match[0]
+                                                        break#continue
                                                     else:
                                                         log.warning(f"No close match found above the threshold for {ref}.")
-                                                        continue
                                                         # candidate = None
+                                        if chosen_one:# is not None:
+                                            log.info(f"Chosen breakline feature class: {chosen_one} for reference '{ref}'")
                                             breakline_fc = opj(arcpy.env.workspace, chosen_one)
+                                            log.info(f"Adding breakline feature class {breakline_fc} to BREAKLINES under key '{k}'")
                                             BREAKLINES[k]['path_list'].append(breakline_fc)
-                                        else:
-
-                                            log.warning(f"No more candidate breakline feature classes available for {k}.")
                                 else:
                                     log.warning(f"No matches for breaklines found for {breaks_gdb}")
 
