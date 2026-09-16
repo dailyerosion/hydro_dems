@@ -2083,7 +2083,8 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                                     possibilities = candidates
                                     for p in possibilities:
                                         chosen_one = None
-                                        log.info(f"\nPossible breakline feature class: {p}")
+                                        log.info(f"\n")
+                                        log.info(f"Possible breakline feature class: {p}")
                                         for k in BREAKLINES.keys():
                                             ref = BREAKLINES[k]['reference_name']
                                             if ref == p:# possibilities:
