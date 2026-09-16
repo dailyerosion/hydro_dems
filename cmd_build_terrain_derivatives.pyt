@@ -1535,10 +1535,11 @@ def convert_merge_copy_breaklines(BREAKLINES, super_buffer, log):
                 if b_desc['shapeType'] == 'Polyline':
                     log.info(f"--- Converting {b} to polygon feature class for breaklines and storage")
                     output_polygons = b.replace('breaks_md', 'breaks_md_converted')
-                    df.create_needed_dirs_and_gdbs(output_polygons, log)
-                    b_poly = arcpy.FeatureToPolygon_management(b, output_polygons)
+                    if not arcpy.Exists(output_polygons):
+                        df.create_needed_dirs_and_gdbs(output_polygons, log)
+                        b_poly = arcpy.FeatureToPolygon_management(b, output_polygons)
                     BREAKLINES[key]['path_list'].remove(b)
-                    BREAKLINES[key]['path_list'].append(str(b_poly))
+                    BREAKLINES[key]['path_list'].append(output_polygons)
             else:
                 log.info(f"--- No Inland Streams and Rivers features to test for conversion and storage")
 
