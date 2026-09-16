@@ -1526,7 +1526,7 @@ def convert_merge_copy_breaklines(BREAKLINES, super_buffer, log):
 
     # convert the stream/river lines to polygons for consistency and use in flattening
     for key, info in BREAKLINES.items():
-        if BREAKLINES[key] == 'InlandStreamsRivers':
+        if BREAKLINES[key] == 'Streams_Rivers':#'InlandStreamsRivers':
             # BREAKLINES[key]['reference_name'] == 'Streams_Rivers':
             log.info('--- Testing Inland Streams and Rivers features to convert them to polygons for breaklines and storage')
             for b in BREAKLINES[key]['path_list']:
