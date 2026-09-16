@@ -1527,6 +1527,7 @@ def convert_merge_copy_breaklines(BREAKLINES, super_buffer, log):
     # convert the stream/river lines to polygons for consistency and use in flattening
     for key, info in BREAKLINES.items():
         if BREAKLINES[key] == 'InlandStreamsRivers':
+            # BREAKLINES[key]['reference_name'] == 'Streams_Rivers':
             log.info('--- Testing Inland Streams and Rivers features to convert them to polygons for breaklines and storage')
             for b in BREAKLINES[key]['path_list']:
                 b_desc = arcpy.da.Describe(b)
@@ -1537,6 +1538,8 @@ def convert_merge_copy_breaklines(BREAKLINES, super_buffer, log):
                     b_poly = arcpy.FeatureToPolygon_management(b, output_polygons)
                     BREAKLINES[key]['path_list'].remove(b)
                     BREAKLINES[key]['path_list'].append(b_poly)
+            else:
+                log.info(f"--- No Inland Streams and Rivers features to test for conversion and storage")
 
         #     polygons_streams_rivers = arcpy.FeatureToPolygon_management(merged, opj('in_memory', 'Inland_Streams_Rivers_Polygons'))
         #     clip_psr_result = arcpy.Clip_analysis(polygons_streams_rivers, super_buffer, acpf_fc + '_Polygons')
@@ -2145,7 +2148,7 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                     tcdFdSet = arcpy.management.Dissolve(wesm_huc12_tiles_buffer_dissolve, os.path.join(FDSet, 'ept_and_local_las'))
                     fill_donut_slow(tcdFdSet)
 
-                    merge_copy_breaklines(BREAKLINES, super_buffer, log)
+                    convert_merge_copy_breaklines(BREAKLINES, super_buffer, log)
 
                     terrains, terrain_features, terrain_args, pyramid_args = buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, log, windowsizeMethods, spacing)
 
