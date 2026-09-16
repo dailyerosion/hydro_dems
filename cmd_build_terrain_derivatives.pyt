@@ -1526,6 +1526,7 @@ def convert_merge_copy_breaklines(BREAKLINES, super_buffer, log):
 
     # convert the stream/river lines to polygons for consistency and use in flattening
     for key, info in BREAKLINES.items():
+        log.info(f"--- Checking {key} breakline feature classes for conversion to polygons for breaklines and storage")
         if BREAKLINES[key] == 'Streams_Rivers':#'InlandStreamsRivers':
             # BREAKLINES[key]['reference_name'] == 'Streams_Rivers':
             log.info('--- Testing Inland Streams and Rivers features to convert them to polygons for breaklines and storage')
@@ -1556,7 +1557,7 @@ def convert_merge_copy_breaklines(BREAKLINES, super_buffer, log):
             #     arcpy.management.Delete(out_fc)
 
             if len(BREAKLINES[key]['path_list']) > 1:
-                log.info(f"--- Merging {BREAKLINES[key]['path_list']} breakline feature classes into one for clipping")
+                log.info(f"--- Merging {BREAKLINES[key]['path_list']} breakline feature classes and then clipping to super buffer")
                 merged = arcpy.management.Merge(BREAKLINES[key]['path_list'], opj('in_memory', 'merged_' + BREAKLINES[key]['reference_name']))
                 arcpy.analysis.Clip(merged, super_buffer, out_fc)
 
@@ -1565,7 +1566,8 @@ def convert_merge_copy_breaklines(BREAKLINES, super_buffer, log):
                 #     polygons_streams_rivers = arcpy.FeatureToPolygon_management(merged, opj('in_memory', 'Inland_Streams_Rivers_Polygons'))
                 #     clip_psr_result = arcpy.Clip_analysis(polygons_streams_rivers, super_buffer, acpf_fc + '_Polygons')
 
-            elif len(BREAKLINES[key]['path_list']) == 1:
+            else:
+            # elif len(BREAKLINES[key]['path_list']) == 1:
                 log.info(f"--- Clipping {BREAKLINES[key]['path_list'][0]} breakline feature class to super buffer")
                 arcpy.analysis.Clip(BREAKLINES[key]['path_list'][0], super_buffer, out_fc)
 
@@ -1573,11 +1575,6 @@ def convert_merge_copy_breaklines(BREAKLINES, super_buffer, log):
                 #     log.info('--- Creating Inland Streams and Rivers polygons from lines for storage')
                 #     polygons_streams_rivers = arcpy.FeatureToPolygon_management(BREAKLINES[key]['path_list'][0], opj('in_memory', 'Inland_Streams_Rivers_Polygons'))
                 #     clip_psr_result = arcpy.Clip_analysis(polygons_streams_rivers, super_buffer, acpf_fc + '_Polygons')
-
-            # CopyFeatures projects on the fly to the feature dataset's spatial
-            # reference if the source differs. For elevation-critical work,
-            # confirm the geographic/vertical transformation used is correct
-            # rather than relying on the default.
 
             arcpy.management.CopyFeatures(out_fc, acpf_fc)
             log.info(f"Copied breakline into feature dataset: {out_fc}")
@@ -2086,7 +2083,7 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                                     possibilities = candidates
                                     for p in possibilities:
                                         chosen_one = None
-                                        log.info(f"Possible breakline feature class: {p}")
+                                        log.info(f"\nPossible breakline feature class: {p}")
                                         for k in BREAKLINES.keys():
                                             ref = BREAKLINES[k]['reference_name']
                                             if ref == p:# possibilities:
