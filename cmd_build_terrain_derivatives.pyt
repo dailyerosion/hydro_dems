@@ -1527,8 +1527,8 @@ def convert_merge_copy_breaklines(BREAKLINES, super_buffer, log):
     # convert the stream/river lines to polygons for consistency and use in flattening
     for key, info in BREAKLINES.items():
         log.info(f"--- Checking {key} breakline feature classes for conversion to polygons for breaklines and storage")
-        if BREAKLINES[key] == 'Streams_Rivers':#'InlandStreamsRivers':
-            # BREAKLINES[key]['reference_name'] == 'Streams_Rivers':
+##        if BREAKLINES[key] == 'InlandStreamsRivers':
+        if BREAKLINES[key]['reference_name'] == 'Streams_Rivers':
             log.info('--- Testing Inland Streams and Rivers features to convert them to polygons for breaklines and storage')
             for b in BREAKLINES[key]['path_list']:
                 b_desc = arcpy.da.Describe(b)
