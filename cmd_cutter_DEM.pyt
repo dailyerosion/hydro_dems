@@ -166,6 +166,59 @@ def createCLDEM(DEM2Mod, gdb, cutFC, outDEMname, sfx, cutElFld, ProcSize, log):
         print(pymsg)
 ##        log.warn(pymsg)
 
+"""
+Calculate tortuosity for line features in a feature class.
+
+Tortuosity = total shape length / straight-line (Euclidean) distance
+between the line's endpoints.
+
+A value of 1.0 = perfectly straight line. Higher values indicate more
+winding/sinuous paths. Undefined (set to None) when endpoints coincide
+(straight-line distance = 0), since tortuosity is undefined in that case.
+
+Usage:
+    Edit INPUT_FC and FIELD_NAME below, or import calculate_tortuosity()
+    and call it directly from another script.
+"""
+
+import arcpy
+import math
+
+
+def calculate_tortuosity(in_fc, field_name="TORTUOSITY"):
+    """
+    Adds/populates a tortuosity field on a line feature class.
+
+    Parameters
+    ----------
+    in_fc : str
+        Path to the line feature class.
+    field_name : str
+        Name of the output field (created if it doesn't exist).
+    """
+    # Add the field if it doesn't already exist
+    existing_fields = [f.name for f in arcpy.ListFields(in_fc)]
+    if field_name not in existing_fields:
+        arcpy.management.AddField(in_fc, field_name, "DOUBLE")
+
+    with arcpy.da.UpdateCursor(in_fc, ["SHAPE@", "SHAPE@LENGTH", field_name]) as cursor:
+        for shape, shape_length, _ in cursor:
+            if shape is None or shape_length is None:
+                continue
+
+            start = shape.firstPoint
+            end = shape.lastPoint
+
+            straight_dist = math.hypot(end.X - start.X, end.Y - start.Y)
+
+            if straight_dist == 0:
+                tortuosity = None  # coincident endpoints (closed loop, etc.)
+            else:
+                tortuosity = shape_length / straight_dist
+
+            cursor.updateRow([shape, shape_length, tortuosity])
+
+    arcpy.AddMessage("Tortuosity calculation complete: {}".format(in_fc))
 
 
 def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, good_dn_dslv_fc, search_distance_file, output_dem, good_cuts_fc, best_cuts_fc, depressions2cut_fc, proc_dir, match_depth, cleanup, messages):
@@ -370,8 +423,15 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
                         log.debug('lcpFr count for sfx ' + sfx + ' is ' + arcpy.GetCount_management(lcpFr).getOutput(0))
                         log.debug('lcpFr name for sfx ' + sfx + ' is ' + str(lcpFr))
             ##                                                lcpFr.save(cp + 'lcp_fr' + sfx + ofSfx)
-                        lcpFrPoly = arcpy.RasterToPolyline_conversion(lcpFr, opj(inm, 'lcp3_cuts' + sfx + ofSfx), simplify = 'NO_SIMPLIFY')
+                        lcpFrPolyInit = arcpy.RasterToPolyline_conversion(lcpFr, opj(inm, 'lcp3_cuts' + sfx + ofSfx), simplify = 'NO_SIMPLIFY')
                         log.debug('did lcp3 FrPoly for sfx ' + sfx + ' at ' + time.asctime())
+
+                        calculate_tortuosity(lcpFrPolyInit, 'TORTUOSITY')
+
+                        lcpFrPoly = arcpy.Select_analysis(lcpFrPolyInit, opj(inm, 'lcp3_direct_cuts' + sfx + ofSfx), '"TORTUOSITY" < 1.51')
+                        init_count = int(arcpy.GetCount_management(lcpFrPolyInit).getOutput(0))
+                        final_count = int(arcpy.GetCount_management(lcpFrPoly).getOutput(0))
+                        log.info('removed ' + str(init_count - final_count) + ' tortuous lines from ' + str(init_count) + ' to create ' + str(final_count))
 
                         zstSrchLcpFrSlp = ZonalStatisticsAsTable(lcpFr, 'value', slopePct, opj(inm, 'zst_srch_lcp_fr_slp1' + sfx))
                         df.addCalcJoin(lcpFrPoly, gridfield2, zstSrchLcpFrSlp, 'value', [lcpMaxSlpFld, 'DOUBLE'], '!MAX!')
@@ -393,7 +453,14 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
                             log.debug('did lcpNr for sfx ' + sfx + ' at ' + time.asctime())
                             lcpNrFr = Con(lcpNr, deepCloseBfr2Fr)
             ##                                                lcpFr.save(cp + 'lcp_fr' + sfx + ofSfx)
-                            lcpNrFrPoly = arcpy.RasterToPolyline_conversion(lcpNrFr, opj(inm, 'lcp5_cuts' + sfx + ofSfx), simplify = 'NO_SIMPLIFY')
+                            lcpNrFrPolyInit = arcpy.RasterToPolyline_conversion(lcpNrFr, opj(inm, 'lcp5_cuts' + sfx + ofSfx), simplify = 'NO_SIMPLIFY')
+
+                            calculate_tortuosity(lcpNrFrPolyInit, 'TORTUOSITY')
+
+                            lcpNrFrPoly = arcpy.Select_analysis(lcpNrFrPolyInit, opj(inm, 'lcp5_direct_cuts' + sfx + ofSfx), '"TORTUOSITY" < 1.51')
+                            init_count = int(arcpy.GetCount_management(lcpNrFrPolyInit).getOutput(0))
+                            final_count = int(arcpy.GetCount_management(lcpNrFrPoly).getOutput(0))
+                            log.info('removed ' + str(init_count - final_count) + ' tortuous lines from ' + str(init_count) + ' to create ' + str(final_count))
 
                             zstSrchLcpNrFrSlp = ZonalStatisticsAsTable(lcpNrFr, 'value', slopePct, opj(inm, 'zst_srch_lcp_fr_slp3' + sfx))
                             df.addCalcJoin(lcpNrFrPoly, gridfield2, zstSrchLcpNrFrSlp, 'value', [lcpMaxSlpFld, 'DOUBLE'], '!MAX!')

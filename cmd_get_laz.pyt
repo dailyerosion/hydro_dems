@@ -1680,12 +1680,14 @@ def doLazDownloadCopy(monthly_wesm_ept_mashup, dem_polygon,
                     # copy the HUC12 laz files to a single directory for easier access in future processing
                     with arcpy.da.SearchCursor(out_fc_clip, ['OBJECTID', 'laz_file']) as scur:
                         for srow in scur:
+                            log.info(f'local copy test for laz file for laz_file {srow[1]}')
                             laz_file = srow[1].replace('\\laz\\', '\\USGS_LPC\\')
                             if not os.path.isfile(laz_file):
                                 laz_file = laz_file.replace('E:\\DEP\\USGS_LPC', 'M:\\DEP\\USGS_LPC')
                             po_laz_file = Path(laz_file)
                             dest = po_all_laz_dir.joinpath(po_laz_file.name)
                             if not os.path.isfile(dest):
+                                log.info(f'copying laz file to {dest}')
                                 shutil.copy(po_laz_file, dest)
 
                     df.create_needed_dirs_and_gdbs(wesm_huc12_tiles, log)
