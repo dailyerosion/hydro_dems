@@ -1538,7 +1538,7 @@ def convert_merge_copy_breaklines(BREAKLINES, super_buffer, log):
                     df.create_needed_dirs_and_gdbs(output_polygons, log)
                     b_poly = arcpy.FeatureToPolygon_management(b, output_polygons)
                     BREAKLINES[key]['path_list'].remove(b)
-                    BREAKLINES[key]['path_list'].append(b_poly)
+                    BREAKLINES[key]['path_list'].append(str(b_poly))
             else:
                 log.info(f"--- No Inland Streams and Rivers features to test for conversion and storage")
 
