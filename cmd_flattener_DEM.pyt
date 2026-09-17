@@ -24,6 +24,8 @@ import sys
 import platform
 import winsound
 import math
+import logging
+import datetime
 sys.path.append("C:\\DEP\\Scripts\\basics")
 
 import dem_functions as df
@@ -268,12 +270,11 @@ def fixByInversionByStartingPath(ndPlus, fenceEl, invertTargetDEM, spot4Hole, nd
     ## To correct an inverted DEM, remember water must flow out the upstream ends (before inversion), not downstream!
     ## ndPlus is 2 at regions2Fix, else 1 in area to process
     fencedRegion2Fix = Pick(ndPlus, [fenceEl, invertTargetDEM])
-    log.info('fencedRegion2Fix at time: ' + time.asctime())
+    log.info('fencedRegion2Fix')
     holeAtMin = Con(IsNull(spot4Hole) == 1, fencedRegion2Fix, '')
     
     fillNdBarrier = Fill(holeAtMin)
-    log.info('fillNdBarrier at time: ' + time.asctime())
-
+    log.info('fillNdBarrier')
     ## Calculate the difference between the original inverted and filled inverted DEMs
     ## This should be the change to apply to the initial DEM make things flow
     fillNdDif = fillNdBarrier - fencedRegion2Fix
@@ -292,7 +293,7 @@ def fixByInversionByStartingPath(ndPlus, fenceEl, invertTargetDEM, spot4Hole, nd
     unfiltered_correction_needs_adjustment = starting_path_min_fs < correctionToApply_unfiltered
     # above does not allow for corrections outside of starting stream link
     pathStartingNeedsCorrectionTrue = Con(unfiltered_correction_needs_adjustment, unfiltered_correction_needs_adjustment)
-    log.info('correctionToApply at time: ' + time.asctime())
+    log.info('correctionToApply')
     isNullPathStartingCorrection = IsNull(pathStartingNeedsCorrectionTrue)
     filtered_corrections_everywhere = Con(isNullPathStartingCorrection == 0, starting_path_min_fs, correctionToApply_unfiltered)
     isnull_filtered_corrections = IsNull(filtered_corrections_everywhere)
@@ -300,10 +301,89 @@ def fixByInversionByStartingPath(ndPlus, fenceEl, invertTargetDEM, spot4Hole, nd
 
     return correctedDEM
 
+def setupLoggingNoCh(node, scriptName, huc12 = '000000000000', parentLogName, version = ''):
+    # create logger with name 'example'
+    log = logging.getLogger('example')
+    log.setLevel(logging.DEBUG)
 
-def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, cleanup, messages):
+    # create formatter and add it to the handlers
+    formatter = logging.Formatter('%(levelname)s - %(asctime)s - %(message)s')
+
+    #use the parent log file timestamp if it is less than 60 seconds old, otherwise use the current time
+    #useful for when a script is called from another script and you want to test whether logging has stopped in the parent script
+    now = datetime.datetime.now()
+    rightNowYmd = datetime.datetime.strftime(now, '%Y_%m_%d_%H_%M_%S')
+    parentNowYmd = os.path.splitext(os.path.basename(parentLogName))[0][-19:]
+    then = datetime.datetime.strptime(parentNowYmd, '%Y_%m_%d_%H_%M_%S')
+    if now - then > datetime.timedelta(seconds = 60):
+        nowYmd = rightNowYmd
+    else:
+        nowYmd = parentNowYmd
+
+    # 'upgrade' to allow node to come in as a path - 2024.04.19, bkgelder
+    if ':' not in node:
+        logsDir = df.defineLocalProc(node)
+    else:
+        logsDir = node
+    logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0] + '_' + huc12 + '_' + nowYmd + '.txt')
+    if not os.path.isdir(os.path.dirname(logName)):
+        os.makedirs(os.path.dirname(logName))
+
+    # create file handler to log debug messages, new log file each time
+    fh = logging.FileHandler(logName, mode = 'w')
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    log.addHandler(fh)
+
+    startTime = time.time()
+    log.info("Beginning logging for script")
+    log.info("Logging output to: " + logName)
+
+    return log, nowYmd, logName, startTime
+
+
+def setupLoggingNew(node, scriptName, huc12 = '000000000000', version = ''):
+    # create logger with name 'example'
+    log = logging.getLogger('example')
+    log.setLevel(logging.DEBUG)
+
+    # create formatter and add it to the handlers
+    formatter = logging.Formatter('%(levelname)s - %(asctime)s - %(message)s')
+    ##formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    nowYmd = datetime.datetime.strftime(datetime.datetime.now(), '%Y_%m_%d_%H_%M_%S')
+    # 'upgrade' to allow node to come in as a path - 2024.04.19, bkgelder
+    if ':' not in node:
+        logsDir = df.defineLocalProc(node)
+    else:
+        logsDir = node
+    logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0] + '_' + huc12 + '_' + nowYmd + '.txt')
+    if not os.path.isdir(os.path.dirname(logName)):
+        os.makedirs(os.path.dirname(logName))
+
+    # create file handler to log debug messages, new log file each time
+    fh = logging.FileHandler(logName, mode = 'w')
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    log.addHandler(fh)
+
+    # create console handler with a higher log level
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    ch.setFormatter(formatter)
+    log.addHandler(ch)
+
+    startTime = time.time()
+    log.info("Beginning logging for script")
+    log.info("Logging output to: " + logName)
+####    log.warn(outputString)
+
+    return log, nowYmd, logName, startTime
+
+
+def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, breaklines, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, parentLogName, cleanup, messages):
     try:
-        arguments = [fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, cleanup]
+        arguments = [fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, breaklines, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, parentLogName, cleanup]
 
         for a in arguments:
             if a == arguments[0]:
@@ -350,11 +430,11 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
             logProc = sfldr
 
         if cleanup:
-            log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)
+            log, nowYmd, logName, startTime = setupLoggingNoCh(logProc, sys.argv[0], huc12, parentLogName)
             arcpy.SetLogHistory = False
         else:
             # log to file and console
-            log, nowYmd, logName, startTime = df.setupLoggingNew(logProc, sys.argv[0], huc12)
+            log, nowYmd, logName, startTime = setupLoggingNew(logProc, sys.argv[0], huc12, parentLogName)
             arcpy.SetLogHistory = True
 
         # if not os.path.isfile(flib_metadata_template):
@@ -523,7 +603,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                 ## Check to see if there are any potential rivers to enforce (from void analysis)
                     ptlRiversOnBnd = ZonalStatistics(ndCleanRegions, 'value', nearBndNd, 'MAXIMUM')
 
-                    log.debug('here! at ' + time.asctime())
+                    log.debug('At ptlRiversOnBnd')
                     if ptlRiversOnBnd.maximum is not None:# > 0.0:
                         if ptlRiversOnBnd.maximum > 0.0:
 
@@ -884,7 +964,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                         small_nd = ndCleanNotConnectedPre
                     #     water_only_polys_not_large = arcpy.CopyFeatures_management(water_only_polys)
 
-                    log.debug('analyzing for small voids/open water areas at ' + time.asctime())
+                    log.debug('analyzing for small voids/open water areas')
                     # maxNdTh = ZonalStatistics(small_nd, 'VALUE', ndThickness, 'MAXIMUM')
                     #refine ndCleanNotConnected by curvature, intensity
                     ## if high max thickness and mostly flooded to flow, keep
@@ -955,7 +1035,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
 
                             ndFixedList.append(ponds2keep)#Flatten)
                             log.debug(str(ndFixedList))
-                            log.debug('nd here! at ' + time.asctime())
+                            log.debug('past ndFixedList')
 
                         else:
                             flatPondDEM = flatterRiverDEM
@@ -1204,7 +1284,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
     finally:
         
         if 'logName' in locals():
-            log.info("Ending script execution at " + time.asctime())
+            log.info("Ending script execution")
             log.info("Script execution lasted " + str(time.time()-startTime) + " seconds or " + str((time.time()-startTime)/60) + " minutes\n")
 
 
@@ -1239,10 +1319,12 @@ class msgStub:
 #     "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/waterways",
 #     "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/water",
 #     "M:/DEP/LiDAR_Current/bl_Lib/07080105/breaks_07080105.gdb/break_polys_070801050901",
+#     "M:/DEP/LiDAR_Current/bl_Lib/07080105/breaks_07080105.gdb/break_lines_070801050901",
 #     "E:/DEP_Proc/DEMProc/Void_dem2013_1m_070801050901",
 #     "M:/DEP/LiDAR_Current/elev_VLib_mean18/07080105/ev_1m_070801050901.tif",
 #     "M:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/bigvds_1m_070801050901.tif",
-#     "M:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/medvds_1m_070801050901.tif"]
+#     "M:/DEP/LiDAR_Current/voids_Lib_mean18/07080105/medvds_1m_070801050901.tif",
+#     "E:/DEP_Proc/Logs/Void_dem2013_1m_070801050901.txt"]
 #     #     ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
 # 	# "C:/DEP/Scripts/basics/cmd_flattener_DEM.pyt",
 # 	# "C:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef3m070801050901.tif",
@@ -1270,7 +1352,7 @@ class msgStub:
 #     messages = msgStub()
 
 #     # input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir = [i for i in sys.argv[1:]]
-#     fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas = [i for i in sys.argv[1:]]
+#     fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, breaklines, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, parentLogName = [i for i in sys.argv[1:]]
 
-#     doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, cleanup, messages)
+#     doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bnd, roadsFc, input_waterway, input_water, breakpolys, breaklines, voidProc, voidFixTif, bigNoDataAreas, mediumNoDataAreas, parentLogName, messages)
 #     arcpy.AddMessage("Back from doing!")

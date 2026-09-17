@@ -1530,7 +1530,8 @@ def convert_merge_copy_breaklines(BREAKLINES, super_buffer, log):
 ##        if BREAKLINES[key] == 'InlandStreamsRivers':
         if BREAKLINES[key]['reference_name'] == 'Streams_Rivers':
             log.info('--- Testing Inland Streams and Rivers features to convert them to polygons for breaklines and storage')
-            for b in BREAKLINES[key]['path_list']:
+            for b_index, b in enumerate(BREAKLINES[key]['path_list']):
+                log.info(f"--- Testing {b} for conversion to polygon feature class for breaklines and storage")
                 b_desc = arcpy.da.Describe(b)
                 if b_desc['shapeType'] == 'Polyline':
                     log.info(f"--- Converting {b} to polygon feature class for breaklines and storage")
@@ -1539,9 +1540,9 @@ def convert_merge_copy_breaklines(BREAKLINES, super_buffer, log):
                         df.create_needed_dirs_and_gdbs(output_polygons, log)
                         b_poly = arcpy.FeatureToPolygon_management(b, output_polygons)
                     BREAKLINES[key]['path_list'].remove(b)
-                    BREAKLINES[key]['path_list'].append(output_polygons)
-            else:
-                log.info(f"--- No Inland Streams and Rivers features to test for conversion and storage")
+                    BREAKLINES[key]['path_list'].insert(b_index, output_polygons)
+            # else:
+            #     log.info(f"--- No Inland Streams and Rivers features to test for conversion and storage")
 
         #     polygons_streams_rivers = arcpy.FeatureToPolygon_management(merged, opj('in_memory', 'Inland_Streams_Rivers_Polygons'))
         #     clip_psr_result = arcpy.Clip_analysis(polygons_streams_rivers, super_buffer, acpf_fc + '_Polygons')
