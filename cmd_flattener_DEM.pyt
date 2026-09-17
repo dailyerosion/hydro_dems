@@ -301,7 +301,7 @@ def fixByInversionByStartingPath(ndPlus, fenceEl, invertTargetDEM, spot4Hole, nd
 
     return correctedDEM
 
-def setupLoggingNoCh(node, scriptName, huc12 = '000000000000', parentLogName, version = ''):
+def setupLoggingNoChYmdCheck(node, scriptName, parentLogName, huc12 = '000000000000', version = ''):
     # create logger with name 'example'
     log = logging.getLogger('example')
     log.setLevel(logging.DEBUG)
@@ -342,7 +342,7 @@ def setupLoggingNoCh(node, scriptName, huc12 = '000000000000', parentLogName, ve
     return log, nowYmd, logName, startTime
 
 
-def setupLoggingNew(node, scriptName, huc12 = '000000000000', version = ''):
+def setupLoggingNewYmdCheck(node, scriptName, parentLogName, huc12 = '000000000000', version = ''):
     # create logger with name 'example'
     log = logging.getLogger('example')
     log.setLevel(logging.DEBUG)
@@ -351,7 +351,17 @@ def setupLoggingNew(node, scriptName, huc12 = '000000000000', version = ''):
     formatter = logging.Formatter('%(levelname)s - %(asctime)s - %(message)s')
     ##formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-    nowYmd = datetime.datetime.strftime(datetime.datetime.now(), '%Y_%m_%d_%H_%M_%S')
+    #use the parent log file timestamp if it is less than 60 seconds old, otherwise use the current time
+    #useful for when a script is called from another script and you want to test whether logging has stopped in the parent script
+    now = datetime.datetime.now()
+    rightNowYmd = datetime.datetime.strftime(now, '%Y_%m_%d_%H_%M_%S')
+    parentNowYmd = os.path.splitext(os.path.basename(parentLogName))[0][-19:]
+    then = datetime.datetime.strptime(parentNowYmd, '%Y_%m_%d_%H_%M_%S')
+    if now - then > datetime.timedelta(seconds = 60):
+        nowYmd = rightNowYmd
+    else:
+        nowYmd = parentNowYmd
+
     # 'upgrade' to allow node to come in as a path - 2024.04.19, bkgelder
     if ':' not in node:
         logsDir = df.defineLocalProc(node)
@@ -430,11 +440,11 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
             logProc = sfldr
 
         if cleanup:
-            log, nowYmd, logName, startTime = setupLoggingNoCh(logProc, sys.argv[0], huc12, parentLogName)
+            log, nowYmd, logName, startTime = setupLoggingNoChYmdCheck(logProc, sys.argv[0], parentLogName, huc12)
             arcpy.SetLogHistory = False
         else:
             # log to file and console
-            log, nowYmd, logName, startTime = setupLoggingNew(logProc, sys.argv[0], huc12, parentLogName)
+            log, nowYmd, logName, startTime = setupLoggingNewYmdCheck(logProc, sys.argv[0], parentLogName, huc12)
             arcpy.SetLogHistory = True
 
         # if not os.path.isfile(flib_metadata_template):
@@ -515,11 +525,34 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
 
         ndFixedList = []
     ## Define continuous areas where no ground returns were received
+        # if breaklines exist, code those to return count 9999
+        breaks_list_fc = []
+        if breaklines is not None:
+            breaks_rivers = arcpy.PolygonToRaster_conversion(breaklines, opj(sgdb, 'breaks_rivers'))
+            breaks_list_fc.append(breaklines)#_rivers)
+        if breakpolys is not None:
+            breaks_lakes = arcpy.PolygonToRaster_conversion(breakpolys, opj(sgdb, 'breaks_lakes'))
+            breaks_list_fc.append(breakpolys)#s_lakes)
+        if len(breaks_list_fc) > 1:
+            breaks_merged = arcpy.Merge_management(breaks_list_fc, opj(sgdb, 'breaks_merged'))
+            breaks_all_rtp = arcpy.PolygonToRaster_conversion(breaks_merged, opj(sgdb, 'breaks_merged_raster'))
+        elif len(breaks_list_fc) == 1:
+            breaks_all_rtp = arcpy.PolygonToRaster_conversion(breaks_list_fc[0], opj(sgdb, 'breaks_merged_raster'))
+        else:
+            breaks_all_rtp = None
+        if breaks_all_rtp is not None:
+            breaks_tf = IsNull(breaks_all_rtp)
+            breaks_9999 = Con(breaks_tf, 0, 9999)
+
     # optional count raster
         if arcpy.Exists(cntTif) == True:
             log.debug('found count raster: ' + cntTif)
             class2CountRaw = Raster(cntTif)
-            class2Count0Ws = ExtractByMask(Con(IsNull(class2CountRaw), 0, class2CountRaw), Clip)
+            class2Count0WsPreBreaks = ExtractByMask(Con(IsNull(class2CountRaw), 0, class2CountRaw), Clip)
+            if breaks_all_rtp is not None:
+                class2Count0Ws = class2Count0WsPreBreaks + breaks_9999
+            else:
+                class2Count0Ws = class2Count0WsPreBreaks
             class2Count0Ws.save(opj(voidProc, "cntbe" + str(int(proc_size)) + "m0"))
 
             firstCountRaw = Raster(cnt1rTif)
