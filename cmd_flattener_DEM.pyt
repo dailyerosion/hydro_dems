@@ -309,6 +309,11 @@ def setupLoggingNoChYmdCheck(node, scriptName, parentLogName, huc12 = '000000000
     # create formatter and add it to the handlers
     formatter = logging.Formatter('%(levelname)s - %(asctime)s - %(message)s')
 
+    # 'upgrade' to allow node to come in as a path - 2024.04.19, bkgelder
+    if ':' not in node:
+        logsDir = df.defineLocalProc(node)
+    else:
+        logsDir = node
     #use the parent log file timestamp if it is less than 60 seconds old, otherwise use the current time
     #useful for when a script is called from another script and you want to test whether logging has stopped in the parent script
     now = datetime.datetime.now()
@@ -317,15 +322,11 @@ def setupLoggingNoChYmdCheck(node, scriptName, parentLogName, huc12 = '000000000
     then = datetime.datetime.strptime(parentNowYmd, '%Y_%m_%d_%H_%M_%S')
     if now - then > datetime.timedelta(seconds = 60):
         nowYmd = rightNowYmd
+        logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0][:-32] + '_' + huc12 + '_' + nowYmd + '.txt')
     else:
         nowYmd = parentNowYmd
+        logName = parentLogName
 
-    # 'upgrade' to allow node to come in as a path - 2024.04.19, bkgelder
-    if ':' not in node:
-        logsDir = df.defineLocalProc(node)
-    else:
-        logsDir = node
-    logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0] + '_' + huc12 + '_' + nowYmd + '.txt')
     if not os.path.isdir(os.path.dirname(logName)):
         os.makedirs(os.path.dirname(logName))
 
@@ -351,6 +352,11 @@ def setupLoggingNewYmdCheck(node, scriptName, parentLogName, huc12 = '0000000000
     formatter = logging.Formatter('%(levelname)s - %(asctime)s - %(message)s')
     ##formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
+    # 'upgrade' to allow node to come in as a path - 2024.04.19, bkgelder
+    if ':' not in node:
+        logsDir = df.defineLocalProc(node)
+    else:
+        logsDir = node
     #use the parent log file timestamp if it is less than 60 seconds old, otherwise use the current time
     #useful for when a script is called from another script and you want to test whether logging has stopped in the parent script
     now = datetime.datetime.now()
@@ -359,15 +365,11 @@ def setupLoggingNewYmdCheck(node, scriptName, parentLogName, huc12 = '0000000000
     then = datetime.datetime.strptime(parentNowYmd, '%Y_%m_%d_%H_%M_%S')
     if now - then > datetime.timedelta(seconds = 60):
         nowYmd = rightNowYmd
+        logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0][:-32] + '_' + huc12 + '_' + nowYmd + '.txt')
     else:
         nowYmd = parentNowYmd
+        logName = parentLogName
 
-    # 'upgrade' to allow node to come in as a path - 2024.04.19, bkgelder
-    if ':' not in node:
-        logsDir = df.defineLocalProc(node)
-    else:
-        logsDir = node
-    logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0] + '_' + huc12 + '_' + nowYmd + '.txt')
     if not os.path.isdir(os.path.dirname(logName)):
         os.makedirs(os.path.dirname(logName))
 
@@ -527,22 +529,27 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
     ## Define continuous areas where no ground returns were received
         # if breaklines exist, code those to return count 9999
         breaks_list_fc = []
+        count_field = 'COUNT_CODE'
         if breaklines is not None:
-            breaks_rivers = arcpy.PolygonToRaster_conversion(breaklines, opj(sgdb, 'breaks_rivers'))
+            df.tryAddField(breaklines, count_field, 'LONG')
+            arcpy.CalculateField_management(breaklines, count_field, 9999, 'PYTHON3')
+            breaks_rivers = arcpy.PolygonToRaster_conversion(breaklines, count_field, opj(sgdb, 'breaks_rivers'))
             breaks_list_fc.append(breaklines)#_rivers)
         if breakpolys is not None:
-            breaks_lakes = arcpy.PolygonToRaster_conversion(breakpolys, opj(sgdb, 'breaks_lakes'))
+            df.tryAddField(breaklines, count_field, 'LONG')
+            arcpy.CalculateField_management(breaklines, count_field, 9999, 'PYTHON3')
+            breaks_lakes = arcpy.PolygonToRaster_conversion(breakpolys, count_field, opj(sgdb, 'breaks_lakes'))
             breaks_list_fc.append(breakpolys)#s_lakes)
         if len(breaks_list_fc) > 1:
             breaks_merged = arcpy.Merge_management(breaks_list_fc, opj(sgdb, 'breaks_merged'))
-            breaks_all_rtp = arcpy.PolygonToRaster_conversion(breaks_merged, opj(sgdb, 'breaks_merged_raster'))
+            breaks_all_rtp = arcpy.PolygonToRaster_conversion(breaks_merged, count_field, opj(sgdb, 'breaks_merged_raster'))
         elif len(breaks_list_fc) == 1:
-            breaks_all_rtp = arcpy.PolygonToRaster_conversion(breaks_list_fc[0], opj(sgdb, 'breaks_merged_raster'))
+            breaks_all_rtp = arcpy.PolygonToRaster_conversion(breaks_list_fc[0], count_field, opj(sgdb, 'breaks_merged_raster'))
         else:
             breaks_all_rtp = None
         if breaks_all_rtp is not None:
             breaks_tf = IsNull(breaks_all_rtp)
-            breaks_9999 = Con(breaks_tf, 0, 9999)
+            breaks_9999 = Con(breaks_tf, 0, breaks_all_rtp)#9999)
 
     # optional count raster
         if arcpy.Exists(cntTif) == True:
