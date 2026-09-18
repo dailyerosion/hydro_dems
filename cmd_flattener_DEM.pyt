@@ -536,8 +536,8 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
             breaks_rivers = arcpy.PolygonToRaster_conversion(breaklines, count_field, opj(sgdb, 'breaks_rivers'))
             breaks_list_fc.append(breaklines)#_rivers)
         if breakpolys is not None:
-            df.tryAddField(breaklines, count_field, 'LONG')
-            arcpy.CalculateField_management(breaklines, count_field, 9999, 'PYTHON3')
+            df.tryAddField(breakpolys, count_field, 'LONG')
+            arcpy.CalculateField_management(breakpolys, count_field, 9999, 'PYTHON3')
             breaks_lakes = arcpy.PolygonToRaster_conversion(breakpolys, count_field, opj(sgdb, 'breaks_lakes'))
             breaks_list_fc.append(breakpolys)#s_lakes)
         if len(breaks_list_fc) > 1:
