@@ -1899,7 +1899,7 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
             allTilesList = []
 
             # with arcpy.da.SearchCursor(wesm_huc12_tiles, ['SHAPE@', 'laz_file', work_id_name]) as scur:#, sql_clause = [None, 'ORDER BY order DESC']) as scur:
-            with arcpy.da.SearchCursor(wesm_huc12_tiles, ['SHAPE@', 'laz_file', work_id_name, 'ql', 'dem_gsd_meters', 'horiz_crs', 'vert_crs']) as scur:
+            with arcpy.da.SearchCursor(wesm_huc12_tiles, ['SHAPE@', 'laz_file', work_id_name, 'ql', 'dem_gsd_meters', 'horiz_crs', 'vert_crs'], sql_clause= [None, 'ORDER BY ' + work_id_name]) as scur:
                 for row_counter, srow in enumerate(scur):
                     work_id = srow[2]
                     storage_laz = srow[1]
@@ -1910,8 +1910,8 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                     if os.path.exists(storage_laz):#ept_las):
 
                         storage_laz_altsep = storage_laz.replace(os.path.sep, os.path.altsep)
-                        if arcpy.Exists(storage_laz_altsep.replace('M:/DEP/USGS_LPC/IL_10CountyNRCS_D23/IL_10CoNRCS_1_D23/LAZ', 'E:/DEP_Proc/DEMProc/LAS_dem2013_1m_071300060105/laz_for_huc12')):
-                            storage_laz_altsep = storage_laz_altsep.replace('M:/DEP/USGS_LPC/IL_10CountyNRCS_D23/IL_10CoNRCS_1_D23/LAZ', 'E:/DEP_Proc/DEMProc/LAS_dem2013_1m_071300060105/laz_for_huc12')
+                        # if arcpy.Exists(storage_laz_altsep.replace('M:/DEP/USGS_LPC/IL_10CountyNRCS_D23/IL_10CoNRCS_1_D23/LAZ', 'E:/DEP_Proc/DEMProc/LAS_dem2013_1m_071300060105/laz_for_huc12')):
+                        #     storage_laz_altsep = storage_laz_altsep.replace('M:/DEP/USGS_LPC/IL_10CountyNRCS_D23/IL_10CoNRCS_1_D23/LAZ', 'E:/DEP_Proc/DEMProc/LAS_dem2013_1m_071300060105/laz_for_huc12')
                         fixedLasPath = opj(fixedFolder, os.path.basename(storage_laz).replace('.laz','.las'))
                         fixedLasPath_altsep = fixedLasPath.replace(os.path.sep, os.path.altsep)##
                         if ql == 'QL 0':
@@ -2055,11 +2055,11 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                                     if 'Type' in df.getfields(break_fc):#candidates[0]):
                                         type_flag = True
                                         log.info("Found 'Type' field in breakline feature classes, proceeding with processing.")
-                                        bridges_select = arcpy.Select_analysis(break_fc, opj(inm, '_'.join(['bridges', 'select', work_id])), "Type LIKE 'bridge%'")
+                                        bridges_select = arcpy.Select_analysis(break_fc, opj(inm, '_'.join(['bridges', 'select', str(work_id)])), "Type LIKE 'bridge%'")
                                         BREAKLINES['BridgesPolygons']['path_list'].append(bridges_select)
-                                        lakes_select = arcpy.Select_analysis(break_fc, opj(inm, '_'.join(['lakes', 'select', work_id])), "Type LIKE 'Lake%' OR Type LIKE 'lake%'")
+                                        lakes_select = arcpy.Select_analysis(break_fc, opj(inm, '_'.join(['lakes', 'select', str(work_id)])), "Type LIKE 'Lake%' OR Type LIKE 'lake%'")
                                         BREAKLINES['InlandPondsLakes']['path_list'].append(lakes_select)
-                                        rivers_select = arcpy.Select_analysis(break_fc, opj(inm, '_'.join(['rivers', 'select', work_id])), "Type LIKE 'River%' OR Type LIKE 'river%' OR Type LIKE 'Stream%' OR Type LIKE 'stream%'")
+                                        rivers_select = arcpy.Select_analysis(break_fc, opj(inm, '_'.join(['rivers', 'select', str(work_id)])), "Type LIKE 'River%' OR Type LIKE 'river%' OR Type LIKE 'Stream%' OR Type LIKE 'stream%'")
                                         BREAKLINES['InlandStreamsRiversPolygons']['path_list'].append(rivers_select)
                                     elif 'Ftype' in df.getfields(break_fc):#candidates[0]): River, Lake, Bridge
                                         #M:\DEP\USGS_LPC\IL_MidNorth_D22\IL_MidNorth_1_D22\breaks_md\IL_MidNorth_B1_Hydro_Breaklines_IL_West.gdb
@@ -2071,12 +2071,12 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                                         # bridges_select = arcpy.Select_analysis(break_fc, opj(inm, 'bridges_select'), "B_LINE_TYPE LIKE 'bridge%'")
                                         # BREAKLINES['BridgesPolygons']['path_list'].append(bridges_select)
                                         # get islands first since their names include lake-pond or double-line-drainage
-                                        islands_select = arcpy.Select_analysis(break_fc, opj(inm, '_'.join(['islands', 'select', work_id])), "B_LINE_TY LIKE '%Island%' OR B_LINE_TY LIKE '%island%'")
+                                        islands_select = arcpy.Select_analysis(break_fc, opj(inm, '_'.join(['islands', 'select', str(work_id)])), "B_LINE_TY LIKE '%Island%' OR B_LINE_TY LIKE '%island%'")
                                         BREAKLINES['Islands']['path_list'].append(islands_select)
-                                        not_islands_select = arcpy.Select_analysis(break_fc, opj(inm, '_'.join(['not', 'islands', 'select', work_id])), "B_LINE_TY NOT LIKE '%Island%' AND B_LINE_TY NOT LIKE '%island%'")
-                                        lakes_select = arcpy.Select_analysis(not_islands_select, opj(inm, '_'.join(['lakes', 'select', work_id])), "B_LINE_TY LIKE 'Lake%' OR B_LINE_TY LIKE 'lake%'")
+                                        not_islands_select = arcpy.Select_analysis(break_fc, opj(inm, '_'.join(['not', 'islands', 'select', str(work_id)])), "B_LINE_TY NOT LIKE '%Island%' AND B_LINE_TY NOT LIKE '%island%'")
+                                        lakes_select = arcpy.Select_analysis(not_islands_select, opj(inm, '_'.join(['lakes', 'select', str(work_id)])), "B_LINE_TY LIKE 'Lake%' OR B_LINE_TY LIKE 'lake%'")
                                         BREAKLINES['InlandPondsLakes']['path_list'].append(lakes_select)
-                                        rivers_select = arcpy.Select_analysis(not_islands_select, opj(inm, '_'.join(['rivers', 'select', work_id])  ), "B_LINE_TY LIKE 'Drain Line%' OR B_LINE_TY LIKE 'drain line%' OR B_LINE_TY LIKE 'Stream%' OR B_LINE_TY LIKE 'stream%'")
+                                        rivers_select = arcpy.Select_analysis(not_islands_select, opj(inm, '_'.join(['rivers', 'select', str(work_id)])  ), "B_LINE_TY LIKE 'Drain Line%' OR B_LINE_TY LIKE 'drain line%' OR B_LINE_TY LIKE 'Stream%' OR B_LINE_TY LIKE 'stream%'")
                                         BREAKLINES['InlandStreamsRivers']['path_list'].append(rivers_select)
                                 else:
                                     type_flag = False
