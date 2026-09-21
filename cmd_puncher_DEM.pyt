@@ -645,44 +645,44 @@ class msgStub:
     def addWarningMessage(self,text):
         arcpy.AddWarningMessage(text)
 
-# ----------------------------------------------------------------------
-# below should be commented out when using as a Python Toolbox (.pyt) - in 2025, .pyt cannot handle running code in the main block
-# remove the comments below for use from the windows command line
+# # ----------------------------------------------------------------------
+# # below should be commented out when using as a Python Toolbox (.pyt) - in 2025, .pyt cannot handle running code in the main block
+# # remove the comments below for use from the windows command line
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    if len(sys.argv) == 1:
-        arcpy.AddMessage("Whoo, hoo! Running from Python Window! Args will be added to sys.argv for testing purposes.")
+#     if len(sys.argv) == 1:
+#         arcpy.AddMessage("Whoo, hoo! Running from Python Window! Args will be added to sys.argv for testing purposes.")
 
-        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-        "C:/DEP/Scripts/basics/cmd_puncher_DEM.pyt",
-        "//10.27.15.155/M$/DEP/LiDAR_Current/elev_FLib_mean18/11030011/ef_3m_110300110104.tif",
-        "//10.27.15.155/M$/DEP/toolMetadata/PLib_DEMs2022_mTemplate.xml",
-        "//10.27.15.155/M$/DEP/LiDAR_Current/fill_regions/11030011/ef_3m_110300110104.tif",
-        "9.0",
-        "500",
-        "D:/DEP_Proc/DEMProc/Cut_dem2013_3m_110300110104",
-        "//10.27.15.155/M$/DEP/LiDAR_Current/elev_PLib_mean18/11030011/ep_3m_110300110104.tif",
-        "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
-        "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
-        "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
-        "False"]
-## now comes the code to add the parameters to sys.argv for testing in the Python Window
-        for i in parameters[2:]:
-            sys.argv.append(i)
-    else:
-        #For use via Windows Command Line
-        #above 'parameters' come in via command line arguments, nothing else needed
-        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-        #clean up the folder after done processing
-        cleanup = True
+#         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+#         "C:/DEP/Scripts/basics/cmd_puncher_DEM.pyt",
+#         "//10.27.15.155/M$/DEP/LiDAR_Current/elev_FLib_mean18/11030011/ef_3m_110300110104.tif",
+#         "//10.27.15.155/M$/DEP/toolMetadata/PLib_DEMs2022_mTemplate.xml",
+#         "//10.27.15.155/M$/DEP/LiDAR_Current/fill_regions/11030011/ef_3m_110300110104.tif",
+#         "9.0",
+#         "500",
+#         "D:/DEP_Proc/DEMProc/Cut_dem2013_3m_110300110104",
+#         "//10.27.15.155/M$/DEP/LiDAR_Current/elev_PLib_mean18/11030011/ep_3m_110300110104.tif",
+#         "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
+#         "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
+#         "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
+#         "False"]
+# ## now comes the code to add the parameters to sys.argv for testing in the Python Window
+#         for i in parameters[2:]:
+#             sys.argv.append(i)
+#     else:
+#         #For use via Windows Command Line
+#         #above 'parameters' come in via command line arguments, nothing else needed
+#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+#         #clean up the folder after done processing
+#         cleanup = True
 
-    messages = msgStub()
+#     messages = msgStub()
 
-    # inputs then outputs, change "" to Python None
-    (input_dem, plib_metadata, slope_pct, depth_threshold, 
-     area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, parent_log_name, cleanup
-     ) = [i if i != "" else None for i in sys.argv[1:]]#[i for i in sys.argv[1:]]
+#     # inputs then outputs, change "" to Python None
+#     (input_dem, plib_metadata, slope_pct, depth_threshold, 
+#      area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, parent_log_name, cleanup
+#      ) = [i if i != "" else None for i in sys.argv[1:]]#[i for i in sys.argv[1:]]
 
-    doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, parent_log_name, cleanup, messages)
-    arcpy.AddMessage("Back from doing!")
+#     doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, parent_log_name, cleanup, messages)
+#     arcpy.AddMessage("Back from doing!")
