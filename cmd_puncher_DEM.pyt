@@ -25,6 +25,8 @@
 
 # Import system modules
 import arcpy
+import datetime
+import logging
 import sys
 import os 
 import traceback
@@ -133,7 +135,7 @@ class Tool(object):
         """The source code of the tool."""
         cleanup = False
         params = parameters
-        doPuncher(params[0].valueAsText, params[1].valueAsText, params[2].valueAsText, params[3].valueAsText, params[4].valueAsText, params[5].valueAsText, params[6].valueAsText, params[7].valueAsText, params[8].valueAsText, cleanup, messages)
+        doPuncher(params[0].valueAsText, params[1].valueAsText, params[2].valueAsText, params[3].valueAsText, params[4].valueAsText, params[5].valueAsText, params[6].valueAsText, params[7].valueAsText, params[8].valueAsText, params[9].valueAsText, params[10].valueAsText, params[11].valueAsText, cleanup, messages)
         return
 
     def postExecute(self, parameters):
@@ -141,12 +143,104 @@ class Tool(object):
         added to the display."""
         return
 
+def setupLoggingNoChYmdCheck(node, scriptName, parentLogName, huc12 = '000000000000', version = ''):
+    # create logger with name 'example'
+    log = logging.getLogger('example')
+    log.setLevel(logging.DEBUG)
+
+    # create formatter and add it to the handlers
+    formatter = logging.Formatter('%(levelname)s - %(asctime)s - %(message)s')
+
+    # 'upgrade' to allow node to come in as a path - 2024.04.19, bkgelder
+    if ':' not in node:
+        logsDir = df.defineLocalProc(node)
+    else:
+        logsDir = node
+    #use the parent log file timestamp if it is less than 60 seconds old, otherwise use the current time
+    #useful for when a script is called from another script and you want to test whether logging has stopped in the parent script
+    now = datetime.datetime.now()
+    rightNowYmd = datetime.datetime.strftime(now, '%Y_%m_%d_%H_%M_%S')
+    parentNowYmd = os.path.splitext(os.path.basename(parentLogName))[0][-19:]
+    then = datetime.datetime.strptime(parentNowYmd, '%Y_%m_%d_%H_%M_%S')
+    if now - then > datetime.timedelta(seconds = 60):
+        nowYmd = rightNowYmd
+        logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0][:-32] + '_' + huc12 + '_' + nowYmd + '.txt')
+    else:
+        nowYmd = parentNowYmd
+        logName = parentLogName
+
+    if not os.path.isdir(os.path.dirname(logName)):
+        os.makedirs(os.path.dirname(logName))
+
+    # create file handler to log debug messages, new log file each time
+    fh = logging.FileHandler(logName, mode = 'w')
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    log.addHandler(fh)
+
+    startTime = time.time()
+    log.info("Beginning logging for script")
+    log.info("Logging output to: " + logName)
+
+    return log, nowYmd, logName, startTime
 
 
-def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, cleanup, messages):
+def setupLoggingNewYmdCheck(node, scriptName, parentLogName, huc12 = '000000000000', version = ''):
+    # create logger with name 'example'
+    log = logging.getLogger('example')
+    log.setLevel(logging.DEBUG)
+
+    # create formatter and add it to the handlers
+    formatter = logging.Formatter('%(levelname)s - %(asctime)s - %(message)s')
+    ##formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # 'upgrade' to allow node to come in as a path - 2024.04.19, bkgelder
+    if ':' not in node:
+        logsDir = df.defineLocalProc(node)
+    else:
+        logsDir = node
+    #use the parent log file timestamp if it is less than 60 seconds old, otherwise use the current time
+    #useful for when a script is called from another script and you want to test whether logging has stopped in the parent script
+    now = datetime.datetime.now()
+    rightNowYmd = datetime.datetime.strftime(now, '%Y_%m_%d_%H_%M_%S')
+    parentNowYmd = os.path.splitext(os.path.basename(parentLogName))[0][-19:]
+    then = datetime.datetime.strptime(parentNowYmd, '%Y_%m_%d_%H_%M_%S')
+    if now - then > datetime.timedelta(seconds = 60):
+        nowYmd = rightNowYmd
+        logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0][:-32] + '_' + huc12 + '_' + nowYmd + '.txt')
+    else:
+        nowYmd = parentNowYmd
+        logName = parentLogName
+
+    if not os.path.isdir(os.path.dirname(logName)):
+        os.makedirs(os.path.dirname(logName))
+
+    # create file handler to log debug messages, new log file each time
+    fh = logging.FileHandler(logName, mode = 'w')
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    log.addHandler(fh)
+
+    # create console handler with a higher log level
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    ch.setFormatter(formatter)
+    log.addHandler(ch)
+
+    startTime = time.time()
+    log.info("Beginning logging for script")
+    log.info("Logging output to: " + logName)
+####    log.warn(outputString)
+
+    return log, nowYmd, logName, startTime
+
+
+
+
+def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, parent_log_name, cleanup, messages):
 
     try:
-        arguments = [input_dem, plib_metadata, slope_pct, depth_threshold, area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, cleanup]
+        arguments = [input_dem, plib_metadata, slope_pct, depth_threshold, area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, parent_log_name, cleanup]
 
         for a in arguments:
             if a == arguments[0]:
@@ -189,12 +283,12 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
 
         if cleanup:
             # log to file only
-            log, nowYmd, logName, startTime = df.setupLoggingNoCh(logProc, sys.argv[0], huc12)
+            log, nowYmd, logName, startTime = setupLoggingNoChYmdCheck(logProc, sys.argv[0], parent_log_name, huc12)
             verbose = False
             arcpy.SetLogHistory = False
         else:
             # log to file and console
-            log, nowYmd, logName, startTime = df.setupLoggingNew(logProc, sys.argv[0], huc12)
+            log, nowYmd, logName, startTime = setupLoggingNewYmdCheck(logProc, sys.argv[0], parent_log_name, huc12)
             verbose = True
             arcpy.SetLogHistory = True
 
@@ -551,44 +645,44 @@ class msgStub:
     def addWarningMessage(self,text):
         arcpy.AddWarningMessage(text)
 
-# # ----------------------------------------------------------------------
-# # below should be commented out when using as a Python Toolbox (.pyt) - in 2025, .pyt cannot handle running code in the main block
-# # remove the comments below for use from the windows command line
+# ----------------------------------------------------------------------
+# below should be commented out when using as a Python Toolbox (.pyt) - in 2025, .pyt cannot handle running code in the main block
+# remove the comments below for use from the windows command line
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
 
-#     if len(sys.argv) == 1:
-#         arcpy.AddMessage("Whoo, hoo! Running from Python Window! Args will be added to sys.argv for testing purposes.")
+    if len(sys.argv) == 1:
+        arcpy.AddMessage("Whoo, hoo! Running from Python Window! Args will be added to sys.argv for testing purposes.")
 
-#         parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
-#         "C:/DEP/Scripts/basics/cmd_puncher_DEM.pyt",
-#         "//10.27.15.155/M$/DEP/LiDAR_Current/elev_FLib_mean18/11030011/ef_3m_110300110104.tif",
-#         "//10.27.15.155/M$/DEP/toolMetadata/PLib_DEMs2022_mTemplate.xml",
-#         "//10.27.15.155/M$/DEP/LiDAR_Current/fill_regions/11030011/ef_3m_110300110104.tif",
-#         "9.0",
-#         "500",
-#         "D:/DEP_Proc/DEMProc/Cut_dem2013_3m_110300110104",
-#         "//10.27.15.155/M$/DEP/LiDAR_Current/elev_PLib_mean18/11030011/ep_3m_110300110104.tif",
-#         "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
-#         "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
-#         "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
-#         "False"]
-# ## now comes the code to add the parameters to sys.argv for testing in the Python Window
-#         for i in parameters[2:]:
-#             sys.argv.append(i)
-#     else:
-#         #For use via Windows Command Line
-#         #above 'parameters' come in via command line arguments, nothing else needed
-#         arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
-#         #clean up the folder after done processing
-#         cleanup = True
+        parameters = ["C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/pythonw.exe",
+        "C:/DEP/Scripts/basics/cmd_puncher_DEM.pyt",
+        "//10.27.15.155/M$/DEP/LiDAR_Current/elev_FLib_mean18/11030011/ef_3m_110300110104.tif",
+        "//10.27.15.155/M$/DEP/toolMetadata/PLib_DEMs2022_mTemplate.xml",
+        "//10.27.15.155/M$/DEP/LiDAR_Current/fill_regions/11030011/ef_3m_110300110104.tif",
+        "9.0",
+        "500",
+        "D:/DEP_Proc/DEMProc/Cut_dem2013_3m_110300110104",
+        "//10.27.15.155/M$/DEP/LiDAR_Current/elev_PLib_mean18/11030011/ep_3m_110300110104.tif",
+        "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
+        "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
+        "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
+        "False"]
+## now comes the code to add the parameters to sys.argv for testing in the Python Window
+        for i in parameters[2:]:
+            sys.argv.append(i)
+    else:
+        #For use via Windows Command Line
+        #above 'parameters' come in via command line arguments, nothing else needed
+        arcpy.AddMessage("Whoo, hoo! Command-line enabled!")
+        #clean up the folder after done processing
+        cleanup = True
 
-#     messages = msgStub()
+    messages = msgStub()
 
-#     # inputs then outputs, change "" to Python None
-#     (input_dem, plib_metadata, slope_pct, depth_threshold, 
-#      area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, cleanup
-#      ) = [i if i != "" else None for i in sys.argv[1:]]#[i for i in sys.argv[1:]]
+    # inputs then outputs, change "" to Python None
+    (input_dem, plib_metadata, slope_pct, depth_threshold, 
+     area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, parent_log_name, cleanup
+     ) = [i if i != "" else None for i in sys.argv[1:]]#[i for i in sys.argv[1:]]
 
-#     doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, cleanup, messages)
-#     arcpy.AddMessage("Back from doing!")
+    doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_threshold, procDir, output_dem, fr0_output, depressions_fc, ws_fc, drains_fc, parent_log_name, cleanup, messages)
+    arcpy.AddMessage("Back from doing!")
