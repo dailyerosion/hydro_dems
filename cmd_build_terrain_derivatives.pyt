@@ -1167,7 +1167,7 @@ def updateResolution(filepath, init_res, new_res, pattern, log):
     return updated_filepath
 
 
-def buildLASRasters(lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx, maskRastOut, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, cntBeFile, named_cell_size, internal_regions, lidar_metadata_info, derivative_metadata, pattern22):
+def buildLASRasters(lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx, maskRastOut, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, allReturnsMinFile, cnt1rFile, cntPlsFile, cntBeFile, named_cell_size, internal_regions, lidar_metadata_info, derivative_metadata, pattern22):
 ##def buildLASRasters(lasdAll, lasdGround, log, demList, huc12, srSfx, maskRastBase, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, frMinFile, intBeMaxFile, intBeMinFile, lastReturnMinFile, bareEarthReturnMinFile, cnt1rFile, named_cell_size, int_regions, ptr):
     '''creates multiple rasters from a las dataset, including min/max intensity of
     first return and bare earth surfaces, first return max and min surface, and z_range'''
@@ -1182,7 +1182,7 @@ def buildLASRasters(lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx
                 '\nLatest 3DEP Lidar Data: ' : collect_majority
                 }
 
-        if bareEarthReturnMinFile is not None or intBeMaxFile is not None:
+        if bareEarthReturnMinFile is not None or allReturnsMinFile is not None or intBeMaxFile is not None:
             log.debug('---Creating LR Min layer')
 
             beReturnsMinTempFile = os.path.join(procDir, '_'.join(['tmp_bemin', demPtString + 'm', huc12, 'out.tif']))
@@ -1270,7 +1270,7 @@ def buildLASRasters(lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx
                     addMetadata(intBeMaxFile_sized, paraDict, derivative_metadata, log)
 
         if surfaceElevFile is not None:
-            log.debug('---Creating FR Max surface')
+            log.debug('---Creating All Returns Max surface')
             frMaxFile_sized = updateResolution(surfaceElevFile, named_cell_size, demListVal, pattern22, log)
             allReturnsMaxTempFile = os.path.join(procDir, '_'.join(['tmp_frmax', demPtString + 'm', huc12, 'out.tif']))
             # allReturnsMax = arcpy.LasDatasetToRaster_conversion(lasdAll, allReturnsMaxTempFile, interpolation_type = 'BINNING MAXIMUM SIMPLE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'FLOAT')
@@ -1279,11 +1279,13 @@ def buildLASRasters(lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx
             allReturnsMaxCm.save(frMaxFile_sized)#locDict['surfaceElevFile'])#allReturnsMaxFile)
             addMetadata(frMaxFile_sized, paraDict, derivative_metadata, log)
 
-        # log.debug('---Creating FR Min surface')
-        # allReturnsMinTempFile = os.path.join(procDir, '_'.join(['tmp_frmin', demListVal + 'm', huc12, 'out.tif']))
-        # allReturnsMin = arcpy.LasDatasetToRaster_conversion(lasdAll, allReturnsMinTempFile, interpolation_type = 'BINNING MINIMUM SIMPLE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'FLOAT')
-        # allReturnsMinCm = Int(Times(allReturnsMin, 100))
-        # allReturnsMinCm.save(frMinFile_sized)#locDict['firstReturnMinFile'])#allReturnsMinFile)
+        if allReturnsMinFile is not None:
+            log.debug('---Creating All Returns Min surface')
+            allReturnsMinFile_sized = updateResolution(allReturnsMinFile, named_cell_size, demListVal, pattern22, log)
+            allReturnsMinTempFile = os.path.join(procDir, '_'.join(['tmp_frmin', demListVal + 'm', huc12, 'out.tif']))
+            allReturnsMin = arcpy.LasDatasetToRaster_conversion(lasdAll, allReturnsMinTempFile, interpolation_type = 'BINNING MINIMUM SIMPLE', sampling_type = 'CELLSIZE', sampling_value = float(demListVal), data_type = 'FLOAT')
+            allReturnsMinCm = Int(Times(allReturnsMin, 100))
+            allReturnsMinCm.save(allReturnsMinFile_sized)#locDict['firstReturnMinFile'])#allReturnsMinFile)
 
         if demListVal == '2' or demListVal == '1':# should only run for 2m, otherwise too slow, but 1m needed for IA
             if cnt1rFile is not None:
@@ -1584,11 +1586,11 @@ def convert_merge_copy_breaklines(BREAKLINES, super_buffer, log):
 
 def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir, 
         pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-        tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+        tElevFile, bareEarthReturnMinFile, allReturnsMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
         int1rMinFile, int1rMaxFile, intBeMaxFile, cleanup, messages):
     arguments = [dem_boundary, wesm_huc12_tiles, laz_download_dir, 
         pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-        tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+        tElevFile, bareEarthReturnMinFile, allReturnsMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
         int1rMinFile, int1rMaxFile, intBeMaxFile, cleanup]
                                                        
     for a in arguments:
@@ -2188,7 +2190,7 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                 # if not arcpy.Exists(tElevFile):
                 terrainList = createCmDemRastersFromTerrains(log, demListVal, demPtString, maskRastOutName, procDir, terrains, huc12, lidar_metadata_info, pyramid_args, flib_metadata_template, tElevFile, init_res, pattern22, interpDict, srOutNoVCS)
 
-                buildLASRasters(lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx, maskRastOutName, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, cntBeFile, init_res, internal_regions, lidar_metadata_info, derivative_metadata, pattern22)
+                buildLASRasters(lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx, maskRastOutName, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, allReturnsMinFile, cnt1rFile, cntPlsFile, cntBeFile, init_res, internal_regions, lidar_metadata_info, derivative_metadata, pattern22)
 #                 lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx, maskRastOut, sgdb, procDir, int1rMaxFile, int1rMinFile, surfaceElevFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, cntBeFile, named_cell_size, internal_regions, lidar_metadata_info, derivative_metadata, pattern22 = lasdAll, beLayer, log, demListVal, demPtString, huc12, srSfx, maskRastOutName, sgdb, procDir, int1rMaxFile, int1rMinFile, firstReturnMaxFile, intBeMaxFile, bareEarthReturnMinFile, cnt1rFile, cntPlsFile, cntBeFile, init_res, internal_regions, lidar_metadata_info, derivative_metadata, pattern22
 #                 nowYmd, collect_starts_min, collect_ends_max, collect_majority = [i for i in lidar_metadata_info]
 
@@ -2399,6 +2401,7 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
 #     "",
 #     "E:/DEP_Checkout/LiDAR_Current/elev_TLib_mean18/07080103/et_1m_070801030408.tif",
 #     "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07080103/be_min_1m_070801030408.tif",
+#     "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07080103/ar_min_1m_070801030408.tif",
 #     "E:/DEP_Checkout/LiDAR_Current/surf_el_Lib/07080103/fr_max_1m_070801030408.tif",
 #     "E:/DEP_Checkout/LiDAR_Current/count_Lib/07080103/cnt_be_1m_070801030408.tif",
 #     "E:/DEP_Checkout/LiDAR_Current/count_Lib/07080103/cnt_fr_1m_070801030408.tif",
@@ -2420,7 +2423,7 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
 #     # inputs then outputs, change "" to Python None
 #     (dem_boundary, wesm_huc12_tiles, laz_download_dir,
 #          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-#          tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+#          tElevFile, bareEarthReturnMinFile, allReturnsMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
 #          int1rMinFile, int1rMaxFile, intBeMaxFile, cleanup
 #         ) = [i if i != "" else None for i in sys.argv[1:]]
 
@@ -2431,7 +2434,7 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
 
 #     doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
 #          pdal_exe, gsds, procDir, snap, breakpolys, breaklines, 
-#          tElevFile, bareEarthReturnMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
+#          tElevFile, bareEarthReturnMinFile, allReturnsMinFile, firstReturnMaxFile, cntBeFile, cnt1rFile, cntPlsFile,
 #          int1rMinFile, int1rMaxFile, intBeMaxFile, cleanup, messages)
 
 #     arcpy.AddMessage("Back from doEPT!")

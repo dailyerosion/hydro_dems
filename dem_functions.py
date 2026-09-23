@@ -987,6 +987,8 @@ def loadVariablesDict(node, ACPFyear, huc12, outEPSG, interpType, cellSize, nowY
         "surfaceElevFile" : os.path.join(firstReturnDir, huc8, "_".join(['fr', 'max', str(cellSize) + 'm', huc12 + '.tif'])),
         # first return min elevation file
         "firstReturnMinFile" : os.path.join(firstReturnDir, huc8, "_".join(['fr', 'min', str(cellSize) + 'm', huc12 + '.tif'])),
+        # all returns min elevation file
+        "allReturnsMinFile" : os.path.join(firstReturnDir, huc8, "_".join(['ar', 'min', str(cellSize) + 'm', huc12 + '.tif'])),
         # last return min elevation file
         "lastReturnMinFile" : os.path.join(firstReturnDir, huc8, "_".join(['lr', 'min', str(cellSize) + 'm', huc12 + '.tif'])),
         # bareearth return min elevation file, created from lasdataset to raster, not terrain to raster
