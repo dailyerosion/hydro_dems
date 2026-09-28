@@ -164,7 +164,8 @@ def setupLoggingNoChYmdCheck(node, scriptName, parentLogName, huc12 = '000000000
     then = datetime.datetime.strptime(parentNowYmd, '%Y_%m_%d_%H_%M_%S')
     if now - then > datetime.timedelta(seconds = 60):
         nowYmd = rightNowYmd
-        logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0][:-32] + '_' + huc12 + '_' + nowYmd + '.txt')
+        logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0] + '_' + huc12 + '_' + nowYmd + '.txt')
+        # logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0][:-32] + '_' + huc12 + '_' + nowYmd + '.txt')
     else:
         nowYmd = parentNowYmd
         logName = parentLogName
@@ -207,7 +208,8 @@ def setupLoggingNewYmdCheck(node, scriptName, parentLogName, huc12 = '0000000000
     then = datetime.datetime.strptime(parentNowYmd, '%Y_%m_%d_%H_%M_%S')
     if now - then > datetime.timedelta(seconds = 60):
         nowYmd = rightNowYmd
-        logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0][:-32] + '_' + huc12 + '_' + nowYmd + '.txt')
+        logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0] + '_' + huc12 + '_' + nowYmd + '.txt')
+        # logName = os.path.join(logsDir, 'Logs', os.path.splitext(os.path.basename(scriptName))[0][:-32] + '_' + huc12 + '_' + nowYmd + '.txt')
     else:
         nowYmd = parentNowYmd
         logName = parentLogName
