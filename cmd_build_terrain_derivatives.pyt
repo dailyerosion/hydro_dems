@@ -2007,6 +2007,13 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
 
                         # allLasd = arcpy.CreateLasDataset_management(ept_las, opj(sfldr, 'all' + sfx))
                         log.debug(f'lidar file suffix is: {sfx}')
+                        # surface_constraints_string = ""
+                        # surface_constraints = []
+                        # bk_keys = list(BREAKLINES.keys())
+                        # for k in keys[:3]:
+                        #     surface_constraints.append([BREAKLINES[k]['fdset_path'], BREAKLINES[k]['height_field'], BREAKLINES[k]['sf_type']])
+                        #     surface_constraints_string += f"{BREAKLINES[k]['fdset_path']} Shape.Z {BREAKLINES[k]['sf_type']}; "
+                        # lasdAll = arcpy.CreateLasDataset_management(fixedFolder, os.path.join(procDir, 'huc_all.lasd'), in_surface_constraints=surface_constraints, spatial_reference=arcpy.SpatialReference(int(srOutCode)))
                         lasdAll = arcpy.CreateLasDataset_management(fixedFolder, os.path.join(procDir, 'huc_all.lasd'), spatial_reference=arcpy.SpatialReference(int(srOutCode)))
 
                         if os.path.exists(fixedLasPath_altsep):

@@ -693,7 +693,6 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
 
                                         ## Define the main stem of the big river
                                         distance_threshold = (ndThRivers.mean + ndThRivers.maximum) / 2 * 2
-        ##                                mainStem = Con(ndThRivers < distance_threshold, bigRiver)
                                         mainStem = Con(distToMainStem < distance_threshold, bigRiver)
                                         if mainStem.maximum is not None:#False
                                             mainStemPoly = arcpy.RasterToPolygon_conversion(mainStem, gdb + mspName)
@@ -705,8 +704,6 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                                             main_stem_nd_basins = Basin(main_stem_nd_fd)
                                             main_stem_nd_flow = fence_and_flow_region(mainStem, main_stem_nd_basins, main_stem_nd_dem)
                                             main_stem_nd_flow_fd = FlowDirection(main_stem_nd_flow)
-            ####                                main_stem_nd_flow_basins = Basin(main_stem_nd_flow_fd)
-            ####                                main_stem_nd_flow_basins_rtp = arcpy.conversion.RasterToPolygon(main_stem_nd_flow_basins, opj(sgdb, 'main_stem_nd_flow_basins'), 'NO_SIMPLIFY')
                                             # main_stem_nd_basins_rtp = arcpy.conversion.RasterToPolygon(main_stem_nd_basins, opj(sgdb, 'main_stem_nd_basins'), 'NO_SIMPLIFY')
 
                                             basin0Deepest = ZonalStatistics(main_stem_nd_basins, 'VALUE', main_stem_nd_dem, 'MINIMUM')
@@ -813,12 +810,6 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                                             expand_branches_partials = Expand(Con(ndRegions_branches_partials, 1), 1, 1)#rg_branches_partials.maximum)
                                             expand_branches = RegionGroup(expand_branches_partials, 'EIGHT')
 
-
-            ####                                branches_table = arcpy.CopyRows_management(big_distant_branches, opj(gdb, 'branches_tbl'))
-            ####                                branches_values = [row[0] for row in arcpy.da.SearchCursor(branches_table, ['VALUE'])]
-            ####
-            ####                                # find deepest cells at max distance from main stem
-            ####                                expand_branches = Expand(big_distant_branches, 1, branches_values)
                                             fs_dist = FocalStatistics(distToMainStem2, statistics_type = 'MEAN')
                                             expand_deepest_dist = Con(expand_branches, Con(basin0DeepestCell, fs_dist))
 
@@ -879,7 +870,6 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                                             fixedDEM_branches_flowing_basins = Basin(fixedDEM_branches_flowing_fd)
 
                                             flatter_branches_basins_rtp = arcpy.conversion.RasterToPolygon(fixedDEM_branches_flowing_basins, opj(sgdb, 'flatter_branches_basins'), 'NO_SIMPLIFY')
-            ##                                flatter_brandhes_fa = FlowAccumulation(flatter_branches_fd)
 
                                     else:
                                         log.debug('no big rivers to clean - NoData must be big enough and on borders')
@@ -888,11 +878,6 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                                     log.debug('no big rivers at all - NoData must be big enough and on borders')
 
                             except:
-        ##                    except Exception as err:
-        ##                        log.debug('fail on big river clean')
-        ##                        log.debug(err.message)
-        ##                        arcpy.AddError(err.message)
-
                                 # Get the traceback object
                                 tb = sys.exc_info()[2]
                                 tbinfo = traceback.format_tb(tb)[0]
