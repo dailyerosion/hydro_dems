@@ -1080,6 +1080,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                     moreNdRegions2Fix = Con(IsNull(fixedNdWhole), ndRegions)
                 else:
                     moreNdRegions2Fix = ndRegions#goodCrvNdRegions
+                df.create_needed_dirs_and_gdbs(mediumNoDataAreas, log)
                 moreNdRegions2Fix.save(mediumNoDataAreas)
     ##
     ##    ####----------------------------------------------------------------------------
@@ -1270,6 +1271,7 @@ def doFlattener(fillTif, cntTif, cnt1rTif, surfaceElevFile, int1rMaxFile, buf_bn
                 areaRatio = vfArea.maximum / pfArea.maximum
                 try:
                     assert(areaRatio >= 0.97),'VoidFixed DEM failed area data check'
+                    df.create_needed_dirs_and_gdbs(voidFixTif, log)
                     ndAllFixedDEM.save(voidFixTif)
                     gdbCopy = arcpy.CopyRaster_management(ndAllFixedDEM, opj(sgdb, os.path.splitext(ndAllFixedDEM.name)[0]))
                 except AssertionError:
