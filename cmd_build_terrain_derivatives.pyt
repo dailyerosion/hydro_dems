@@ -2007,28 +2007,6 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
 
                         # allLasd = arcpy.CreateLasDataset_management(ept_las, opj(sfldr, 'all' + sfx))
                         log.debug(f'lidar file suffix is: {sfx}')
-                        surface_constraints_string = ""
-                        surface_constraints = []
-                        bk_keys = list(BREAKLINES.keys())
-                        surfcons = ''
-                        for k in bk_keys[:3]:
-                            # if k == 'InlandStreamsRivers':
-                            #     surfcons += BREAKLINES[k]['fdset_path'] + " Shape.Z Hard_Replace;"# " + str(mask) + " <None> Hard_Clip"
-                            #     # surfcons += BREAKLINES[k]['fdset_path'] + " Shape.Z Hard_Line;"# " + str(mask) + " <None> Hard_Clip"
-                            if k == 'InlandPondsLakes':
-                                surfcons += BREAKLINES[k]['fdset_path'] + " Shape.Z Hard_Replace;"# " + str(mask) + " <None> Hard_Clip"
-                            # elif k == 'Islands':
-                            #     surfcons += BREAKLINES[k]['fdset_path'] + " Shape.Z Hard_Replace;"# " + str(mask) + " <None> Hard_Clip"
-                            # # if badHb:
-                            # #     surfcons += str(badHb) + " Z_Max Hard_Line;"# " + str(mask) + " <None> Hard_Clip"
-                            # # else:
-                        surfcons += str(tcdFdSet) + " <None> Hard_Clip"
-                        # for k in bk_keys[:3]:
-                        #     surface_constraints.append([BREAKLINES[k]['fdset_path'], BREAKLINES[k]['height_field'], BREAKLINES[k]['sf_type']])
-                        #     surface_constraints_string += f"{BREAKLINES[k]['fdset_path']} Shape.Z {BREAKLINES[k]['sf_type']}; "
-                        # lasdAllSurfCons = arcpy.CreateLasDataset_management(fixedFolder, os.path.join(procDir, 'huc_all_surf_cons.lasd'), in_surface_constraints=surfcons, spatial_reference=arcpy.SpatialReference(int(srOutCode)))
-                        lasdAll = arcpy.CreateLasDataset_management(fixedFolder, os.path.join(procDir, 'huc_all_surf_cons.lasd'), in_surface_constraints=surfcons, spatial_reference=arcpy.SpatialReference(int(srOutCode)))
-                        # lasdAll = arcpy.CreateLasDataset_management(fixedFolder, os.path.join(procDir, 'huc_all.lasd'), spatial_reference=arcpy.SpatialReference(int(srOutCode)))
 
                         if os.path.exists(fixedLasPath_altsep):
                             # 'Filters LAS points to class 2 and creates multipoints in FDSet'
@@ -2174,6 +2152,29 @@ def doLidarDEMs(dem_boundary, wesm_huc12_tiles, laz_download_dir,
                     convert_merge_copy_breaklines(BREAKLINES, super_buffer, log)
 
                     terrains, terrain_features, terrain_args, pyramid_args = buildTerrainsUSGS(finalMP, FDSet, tcdFdSet, BREAKLINES, log, windowsizeMethods, spacing)
+
+                    # surface_constraints_string = ""
+                    # surface_constraints = []
+                    bk_keys = list(BREAKLINES.keys())
+                    surfcons = ''
+                    for k in bk_keys[:3]:
+                        # if k == 'InlandStreamsRivers':
+                        #     surfcons += BREAKLINES[k]['fdset_path'] + " Shape.Z Hard_Replace;"# " + str(mask) + " <None> Hard_Clip"
+                        #     # surfcons += BREAKLINES[k]['fdset_path'] + " Shape.Z Hard_Line;"# " + str(mask) + " <None> Hard_Clip"
+                        if k == 'InlandPondsLakes':
+                            surfcons += BREAKLINES[k]['fdset_path'] + " Shape.Z Hard_Replace;"# " + str(mask) + " <None> Hard_Clip"
+                        # elif k == 'Islands':
+                        #     surfcons += BREAKLINES[k]['fdset_path'] + " Shape.Z Hard_Replace;"# " + str(mask) + " <None> Hard_Clip"
+                        # # if badHb:
+                        # #     surfcons += str(badHb) + " Z_Max Hard_Line;"# " + str(mask) + " <None> Hard_Clip"
+                        # # else:
+                    surfcons += str(tcdFdSet) + " <None> Hard_Clip"
+                    # for k in bk_keys[:3]:
+                    #     surface_constraints.append([BREAKLINES[k]['fdset_path'], BREAKLINES[k]['height_field'], BREAKLINES[k]['sf_type']])
+                    #     surface_constraints_string += f"{BREAKLINES[k]['fdset_path']} Shape.Z {BREAKLINES[k]['sf_type']}; "
+                    # lasdAllSurfCons = arcpy.CreateLasDataset_management(fixedFolder, os.path.join(procDir, 'huc_all_surf_cons.lasd'), in_surface_constraints=surfcons, spatial_reference=arcpy.SpatialReference(int(srOutCode)))
+                    lasdAll = arcpy.CreateLasDataset_management(fixedFolder, os.path.join(procDir, 'huc_all_surf_cons.lasd'), in_surface_constraints=surfcons, spatial_reference=arcpy.SpatialReference(int(srOutCode)))
+                    # lasdAll = arcpy.CreateLasDataset_management(fixedFolder, os.path.join(procDir, 'huc_all.lasd'), spatial_reference=arcpy.SpatialReference(int(srOutCode)))
 
                     if sys.version_info.minor < 9:
                         beLayer = arcpy.MakeLasDatasetLayer_management(lasdAll, 'ground_layer', [2,8], 'Last Return')
