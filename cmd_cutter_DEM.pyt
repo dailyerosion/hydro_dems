@@ -261,6 +261,8 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
         ## Make sure output locations exist
         arcpy.env.scratchWorkspace = proc_dir
 
+        arcpy.env.parallelProcessingFactor = "0"
+
         sgdb = arcpy.env.scratchGDB
         arcpy.env.scratchWorkspace = sgdb
         arcpy.env.workspace = sgdb

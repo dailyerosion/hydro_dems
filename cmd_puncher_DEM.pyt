@@ -330,6 +330,8 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
 
         arcpy.env.cellSize = input_dem#
 
+        arcpy.env.parallelProcessingFactor = "0"
+
         arcpy.CheckOutExtension("Spatial")
         arcpy.env.overwriteOutput = True
 

@@ -455,6 +455,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         sfldr = arcpy.env.scratchFolder
         arcpy.env.scratchWorkspace = sgdb
         arcpy.env.workspace = sgdb
+        arcpy.env.parallelProcessingFactor = "0"
 
         inm = 'in_memory'
 
