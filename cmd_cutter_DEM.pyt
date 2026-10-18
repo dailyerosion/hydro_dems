@@ -125,6 +125,49 @@ class Tool(object):
         return
 
 
+def createCLDEM_buffer(DEM2Mod, gdb, cutFC, outDEMname, sfx, cutElFld, ProcSize, log):
+    try:
+
+        cutFcGDB = arcpy.CopyFeatures_management(cutFC, opj(gdb, os.path.basename(cutFC.getOutput(0))+ '_invert_el' + sfx))
+        cutFcBuffer = arcpy.Buffer_analysis(cutFcGDB, opj(gdb, os.path.basename(cutFC.getOutput(0))+ '_invert_bfr_el' + sfx), str(ProcSize/2.0) + ' METERS')
+        arcpy.AddField_management(cutFcBuffer, "Inv_Line_Ord", "LONG")
+        arcpy.CalculateField_management(cutFcBuffer, "Inv_Line_Ord", str(int(DEM2Mod.maximum))+'-1*!' + cutElFld + '!', "PYTHON")
+        cutRaster = arcpy.PolygonToRaster_conversion(cutFcBuffer, cutElFld, opj(gdb, "CL_All" + sfx), "", "Inv_Line_Ord", str(ProcSize))
+
+## If the cut line elevation is higher than the original elevation, don't modify the elevation value
+        cutLineDif = Minus(cutRaster, DEM2Mod)
+
+        cutLineDifAllCells = Con(IsNull(cutLineDif) == 1, 0, cutLineDif)
+
+        cutLineDEM = Con(cutLineDifAllCells >= 0, DEM2Mod, cutRaster)
+        cutLineDEM.save(opj(gdb, outDEMname + sfx))
+
+##        log.debug("Finished createCLDEM at " + time.asctime())
+
+        return cutLineDEM, cutRaster
+
+    except Exception as e:
+##        log.debug(e.message)
+        if sys.version_info.major == 2:
+            arcpy.AddError(e.message)
+            print(e.message)
+            log.warning(e.message)
+        elif sys.version_info.major == 3:
+            arcpy.AddError(e)
+            print(e)
+            if log is not None:
+                log.warning(e)
+
+        # Get the traceback object
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+
+        # Concatenate information together concerning the error into a message string
+        pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+        print(pymsg)
+##        log.warn(pymsg)
+
+
 def createCLDEM(DEM2Mod, gdb, cutFC, outDEMname, sfx, cutElFld, ProcSize, log):
     try:
 
