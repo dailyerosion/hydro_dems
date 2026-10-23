@@ -13,7 +13,7 @@ They can also be run via the command line by removing the comments from the 'if 
 Download the 'dem_functions.py' file into the same directory you will use for the following pyt (Python Toolbox) locations.
 
 # First
-Start with the script 'get_merge_lidar_datasets.pyt'. This will download a couple datasets and intersect them for future work. The EPT/WESM output feature class from this is used in the next step.
+Start with the script 'get_merge_lidar_datasets.pyt'. This will download a couple datasets, the [WESM from USGS]([url](https://www.usgs.gov/ngp-standards-and-specifications/wesm-data-dictionary)) Work unit Extent Spatial Metadata and the EPT dataset from Hobu (Howard Butler's shop). The script intersects them for future work as the WESM is spatially accurate and the EPT is lower resolution but includes links to the web resources. The EPT/WESM output feature class from this is used in the next step.
 
 # Second
 ## Required
