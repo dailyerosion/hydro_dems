@@ -329,6 +329,7 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
         arcpy.env.snapRaster = input_dem
 
         arcpy.env.cellSize = input_dem#
+        log.debug("cellSize is {arcpy.env.cellSize}")
 
         arcpy.env.parallelProcessingFactor = "0"
 
