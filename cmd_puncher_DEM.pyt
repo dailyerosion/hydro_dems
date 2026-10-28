@@ -391,6 +391,7 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
             fillGT0 = Con(rDepth > 0, 1)
 
             rgMinFilledEl = RegionGroup(fillGT0, 'EIGHT')
+            log.debug("After rgMinFilledEl for {sfx}")
 
         ## Calculate depth statistics for fill regions
             # could just use ZonalStatistics here if only depth punching desired
@@ -406,7 +407,8 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
         ##            rgToPunch = Con(rgMinFilledEl, rgMinFilledEl, "", '"MAX" > ' + str(depth_threshold) + ' OR "COUNT" * ' + str(ProcSize**2) + ' > ' + str(area_threshold))
             arcpy.BuildRasterAttributeTable_management(rgToPunch)
             rgToPunch.save(opj(procDir, 'rg2punch' + sfx))
-
+            log.debug("After rgToPunch for {sfx}")
+    
         ## Define sink (and thus watershed) number by minimum elevation sink
             #(minimum value if tie for minimum to make one sink/hole the 'dominant' fill region
             rgMinSinkEl = ZonalStatistics(rgToPunch, 'VALUE', inDEM, 'MINIMUM')
@@ -416,11 +418,13 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
                 holes2PunchMulti = RegionGroup(sinksAtMin, "EIGHT") + prevMaxValue
             else:
                 holes2PunchMulti = RegionGroup(sinksAtMin, "EIGHT")
+            log.debug("After holes2PunchMulti for {sfx}")
 
             minHoles2Punch = ZonalStatistics(rgToPunch, 'VALUE', holes2PunchMulti, 'MINIMUM')
             holes2Punch = Con(minHoles2Punch == holes2PunchMulti, holes2PunchMulti)
             holes2Punch.save(opj(procDir, 'snkunq' + sfx))
             prevMaxValue = int(holes2Punch.maximum)
+            log.debug("After holes2Punch for {sfx}")
 
         ## Fill in the little fill regions (force flow to deeper/larger depressions), flow is not forced elsewhere
             rgToFillFilled = Con(IsNull(rgToPunch), fillLvl, inDEM)
