@@ -329,7 +329,7 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
         arcpy.env.snapRaster = input_dem
 
         arcpy.env.cellSize = input_dem#
-        log.debug("cellSize is {arcpy.env.cellSize}")
+        log.debug("cellSize is from input_dem: {input_dem}")
 
         arcpy.env.parallelProcessingFactor = "0"
 
@@ -397,18 +397,20 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
         ## Calculate depth statistics for fill regions
             # could just use ZonalStatistics here if only depth punching desired
             zstMaxDepth = ZonalStatisticsAsTable(rgMinFilledEl, "VALUE", rDepth, 'in_memory\\zst_max_dpth')
+            log.debug("After zstMaxDepth for {sfx}")
             joinMax = arcpy.JoinField_management(rgMinFilledEl, "VALUE", zstMaxDepth, "VALUE", "MAX")
-
+            log.debug("After joinMax for {sfx}")
         ## Select the appropriate fill regions for enforcement (deep enough or large enough)
         ##        # fldName is need to fix boggling of max field name for some versions (10.5, 10.6, others?)
         ##        if version.find('10.5') > -1 or version.find('10.6') > -1:
             fldName = arcpy.ListFields(rgMinFilledEl, 'MAX*')[0].name
             rgToPunch = Con(rgMinFilledEl, rgMinFilledEl, "", '"' + fldName + '" > ' + str(depth_threshold) + ' OR "COUNT" * ' + str(float(ProcSize)**2) + ' > ' + str(area_threshold))
+            log.debug("After rgToPunch for {sfx}")
         ##        else:
         ##            rgToPunch = Con(rgMinFilledEl, rgMinFilledEl, "", '"MAX" > ' + str(depth_threshold) + ' OR "COUNT" * ' + str(ProcSize**2) + ' > ' + str(area_threshold))
             arcpy.BuildRasterAttributeTable_management(rgToPunch)
             rgToPunch.save(opj(procDir, 'rg2punch' + sfx))
-            log.debug("After rgToPunch for {sfx}")
+            log.debug("After rgToPunch savefor {sfx}")
     
         ## Define sink (and thus watershed) number by minimum elevation sink
             #(minimum value if tie for minimum to make one sink/hole the 'dominant' fill region
