@@ -387,31 +387,32 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
         indexMax = 9 # stop punching after this many times
         while maxDepth > float(depth_threshold) and index < indexMax:
 
-            log.info("Punch holes for " + str(sfx) + ' at ' + str(time.asctime()))
+            log.info("Punch holes for " + str(sfx))
         ## Define fill regions (and cost surface)
             fillGT0 = Con(rDepth > 0, 1)
 
             rgMinFilledEl = RegionGroup(fillGT0, 'EIGHT')
-            log.debug("After rgMinFilledEl for {sfx}")
+            log.debug("After rgMinFilledEl for: " + str(sfx))
 
         ## Calculate depth statistics for fill regions
             # could just use ZonalStatistics here if only depth punching desired
             zstMaxDepth = ZonalStatisticsAsTable(rgMinFilledEl, "VALUE", rDepth, 'in_memory\\zst_max_dpth')
-            log.debug("After zstMaxDepth for {sfx}")
-            joinMax = arcpy.JoinField_management(rgMinFilledEl, "VALUE", zstMaxDepth, "VALUE", "MAX")
-            log.debug("After joinMax for {sfx}")
+            log.debug("After zstMaxDepth for: " + str(sfx))
+            df.joinDict(rgMinFilledEl, "VALUE", zstMaxDepth, "VALUE", ["MAX"], ["MAX"])
+            # joinMax = arcpy.JoinField_management(rgMinFilledEl, "VALUE", zstMaxDepth, "VALUE", "MAX")
+            log.debug("After joinMax for: " + str(sfx))
         ## Select the appropriate fill regions for enforcement (deep enough or large enough)
         ##        # fldName is need to fix boggling of max field name for some versions (10.5, 10.6, others?)
         ##        if version.find('10.5') > -1 or version.find('10.6') > -1:
             fldName = arcpy.ListFields(rgMinFilledEl, 'MAX*')[0].name
             rgToPunch = Con(rgMinFilledEl, rgMinFilledEl, "", '"' + fldName + '" > ' + str(depth_threshold) + ' OR "COUNT" * ' + str(float(ProcSize)**2) + ' > ' + str(area_threshold))
-            log.debug("After rgToPunch for {sfx}")
+            log.debug("After rgToPunch for: " + str(sfx))
         ##        else:
         ##            rgToPunch = Con(rgMinFilledEl, rgMinFilledEl, "", '"MAX" > ' + str(depth_threshold) + ' OR "COUNT" * ' + str(ProcSize**2) + ' > ' + str(area_threshold))
             arcpy.BuildRasterAttributeTable_management(rgToPunch)
             rgToPunch.save(opj(procDir, 'rg2punch' + sfx))
-            log.debug("After rgToPunch savefor {sfx}")
-    
+            log.debug("After rgToPunch savefor: " + str(sfx))
+
         ## Define sink (and thus watershed) number by minimum elevation sink
             #(minimum value if tie for minimum to make one sink/hole the 'dominant' fill region
             rgMinSinkEl = ZonalStatistics(rgToPunch, 'VALUE', inDEM, 'MINIMUM')
@@ -421,13 +422,13 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
                 holes2PunchMulti = RegionGroup(sinksAtMin, "EIGHT") + prevMaxValue
             else:
                 holes2PunchMulti = RegionGroup(sinksAtMin, "EIGHT")
-            log.debug("After holes2PunchMulti for {sfx}")
+            log.debug("After holes2PunchMulti for: " + str(sfx))
 
             minHoles2Punch = ZonalStatistics(rgToPunch, 'VALUE', holes2PunchMulti, 'MINIMUM')
             holes2Punch = Con(minHoles2Punch == holes2PunchMulti, holes2PunchMulti)
             holes2Punch.save(opj(procDir, 'snkunq' + sfx))
             prevMaxValue = int(holes2Punch.maximum)
-            log.debug("After holes2Punch for {sfx}")
+            log.debug("After holes2Punch for: " + str(sfx))
 
         ## Fill in the little fill regions (force flow to deeper/larger depressions), flow is not forced elsewhere
             rgToFillFilled = Con(IsNull(rgToPunch), fillLvl, inDEM)
@@ -454,13 +455,13 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
 
             
             fdTemp = FlowDirection(fillLvlNext)
-            log.debug("After flowDirection for " + str(sfx) + ' at ' + str(time.asctime()))
+            log.debug("After flowDirection for " + str(sfx))
         ##        fdTemp.save(opj(cp, 'fd_lvl0_' + str(index + 1))#' + sfx)#
 
             wsLvl = Watershed(fdTemp, holes2Punch)
             ## wsLvl is watersheds from fdTemp and cumSinks
             wsLvl.save(opj(procDir, wsLvlFld + sfx))
-            log.debug("After wsLvl for " + str(sfx) + ' at ' + str(time.asctime()))
+            log.debug("After wsLvl for " + str(sfx))
 
             ## Needed for matcher, not for puncher
             wsPolysMultiFr = arcpy.RasterToPolygon_conversion(wsLvl, opj(inm, 'ws_polys_multi_features' + sfx), 'SIMPLIFY')
@@ -473,7 +474,7 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
 
             wsMinFilledEl = ZonalStatistics(wsLvl, 'VALUE', fillLvl, 'MINIMUM')
             # wsMinFilledEl = ZonalStatistics(wsLvl, 'VALUE', fillLvlPrev, 'MINIMUM')
-            log.debug("After wsMinFilledEl for " + str(sfx) + ' at ' + str(time.asctime()))
+            log.debug("After wsMinFilledEl for " + str(sfx))
             # where fill greater than or equal zero, code to wsLvl/fill Region
             fr0 = Con(fillLvl == wsMinFilledEl, wsLvl)
             # fr0 = Con(fillLvlPrev == wsMinFilledEl, wsLvl)
@@ -490,12 +491,12 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
                 dfsFC = arcpy.Dissolve_management(rtp, opj(inm, "dfs_frToPoly" + sfx), gridfield)
         ##        rtp = arcpy.RasterToPolygon_conversion(fr0, opj(inm, 'rtp' + sfx, 'SIMPLIFY')
         ##        dfsFC = arcpy.Dissolve_management(rtp, opj(inm, "dfs_frToPoly" + sfx, gridfield)
-            log.debug("After dfsFC for " + str(sfx) + ' at ' + str(time.asctime()))
+            log.debug("After dfsFC for " + str(sfx))
             arcpy.Delete_management(rtp)
 
         ## Calculate Fill Region statistics
             zstFrMinEl = ZonalStatisticsAsTable(fr0, 'value', input_dem, opj(inm, 'zst_' + minElFld + sfx), '', 'MINIMUM')
-            log.debug('start loading of dfs at ' + time.asctime())
+            log.debug('start loading of dfs')
             valueDict1 = {r[0]:(r[1:]) for r in arcpy.da.SearchCursor(zstFrMinEl, ['VALUE', 'MIN'])}
             df.tryAddField(dfsFC, frFld, 'LONG')
             df.tryAddField(dfsFC, fillLvlFld, 'LONG')
@@ -513,7 +514,7 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
                     ucur.updateRow(urow)
 
             df.joinDict(wsPolys, frFld, dfsFC, frFld, [minElFld])
-            log.debug('done with loading dfs at ' + time.asctime())
+            log.debug('done with loading dfs')
 
             ## calc max FR depth and volume
             zstFrDepth = ZonalStatisticsAsTable(fr0, 'value', rDepth, opj(inm, 'zst_' + frDepthFld + sfx), '', 'ALL')
@@ -545,7 +546,7 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
 
             zstFrSlope = ZonalStatisticsAsTable(fr0, 'value', slope_pct, opj(inm, 'zst_fr_slope' + sfx), '', 'ALL')
             df.joinDict(dfsFC, frFld, zstFrSlope, 'value', ['MAX', 'MEAN'], [frMaxSlopeFld, frMeanSlopeFld])
-            log.debug('done with adding stats to dfs at ' + time.asctime())
+            log.debug('done with adding stats to dfs')
             dfsList.append(dfsFC)
 
             df.copyfc(verbose, dfsFC, sgdb)

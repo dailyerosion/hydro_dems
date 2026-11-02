@@ -678,7 +678,9 @@ def doCutter(input_dem, huc_roads, dfs_2_cut_fc, good_dslv_fc, good_up_dslv_fc, 
 
         goodcutsCopy = arcpy.CopyFeatures_management(goodCutsAll, good_cuts_fc)
 
-        notBetterCutFrs = df.getFrsAsList(goodCutsAll, gridfield2, filOfElFld + ' > 0.65*(' + ofElFld + ' - ' + minElFld + ') + ' + minElFld + ' AND ' + filOfElFld + ' > 0.65*(' + maxFillFld + ' - ' + minElFld + ') + ' + minElFld)
+        not_better_selection = filOfElFld + ' > 0.65*(' + ofElFld + ' - ' + minElFld + ') + ' + minElFld + ' AND ' + filOfElFld + ' > 0.65*(' + maxFillFld + ' - ' + minElFld + ') + ' + minElFld
+        log.info(f'not_better_selection is {not_better_selection}')
+        notBetterCutFrs = df.getFrsAsList(goodCutsAll, gridfield2, not_better_selection)
 
         if len(notBetterCutFrs) > 0:
             betterCutsAll = arcpy.Select_analysis(goodCutsAll, opj(inm, 'better_cuts_all'), df.buildAntiSelection(notBetterCutFrs, gridfield2))
