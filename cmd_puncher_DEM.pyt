@@ -398,8 +398,8 @@ def doPuncher(input_dem, plib_metadata, slope_pct, depth_threshold, area_thresho
             # could just use ZonalStatistics here if only depth punching desired
             zstMaxDepth = ZonalStatisticsAsTable(rgMinFilledEl, "VALUE", rDepth, 'in_memory\\zst_max_dpth')
             log.debug("After zstMaxDepth for: " + str(sfx))
-            df.joinDict(rgMinFilledEl, "VALUE", zstMaxDepth, "VALUE", ["MAX"], ["MAX"])
-            # joinMax = arcpy.JoinField_management(rgMinFilledEl, "VALUE", zstMaxDepth, "VALUE", "MAX")
+            # df.joinDict(rgMinFilledEl, "VALUE", zstMaxDepth, "VALUE", ["MAX"], ["MAX"])
+            joinMax = arcpy.JoinField_management(rgMinFilledEl, "VALUE", zstMaxDepth, "VALUE", "MAX")
             log.debug("After joinMax for: " + str(sfx))
         ## Select the appropriate fill regions for enforcement (deep enough or large enough)
         ##        # fldName is need to fix boggling of max field name for some versions (10.5, 10.6, others?)
@@ -679,7 +679,6 @@ class msgStub:
 #         "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
 #         "//10.27.15.155/D$/DEP/Man_Data_ACPF/dep_ACPF2022/11030011/idepACPF110300110104.gdb/dprsns_mean18_dem2013_3m_110300110104",
 #         "False"]
-# ## now comes the code to add the parameters to sys.argv for testing in the Python Window
 #         for i in parameters[2:]:
 #             sys.argv.append(i)
 #     else:
