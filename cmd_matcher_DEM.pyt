@@ -388,7 +388,7 @@ def conByList(in_list, in_field, in_rast):#, cp):
 
 
 
-def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth, cleanup, messages):
+def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_cut_polys, proc_dir, search_distance_file, match_depth, cleanup, messages):
 
     ##This program was written to help remove issues in lidar DEMs caused
     ##by poor performance of interpolation algorithms in specific lcocations
@@ -416,7 +416,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
     # 2024.01.10 - moved selectFrAndWsDpPts into script and lowered threshold for splitting into subselections due to change in AG Pro
 
     try:
-        arguments = [fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth, cleanup]
+        arguments = [fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_cut_polys, proc_dir, search_distance_file, match_depth, cleanup]
 
         for a in arguments:
             if a == arguments[0]:
@@ -535,7 +535,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
 
         maxSearchDistList = []
 
-        dfsList = []
+        # dfsList = []
         dfs2CutList = []
         srchList = []
         upPtsList = []
@@ -592,7 +592,7 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
             arcpy.env.workspace = proc_dir
             sfx = '_' + item.split('_')[-1]
             dfsFC = arcpy.CopyFeatures_management(stacked_dfs_list[i], opj(inm, 'dfs_2cut_Poly' + str(i)))
-            dfsList.append(dfsFC)
+            # dfsList.append(dfsFC)
             # add identifier for medians
             df.tryAddField(dfsFC, medianFrFld, "SHORT")
             # wsPolys = os.path.join(sgdb, 'ws_polys' + sfx)
@@ -1536,11 +1536,11 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
                     df.copyfc(verbose, dfs2cut4step, sgdb)
 
     
-        inmDfs = df.condenseDataLvls(dfsList, opj(inm, 'dfs_' + huc12))
-        arcpy.DeleteField_management(inmDfs, gridfield)
-        gdbDfs = df.copyfc(True, inmDfs, sgdb)
+        # inmDfs = df.condenseDataLvls(dfsList, opj(inm, 'dfs_' + huc12))
+        # arcpy.DeleteField_management(inmDfs, gridfield)
+        # gdbDfs = df.copyfc(True, inmDfs, sgdb)
 
-        inmDfs2Cut = df.condenseDataLvls(dfs2CutList, opj(inm, 'dfs2cut_' + huc12))
+        inmDfs2Cut = df.condenseDataLvls(dfs2CutList, opj(inm, 'dfs2cut_matcher_' + huc12))
         arcpy.DeleteField_management(inmDfs2Cut, gridfield)
         gdbDfs2Cut = df.copyfc(True, inmDfs2Cut, sgdb)
     ####        SSdfs = copyfc2(inmDfs, SSF)
@@ -1622,8 +1622,8 @@ class msgStub:
 #         # clean up the folder after done processing
 #         cleanup = True
 
-#     fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth = [i for i in sys.argv[1:]]
+#     fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_cut_polys, proc_dir, search_distance_file, match_depth = [i for i in sys.argv[1:]]
 #     messages = msgStub()
 
-#     doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_polys, proc_dir, search_distance_file, match_depth, cleanup, messages)
+#     doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rasters, ws_polys, dfs_cut_polys, proc_dir, search_distance_file, match_depth, cleanup, messages)
 #     arcpy.AddMessage("Back from doMatcher!")
