@@ -591,25 +591,14 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
             log.info('working on frRaster: ' + str(item))
             arcpy.env.workspace = proc_dir
             sfx = '_' + item.split('_')[-1]
-            # dfsFC = dfs_polys[:-2] + sfx
-            # dfsFC = os.path.join(sgdb, 'dfs_frToPoly' + sfx)
-            dfsFC = arcpy.CopyFeatures_management(stacked_dfs_list[i], opj(inm, 'dfs_frToPoly' + str(i)))
+            dfsFC = arcpy.CopyFeatures_management(stacked_dfs_list[i], opj(inm, 'dfs_2cut_Poly' + str(i)))
             dfsList.append(dfsFC)
             # add identifier for medians
             df.tryAddField(dfsFC, medianFrFld, "SHORT")
             # wsPolys = os.path.join(sgdb, 'ws_polys' + sfx)
             wsPolys = arcpy.CopyFeatures_management(stacked_ws_list[i], opj(inm, 'ws_polys' + str(i)))
-            # wsPolys = stacked_ws_list[i]
-            # wsPolys = ws_polys[:-2] + sfx
 
-    ##                selFull = '(' + ofElFld + ' - ' + minElFld + ') > 67 OR ' + maxFrOfDistFld + ' >= ' + str(3 * ProcSize)
-    ##        selFull = '(' + ofElFld + ' - ' + minElFld + ') > ' + str(3.0 * RMSE) + ' AND (' + ofElFld + ' - ' + minElFld + ')*0.01 / ' + minFrDistFld + ' >= 0.05'
-            frMaxSlopeThresh = 7.5 if ProcSize <= 2 else 5.0#' - higher res DEMs need higher slope threshold
-            selFull = frDepthFld + ' > ' + str(2.0 * float(match_depth)) + ' AND ' + frMaxSlopeFld + ' > ' + str(frMaxSlopeThresh)
-            ## instead of frPctDrop could analyze by water 'piling' up near edge
-
-    ####        df.condDelete(verbose, wsPolys)
-            dfs2cut4step = arcpy.Select_analysis(dfsFC, opj(inm, 'dfs2cut' + sfx), selFull)
+            dfs2cut4step = dfsFC#arcpy.Select_analysis(dfsFC, opj(inm, 'dfs2cut' + sfx), selFull)
             frs2cut = df.getFrsAsList(dfs2cut4step, frFld, '')
             if len(frs2cut) > 0:
 
@@ -622,8 +611,6 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
 
                 fr0 = conByList(frs2cut, 'VALUE', opj(proc_dir,'fr0' + sfx))
                 wsLvl = Raster(wsLvlFld + sfx)
-    ####            fdPrev = Raster('fd_lvl0' + sfx)
-                # inDEM = Raster('nwdm' + sfx)
                 # snkUnique = Raster('snkunq' + sfx)
                 fillPrevLvl = Raster(fillLvlFld.lower() + sfx)
 
