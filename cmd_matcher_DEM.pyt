@@ -573,30 +573,33 @@ def doMatcher(fill_or_void_tif, punch_tif, buffered_fc, merged_medians, fr0_rast
         frRasters = arcpy.ListRasters(fr0_name[:4] + '*')#'fr0_*')
         frRasters.sort()
 
-        stacked_dfs = opj('E:\\DEP_Checkout\\Man_Data_ACPF\\dep_ACPF2024', huc8, 'idepACPF' + huc12 + '.gdb\\dprsns_mnmx18_dem2013_2m_' + huc12)
-        stacked_ws = opj('E:\\DEP_Checkout\\Man_Data_ACPF\\dep_ACPF2024', huc8, 'idepACPF' + huc12 + '.gdb\\ws_mnmx18_dem2013_2m_' + huc12)
+        stacked_dfs = dfs_cut_polys#opj('E:\\DEP_Checkout\\Man_Data_ACPF\\dep_ACPF2024', huc8, 'idepACPF' + huc12 + '.gdb\\dprsns_mnmx18_dem2013_2m_' + huc12)
+        stacked_ws = ws_polys#opj('E:\\DEP_Checkout\\Man_Data_ACPF\\dep_ACPF2024', huc8, 'idepACPF' + huc12 + '.gdb\\ws_mnmx18_dem2013_2m_' + huc12)
         stacked_dfs_list = []
         stacked_ws_list = []
         for i in range(len(frRasters)):#decomp_count):
             log.info(f'decomposing dfs and ws polygons, iteration {i}')
-            dfs_select = arcpy.Select_analysis(stacked_dfs, opj(sgdb, 'dfs_frToPoly_' + str(i)), fillLvlFld + ' = ' + str(i))
+            dfs_select = arcpy.Select_analysis(stacked_dfs, opj(sgdb, 'dfs_match_ingest_' + str(i)), fillLvlFld + ' = ' + str(i))
             dfs_count = arcpy.GetCount_management(dfs_select)
             if dfs_count.getOutput(0) == '0':
                 log.warning(f'dfs_count is zero for: {dfs_select}')
-            ws_select = arcpy.Select_analysis(stacked_ws, opj(sgdb, 'ws_polys_' + str(i)), fillLvlFld + ' = ' + str(i))
+            ws_select = arcpy.Select_analysis(stacked_ws, opj(sgdb, 'ws_match_ingest_' + str(i)), fillLvlFld + ' = ' + str(i))
             stacked_dfs_list.append(dfs_select)
             stacked_ws_list.append(ws_select)
+
+        log.info(f'dfs polygons are {stacked_dfs_list}')
+        log.info(f'ws polygons are {stacked_ws_list}')
 
         for i, item in enumerate(frRasters[:]):
             log.info('working on frRaster: ' + str(item))
             arcpy.env.workspace = proc_dir
             sfx = '_' + item.split('_')[-1]
-            dfsFC = arcpy.CopyFeatures_management(stacked_dfs_list[i], opj(inm, 'dfs_2cut_Poly' + str(i)))
+            dfsFC = arcpy.CopyFeatures_management(stacked_dfs_list[i], opj(inm, 'dfs_match_proc_' + str(i)))
             # dfsList.append(dfsFC)
             # add identifier for medians
             df.tryAddField(dfsFC, medianFrFld, "SHORT")
             # wsPolys = os.path.join(sgdb, 'ws_polys' + sfx)
-            wsPolys = arcpy.CopyFeatures_management(stacked_ws_list[i], opj(inm, 'ws_polys' + str(i)))
+            wsPolys = arcpy.CopyFeatures_management(stacked_ws_list[i], opj(inm, 'ws_match_proc_' + str(i)))
 
             dfs2cut4step = dfsFC#arcpy.Select_analysis(dfsFC, opj(inm, 'dfs2cut' + sfx), selFull)
             frs2cut = df.getFrsAsList(dfs2cut4step, frFld, '')
