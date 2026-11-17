@@ -838,6 +838,7 @@ def doCleaner(fillTif, voidFixTif, buf_boundary, roadsFc, voidProc, xElevFile, y
         thin_shallow_fixes = Con(max_fix_dif < super_shallow_threshold, fix_dif_pos)
         thin_shallow_fixed_DEM = Con(IsNull(thin_shallow_fixes), initDEM, fixedThinDEM)
         thin_shallow_fixed_DEM.save(xElevFile)
+        df.create_needed_dirs_and_gdbs(xElevFile, log)
         thin_shallow_fixed_fd = FlowDirection(thin_shallow_fixed_DEM)
         thin_shallow_fixed_basins = Basin(thin_shallow_fixed_fd)
         thin_shallow_fixed_basins_rtp = arcpy.RasterToPolygon_conversion(thin_shallow_fixed_basins, opj(sgdb, 'thin_shallow_fixed_basins'), 'NO_SIMPLIFY')
@@ -897,7 +898,7 @@ def doCleaner(fillTif, voidFixTif, buf_boundary, roadsFc, voidProc, xElevFile, y
             # these not really needed
 
             stepWs_crv = Basin(stepfill2Fd_crv)
-            stepWs_crv.save('step_ws' + str(tcounter))
+            stepWs_crv.save(opj(sgdb, 'step_ws' + str(tcounter)))
             currentCount = int(arcpy.GetCount_management(stepWs_crv).getOutput(0))
             log.warning('previousCount: ' + str(previousCount) + ' and currentCount: ' + str(currentCount))
 
@@ -1014,6 +1015,7 @@ def doCleaner(fillTif, voidFixTif, buf_boundary, roadsFc, voidProc, xElevFile, y
         fenceElCrvFix2 = df.getFenceEl(invertTargetDEMCrvFix2)
         step_ndRclsCrvFix2, step_expFixCrvFix2, step_ndPlusCrvFix2 = df.setupInversionZones(cp_simple_crv3)
         fixedDEMCrvFix2 = fixByInversionByStartingPath(step_ndPlusCrvFix2, fenceElCrvFix2, invertTargetDEMCrvFix2, no_pass_basins_crv3, step_ndRclsCrvFix2, fixedDEMCrvFix, sl3_crv, log)
+        df.create_needed_dirs_and_gdbs(yElevFile, log)
         fixedDEMCrvFix2.save(yElevFile)
         log.warning('flow direction, basins, rtp at time: ' + time.asctime())
         # fixedDEMCrvFix2_fd = FlowDirection(fixedDEMCrvFix2)
