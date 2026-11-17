@@ -698,9 +698,9 @@ def setup_logs_envs(arguments, fillTif, procDir, cleanup, messages):
 
     return huc12, huc8, log, nowYmd, logName, startTime, sfldr, sgdb, inm, proc_size
 
-def doCleaner(fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile, cleanup, messages):
+def doCleaner(fillTif, voidFixTif, buf_boundary, roadsFc, voidProc, xElevFile, yElevFile, cleanup, messages):
     try:
-        arguments = [fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile, cleanup]
+        arguments = [fillTif, voidFixTif, buf_boundary, roadsFc, voidProc, xElevFile, yElevFile, cleanup]
 
         huc12, huc8, log, nowYmd, logName, startTime, sfldr, sgdb, inm, str_proc_size = setup_logs_envs(arguments, fillTif, voidProc, cleanup, messages)
         proc_size = float(str_proc_size)
@@ -742,7 +742,7 @@ def doCleaner(fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile, clea
         # overall goal is to keep zonal filling watersheds until overflow path is thicker than threshold
         thickThreshold = proc_size / 1.3 #allow for one diagonal fill cell #3.0
 
-        Clip = opj(sgdb, 'buf_' + huc12 + '_1km')
+        Clip = buf_boundary#opj(sgdb, 'buf_' + huc12 + '_1km')
 ##        if not arcpy.Exists(Clip):
 ##            huc12Lyr = arcpy.MakeFeatureLayer_management(HUC12FC, 'HUC12FCLayer', '"HUC12" = \'' + huc12 + "'")
 ##            Clip = arcpy.Buffer_analysis(huc12Lyr, opj(gdb, 'buf_' + huc12 + '_1km'), '1000 METER')
@@ -1072,6 +1072,7 @@ class msgStub:
 #     "C:/DEP/Scripts/basics/cmd_cleaner_DEM.pyt",
 #     "M:/DEP/LiDAR_Current/elev_FLib_mean18/07080105/ef_1m_070801050901.tif",
 #     "M:/DEP/LiDAR_Current/elev_VLib_mean18/07080105/ev_1m_070801050901.tif",
+#     "M:/DEP/Man_Data_ACPF/dep_ACPF2024/07080105/idepACPF070801050901.gdb/buf070801050901",
 #     "M:/DEP/Basedata_Summaries/Basedata_26915.gdb/roads_merge",
 #     "E:/DEP_Proc/DEMProc/Void_dem2013_1m_070801050901",
 #     "M:/DEP/LiDAR_Current/elev_VLib_mean18/07080105/ex_1m_070801050901.tif",
@@ -1087,7 +1088,7 @@ class msgStub:
 #     messages = msgStub()
 
 #     # input_dem, output_dem, plib_metadata, depressions_fc, depth_threshold, area_threshold, procDir = [i for i in sys.argv[1:]]
-#     fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile = [i for i in sys.argv[1:]]
+#     fillTif, voidFixTif, buf_boundary, roadsFc, voidProc, xElevFile, yElevFile = [i for i in sys.argv[1:]]
 
-#     doCleaner(fillTif, voidFixTif, roadsFc, voidProc, xElevFile, yElevFile, cleanup, messages)
+#     doCleaner(fillTif, voidFixTif, buf_boundary, roadsFc, voidProc, xElevFile, yElevFile, cleanup, messages)
 #     arcpy.AddMessage("Back from doing!")
